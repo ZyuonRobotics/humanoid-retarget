@@ -12,6 +12,11 @@ class RetargetingMJCFGenerator(MJCFGeneratorBase):
 
         self.source_file_path = source_file_path
 
+    def build(self):
+        self.load()
+        self.generate()
+        self.add_scene()
+
     def add_scene(self):
         # visual
         visual_elem = self.get_elem("visual")

@@ -3,7 +3,7 @@ import xml.etree.ElementTree as ET
 
 import numpy as np
 
-from humanoid_retargeting import PROJECT_PATH, SMPLH_PATH, DMPLS_PATH
+from humanoid_retargeting import SMPLH_PATH, DMPLS_PATH
 from humanoid_retargeting.mjcf_generator.constants import *
 from humanoid_retargeting.mjcf_generator.generator_base import RetargetingMJCFGenerator
 
@@ -95,12 +95,9 @@ if __name__ == '__main__':
     amass_file_path = osp.join(AMASS_DATA_PATH, "amass", 'CMU', "12", "4_tai_chi_stageii.npz")
 
     generator = SMPL2MJCFGenerator(amass_file_path)
-    generator.load()
-    generator.generate()
-    generator.add_scene()
-    mjcf_str = generator.mjcf_str
+    generator.build()
 
-    m = mujoco.MjModel.from_xml_string(mjcf_str)
+    m = mujoco.MjModel.from_xml_string(generator.mjcf_str)
     d = mujoco.MjData(m)
     d.qpos[2] = 1
     with mujoco.viewer.launch_passive(m, d) as viewer:

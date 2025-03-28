@@ -1,6 +1,6 @@
 from os import path
 
-DATA_PATH = path.expanduser("~/.retargeting")
+DATA_PATH = path.expanduser("~/.humanoid_retargeting")
 AMASS_DATA_PATH = path.join(DATA_PATH, "amass_data")
 BVH_DATA_PATH = path.join(DATA_PATH, "bvh_data")
 

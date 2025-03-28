@@ -138,12 +138,9 @@ if __name__ == '__main__':
     bvh_file_path = osp.join(BVH_DATA_PATH, "Reallusion", "newtaichi", '1_Skill.bvh')
 
     generator = BVH2MJCFGenerator(bvh_file_path)
-    generator.load()
-    generator.generate()
-    generator.add_scene()
-    mjcf_str = generator.mjcf_str
+    generator.build()
 
-    m = mujoco.MjModel.from_xml_string(mjcf_str)
+    m = mujoco.MjModel.from_xml_string(generator.mjcf_str)
     d = mujoco.MjData(m)
     d.qpos[2] = 1
     with mujoco.viewer.launch_passive(m, d) as viewer:
