@@ -100,20 +100,20 @@ class AmassPlayer(MotionPlayerBase):
         return ref_qpos
 
     def load_cali_qpos(self):
-        self.cali_qpos = np.zeros(self.mujoco_model.nq)
-        self.cali_qpos[3] = 1
-        self.mujoco_data.qpos[:] = self.cali_qpos
+        self._cali_qpos = np.zeros(self.mujoco_model.nq)
+        self._cali_qpos[3] = 1
+        self.mujoco_data.qpos[:] = self._cali_qpos
         mujoco.mj_forward(self.mujoco_model, self.mujoco_data)
 
         foot_z = (self.mujoco_data.body("left_foot").xpos[2] + self.mujoco_data.body("left_foot").xpos[2]) / 2.
-        self.cali_qpos[2] -= foot_z
+        self._cali_qpos[2] -= foot_z
 
     def load_motion_file(self):
         self.motion_data = np.load(self.source_file_path)
         assert "poses" in self.motion_data
 
-        self.frame_rate = self.get_frame_rate()
-        self.ref_qpos = self.get_qpos()
+        self._frame_rate = self.get_frame_rate()
+        self._ref_qpos = self.get_qpos()
 
     #     self.adjust_z_offset()
     #
@@ -146,6 +146,7 @@ if __name__ == '__main__':
 
     amass_file_path = osp.join(AMASS_DATA_PATH, "amass", 'CMU', "12", "4_tai_chi_stageii.npz")
 
-    viewer = AmassPlayer(source_file_path=amass_file_path)
-    viewer.render()
-    # viewer.render_cali()
+    player = AmassPlayer(source_file_path=amass_file_path)
+    player.lowpass_all_qpos(cutoff=5)
+    player.render()
+    # player.render_cali()

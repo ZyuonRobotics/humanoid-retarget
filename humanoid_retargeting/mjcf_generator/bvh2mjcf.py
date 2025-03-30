@@ -81,7 +81,7 @@ class BVH2MJCFGenerator(RetargetingMJCFGenerator):
 
     def load(self):
         self.lines = []
-        for line in open(bvh_file_path, 'r'):
+        for line in open(self.source_file_path, 'r'):
             line = line.strip()
             if line.startswith('MOTION'):
                 break

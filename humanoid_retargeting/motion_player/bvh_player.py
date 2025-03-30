@@ -226,21 +226,21 @@ class BVHPlayer(MotionPlayerBase):
         return pos_array, quat_array
 
     def load_motion_file(self):
-        self.frame_rate, motion_data = self.parse_bvh_file()
+        self._frame_rate, self.motion_data = self.parse_bvh_file()
 
         qpos = []
         begin_idx = 0
         for joint_idx, channel in enumerate(self.generator.channels):
-            pos, quat = self.parse_channel(joint_idx, motion_data[:, begin_idx:begin_idx + len(channel)], channel)
+            pos, quat = self.parse_channel(joint_idx, self.motion_data[:, begin_idx:begin_idx + len(channel)], channel)
             begin_idx += len(channel)
             if joint_idx == 0:
                 qpos.append(pos)
             qpos.append(quat)
 
-        self.ref_qpos = np.concatenate(qpos, axis=1)
+        self._ref_qpos = np.concatenate(qpos, axis=1)
 
     def load_cali_qpos(self):
-        self.cali_qpos = np.zeros(self.mujoco_model.nq)
+        self._cali_qpos = np.zeros(self.mujoco_model.nq)
         self.cali_qpos[3:7] = Rotation.from_euler("xyz", [90, 0, 90], degrees=True).as_quat()[[1, 2, 3, 0]]
         self.cali_qpos[7:] = np.array(CC3PLUS_CALI_QUAT).reshape(-1)
         self.mujoco_data.qpos[:] = self.cali_qpos
@@ -328,11 +328,17 @@ if __name__ == '__main__':
 
     # bvh_file_path = osp.join(BVH_DATA_PATH, "Xingying", "LJJ", 'jj02211-jj.bvh')
     # bvh_type = "Xingying"
-    bvh_file_path = osp.join(BVH_DATA_PATH, "Reallusion", "newtaichi", '1_Skill.bvh')
+
+    # bvh_file_path = osp.join(BVH_DATA_PATH, "Reallusion", "newtaichi", '1_Skill.bvh')
+    # bvh_type = "Reallusion"
+
+    # /home/thl/.humanoid_retargeting/bvh_data/01-Pro-SuperPak-2/Above
+    bvh_file_path = osp.join(BVH_DATA_PATH, "01-Pro-SuperPak-2", "Above", 'dubstep1 Take 1.bvh')
     bvh_type = "Reallusion"
 
-    viewer = BVHPlayer(source_file_path=bvh_file_path, bvh_type=bvh_type)
-    viewer.render()
+
+    player = BVHPlayer(source_file_path=bvh_file_path, bvh_type=bvh_type)
+    player.render()
     # viewer.render_cali()
     #
     # test_qpos_offset()
