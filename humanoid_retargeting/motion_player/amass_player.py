@@ -59,7 +59,7 @@ TRACKER_DICT = {
     }
 }
 
-class AmassPlayer(MotionPlayerBase):
+class AMASSPlayer(MotionPlayerBase):
     generator_class = SMPL2MJCFGenerator
 
     def __init__(self, source_file_path, cali_info=None, view=True):
@@ -146,7 +146,7 @@ if __name__ == '__main__':
 
     amass_file_path = osp.join(AMASS_DATA_PATH, "amass", 'CMU', "12", "4_tai_chi_stageii.npz")
 
-    player = AmassPlayer(source_file_path=amass_file_path)
+    player = AMASSPlayer(source_file_path=amass_file_path)
     player.lowpass_all_qpos(cutoff=5)
     player.render()
     # player.render_cali()

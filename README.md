@@ -10,3 +10,10 @@ pip install -e .
 ```
 ## Usage
 data path: `~/.humanoid_retargeting`
+
+## Test
+To show test coverage:
+```bash
+pytest --cov=humanoid_retargeting --cov-report=html
+```
+then open `htmlcov/index.html` in a web browser.

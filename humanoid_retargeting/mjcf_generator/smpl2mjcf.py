@@ -88,28 +88,3 @@ class SMPL2MJCFGenerator(RetargetingMJCFGenerator):
         self.bones = smpl_dict["J_regressor"] @ vertices
         self.weights = smpl_dict["weights"]
         self.faces = smpl_dict["f"]
-
-
-if __name__ == '__main__':
-    import mujoco
-    import mujoco.viewer
-
-    from humanoid_retargeting import AMASS_DATA_PATH
-
-    amass_file_path = osp.join(AMASS_DATA_PATH, "amass", 'CMU', "12", "4_tai_chi_stageii.npz")
-
-    generator = SMPL2MJCFGenerator(amass_file_path, whole_body_ratio=0.9, body_ratio_dict={
-        "left_collar": 1.2,
-    })
-    generator.build()
-
-    with open("test.xml", "w") as f:
-        f.write(generator.mjcf_str)
-
-    m = mujoco.MjModel.from_xml_string(generator.mjcf_str)
-    d = mujoco.MjData(m)
-    d.qpos[2] = 1
-    with mujoco.viewer.launch_passive(m, d) as viewer:
-        while viewer.is_running():
-            mujoco.mj_step(m, d)
-            viewer.sync()

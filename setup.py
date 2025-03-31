@@ -1,9 +1,14 @@
-from setuptools import find_packages
-from distutils.core import setup
+from setuptools import setup, find_packages
 
 setup(
-    name='humanoid_retargeting',
-    version='1.0.0',
-    packages=find_packages(),
-    install_requires=['mink', "tqdm", "matplotlib", "pandas", "hurodes"]
+    name="humanoid_retargeting",
+    version="1.0.0",
+    packages=find_packages(include=["humanoid_retargeting*"]),
+    install_requires=[
+        "hurodes>=1.0",
+        "tqdm",
+        "matplotlib",
+        "pytest-cov"
+    ],
+    python_requires=">=3.8",
 )

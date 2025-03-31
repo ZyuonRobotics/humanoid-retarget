@@ -11,13 +11,14 @@ import matplotlib.pyplot as plt
 from humanoid_retargeting.mjcf_generator.generator_base import RetargetingMJCFGenerator
 
 
-def plot_data(array, dim_label=None):
+def plot_data(array, dim_label=None, view=True):
     if dim_label is None:
         dim_label = [f"dim{i}" for i in range(array.shape[1])]
     for i, label in zip(range(array.shape[1]), dim_label):
         plt.plot(array[:, i], label=label)
     plt.legend()
-    plt.show()
+    if view:
+        plt.show()
 
 
 class MotionPlayerBase(ABC):
@@ -92,19 +93,23 @@ class MotionPlayerBase(ABC):
         self.close()
 
     def plot_ref_baselink_cartesian(self):
-        plot_data(self.ref_qpos[:, :3], ["x", "y", "z"])
+        plot_data(self.ref_qpos[:, :3], ["x", "y", "z"], view=self.view)
 
     def plot_ref_baselink_quaternion(self):
-        plot_data(self.ref_qpos[:, 3:7], ["w", "x", "y", "z"])
+        plot_data(self.ref_qpos[:, 3:7], ["w", "x", "y", "z"], view=self.view)
 
     def plot_ref_baselink_euler(self):
         euler_pos = Rotation.from_quat(self.ref_qpos[:, [4, 5, 6, 3]]).as_euler("xyz")
-        plot_data(euler_pos, ["roll", "pitch", "yaw"])
+        plot_data(euler_pos, ["roll", "pitch", "yaw"], view=self.view)
 
     def plot_ref_joint_quaternion(self, joint_idx=0):
         assert joint_idx + 1 < self.mujoco_model.njnt, "Invalid joint index"
         assert self.mujoco_model.joint(joint_idx + 1).type[0] == 1, f"Joint type of {joint_idx} is not ball"
-        plot_data(self.ref_qpos[:, 7 + joint_idx * 4: 7 + (joint_idx + 1) * 4], ["w", "x", "y", "z"])
+        plot_data(
+            array=self.ref_qpos[:, 7 + joint_idx * 4: 7 + (joint_idx + 1) * 4],
+            dim_label=["w", "x", "y", "z"],
+            view=self.view
+        )
 
     def lowpass(self, data, cutoff=20, order=2):
         nyq = 0.5 * self.frame_rate

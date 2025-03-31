@@ -129,26 +129,3 @@ class BVH2MJCFGenerator(RetargetingMJCFGenerator):
         for i, joint_name in enumerate(self.joint_names[1:], start=1):
             parent_body = self.body_element_list[self.joint_parents[i]]
             self.create_body(parent_body, joint_name, self.joint_offsets[i] * self.get_body_ratio(joint_name))
-
-
-if __name__ == '__main__':
-    import mujoco
-    import mujoco.viewer
-
-    from humanoid_retargeting import BVH_DATA_PATH
-
-    # bvh_file_path = osp.join(BVH_DATA_PATH, "Xingying", "LJJ", 'jj02211-jj.bvh')
-    bvh_file_path = osp.join(BVH_DATA_PATH, "Reallusion", "newtaichi", '1_Skill.bvh')
-
-    generator = BVH2MJCFGenerator(bvh_file_path, whole_body_ratio=1., body_ratio_dict={
-        "left_collar": 1.2,
-    })
-    generator.build()
-
-    m = mujoco.MjModel.from_xml_string(generator.mjcf_str)
-    d = mujoco.MjData(m)
-    d.qpos[2] = 1
-    with mujoco.viewer.launch_passive(m, d) as viewer:
-        while viewer.is_running():
-            mujoco.mj_step(m, d)
-            viewer.sync()
