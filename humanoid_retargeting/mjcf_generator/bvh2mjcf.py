@@ -8,8 +8,12 @@ from humanoid_retargeting.mjcf_generator.generator_base import RetargetingMJCFGe
 
 
 class BVH2MJCFGenerator(RetargetingMJCFGenerator):
-    def __init__(self, source_file_path, parsing_end=False):
-        super().__init__(source_file_path=source_file_path)
+    def __init__(self, source_file_path, whole_body_ratio=1.0, body_ratio_dict=None, parsing_end=False):
+        super().__init__(
+            source_file_path=source_file_path,
+            whole_body_ratio=whole_body_ratio,
+            body_ratio_dict=body_ratio_dict
+        )
         self.parsing_end = parsing_end
 
         self.lines = None
@@ -95,37 +99,36 @@ class BVH2MJCFGenerator(RetargetingMJCFGenerator):
         self.parse_joint(-1)
 
         self.joint_offsets = np.array(self.joint_offsets)
-        # self.joint_offsets *= 1
-
 
     def create_body(self, parent, joint_name, offset):
-        if "Upperarm" in joint_name or "Forearm" in joint_name or "Elbow" in joint_name or "Hand" in joint_name:
-            scaled_offset = [str(x * 1.35) for x in offset]
-        else:
-            scaled_offset = [str(x * 0.92) for x in offset]
-        body = ET.SubElement(parent, "body", name=joint_name, pos=" ".join(scaled_offset))
+        default_geom_attr = {"contype":"0", "conaffinity":"0", "rgba":"0.8 0.8 0.8 1", "size":"0.005", "type":"sphere"}
+        if np.linalg.norm(offset) > 0.01:
+            ET.SubElement(parent, "geom", attrib=default_geom_attr | {
+                "type":"capsule",
+                "fromto":"0 0 0 " + " ".join(map(str, offset))
+            })
+        body = ET.SubElement(parent, "body", attrib={"name":joint_name, "pos": " ".join(map(str, offset))})
 
         if self.parsing_end and joint_name.endswith("_bvhend"):
-            ET.SubElement(body, "geom", type="sphere", size="0.003", rgba="0.2 0.8 0.8 1", contype="0", conaffinity="0")
+            ET.SubElement(body, "geom", attrib=default_geom_attr)
         else:
-            ET.SubElement(body, "joint", name=joint_name, type="ball")
-            ET.SubElement(body, "geom", type="sphere", size="0.03", contype="0", conaffinity="0")
+            ET.SubElement(body, "joint", attrib={"name":joint_name, "type":"ball"})
+            ET.SubElement(body, "geom", attrib=default_geom_attr)
 
         self.body_element_list.append(body)
 
     def generate(self):
         baselink_elem = ET.SubElement(self.get_elem("worldbody"), "body", attrib={
             "name": self.joint_names[0],
-            "pos":" ".join(map(str, self.joint_offsets[0]))
+            "pos":" ".join(map(str, self.joint_offsets[0] * self.get_body_ratio(self.joint_names[0])))
         })
         self.body_element_list.append(baselink_elem)
         ET.SubElement(baselink_elem, "joint", name=self.joint_names[0], type="free")
-        ET.SubElement(baselink_elem, "geom", type="sphere", size="0.01", contype="0", conaffinity="0")
+        ET.SubElement(baselink_elem, "geom", type="sphere", size="0.02", contype="0", conaffinity="0")
 
         for i, joint_name in enumerate(self.joint_names[1:], start=1):
             parent_body = self.body_element_list[self.joint_parents[i]]
-            self.create_body(parent_body, joint_name, self.joint_offsets[i])
-
+            self.create_body(parent_body, joint_name, self.joint_offsets[i] * self.get_body_ratio(joint_name))
 
 
 if __name__ == '__main__':
@@ -137,7 +140,9 @@ if __name__ == '__main__':
     # bvh_file_path = osp.join(BVH_DATA_PATH, "Xingying", "LJJ", 'jj02211-jj.bvh')
     bvh_file_path = osp.join(BVH_DATA_PATH, "Reallusion", "newtaichi", '1_Skill.bvh')
 
-    generator = BVH2MJCFGenerator(bvh_file_path)
+    generator = BVH2MJCFGenerator(bvh_file_path, whole_body_ratio=1., body_ratio_dict={
+        "left_collar": 1.2,
+    })
     generator.build()
 
     m = mujoco.MjModel.from_xml_string(generator.mjcf_str)

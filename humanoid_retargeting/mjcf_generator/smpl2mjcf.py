@@ -13,8 +13,12 @@ def array2str(array):
 
 
 class SMPL2MJCFGenerator(RetargetingMJCFGenerator):
-    def __init__(self, source_file_path, using_dmpl=False):
-        super().__init__(source_file_path=source_file_path)
+    def __init__(self, source_file_path, whole_body_ratio=1.0, body_ratio_dict=None, using_dmpl=False):
+        super().__init__(
+            source_file_path=source_file_path,
+            whole_body_ratio=whole_body_ratio,
+            body_ratio_dict=body_ratio_dict
+        )
 
         self.using_dmpl = using_dmpl
 
@@ -33,23 +37,23 @@ class SMPL2MJCFGenerator(RetargetingMJCFGenerator):
             ET.SubElement(body, 'geom', size="0.01", contype="0", conaffinity="0")
         return body
 
-    def build_skeleton(self, parent, joint_names, relative_jacob, kintree_table, index=0):
-        if index >= len(joint_names):
+    def build_skeleton(self, parent, relative_jacob, kintree_table, index=0):
+        if index >= len(SMPLH_JOINT_NAMES):
             return
-        joint_name = joint_names[index]
-        pos = array2str(relative_jacob[index])
+        joint_name = SMPLH_JOINT_NAMES[index]
+        pos = array2str(relative_jacob[index] * self.get_body_ratio(joint_name))
         body = self.create_body_element(joint_name, pos, joint_type="free" if index == 0 else "ball")
         parent.append(body)
 
         for child_idx in np.where(kintree_table[0] == index)[0]:
-            self.build_skeleton(body, joint_names, relative_jacob, kintree_table, child_idx)
+            self.build_skeleton(body, relative_jacob, kintree_table, child_idx)
 
     def generate(self):
         relative_jacob = self.bones.copy()
         relative_jacob[1:] -= self.bones[self.kintree_table[0, 1:]]
 
         worldbody = ET.SubElement(self.xml_root, 'worldbody')
-        self.build_skeleton(worldbody, SMPLH_JOINT_NAMES, relative_jacob, self.kintree_table)
+        self.build_skeleton(worldbody, relative_jacob, self.kintree_table)
 
         deformable = ET.SubElement(self.xml_root, 'deformable')
         skin = ET.SubElement(  deformable,  'skin', attrib=dict(
@@ -94,8 +98,13 @@ if __name__ == '__main__':
 
     amass_file_path = osp.join(AMASS_DATA_PATH, "amass", 'CMU', "12", "4_tai_chi_stageii.npz")
 
-    generator = SMPL2MJCFGenerator(amass_file_path)
+    generator = SMPL2MJCFGenerator(amass_file_path, whole_body_ratio=0.9, body_ratio_dict={
+        "left_collar": 1.2,
+    })
     generator.build()
+
+    with open("test.xml", "w") as f:
+        f.write(generator.mjcf_str)
 
     m = mujoco.MjModel.from_xml_string(generator.mjcf_str)
     d = mujoco.MjData(m)

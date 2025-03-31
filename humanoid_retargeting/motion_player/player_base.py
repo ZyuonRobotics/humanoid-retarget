@@ -8,7 +8,7 @@ from scipy.spatial.transform import Rotation
 from scipy.signal import butter, filtfilt
 import matplotlib.pyplot as plt
 
-from humanoid_retargeting.mjcf_generator.generator_base import MJCFGeneratorBase
+from humanoid_retargeting.mjcf_generator.generator_base import RetargetingMJCFGenerator
 
 
 def plot_data(array, dim_label=None):
@@ -21,7 +21,7 @@ def plot_data(array, dim_label=None):
 
 
 class MotionPlayerBase(ABC):
-    generator_class = MJCFGeneratorBase
+    generator_class = RetargetingMJCFGenerator
 
     def __init__(self, source_file_path, cali_info=None, view=True):
         self.source_file_path = source_file_path

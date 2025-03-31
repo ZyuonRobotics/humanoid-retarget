@@ -172,10 +172,9 @@ TRACKER_DICT = {
 
 class BVHPlayer(MotionPlayerBase):
     generator_class = BVH2MJCFGenerator
-    def __init__(self, source_file_path, view=True, bvh_type='Reallusion'):
-        super().__init__(source_file_path=source_file_path, view=view)
-        self.bvh_type = bvh_type
-        assert self.bvh_type in ['Reallusion', 'Xingying'], f"Invalid bvh type: {self.bvh_type}"
+    def __init__(self, source_file_path, cali_info=None, view=True, rotating_baselink=True):
+        super().__init__(source_file_path=source_file_path, cali_info=cali_info, view=view)
+        self.rotating_baselink = rotating_baselink
 
     def parse_bvh_file(self):
         with open(self.source_file_path, 'r') as f:
@@ -211,13 +210,13 @@ class BVHPlayer(MotionPlayerBase):
         else:
             pos_array = np.stack(pos, axis=1)
             pos_array = pos_array[:, np.array([pos_order.index('X'), pos_order.index('Y'), pos_order.index('Z')])]
-            if self.bvh_type == 'Reallusion' and joint_idx == 0:
+            if self.rotating_baselink and joint_idx == 0:
                 pos_array += self.generator.joint_offsets[0]
                 pos_array = Rotation.from_euler('x', 90, degrees=True).apply(pos_array)
 
         euler_array = np.stack(euler, axis=1)
         r = Rotation.from_euler(euler_order, euler_array, degrees=True)
-        if self.bvh_type == 'Reallusion' and joint_idx == 0:
+        if self.rotating_baselink and joint_idx == 0:
             r = Rotation.from_euler('x', 90, degrees=True) * r
 
         quat_array = r.as_quat()
@@ -331,13 +330,12 @@ if __name__ == '__main__':
 
     # bvh_file_path = osp.join(BVH_DATA_PATH, "Reallusion", "newtaichi", '1_Skill.bvh')
     # bvh_type = "Reallusion"
-
+    #
     # /home/thl/.humanoid_retargeting/bvh_data/01-Pro-SuperPak-2/Above
     bvh_file_path = osp.join(BVH_DATA_PATH, "01-Pro-SuperPak-2", "Above", 'dubstep1 Take 1.bvh')
-    bvh_type = "Reallusion"
 
 
-    player = BVHPlayer(source_file_path=bvh_file_path, bvh_type=bvh_type)
+    player = BVHPlayer(source_file_path=bvh_file_path)
     player.render()
     # viewer.render_cali()
     #

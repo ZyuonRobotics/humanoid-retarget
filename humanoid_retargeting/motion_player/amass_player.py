@@ -62,8 +62,8 @@ TRACKER_DICT = {
 class AmassPlayer(MotionPlayerBase):
     generator_class = SMPL2MJCFGenerator
 
-    def __init__(self, source_file_path, view=True):
-        super().__init__(source_file_path=source_file_path, view=view)
+    def __init__(self, source_file_path, cali_info=None, view=True):
+        super().__init__(source_file_path=source_file_path, cali_info=cali_info, view=view)
 
     def get_frame_rate(self):
         if "mocap_frame_rate" in self.motion_data:
