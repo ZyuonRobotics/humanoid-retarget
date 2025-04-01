@@ -1,2 +1,3 @@
+from humanoid_retargeting.mjcf_generator.generator_base import RetargetingMJCFGenerator
 from humanoid_retargeting.mjcf_generator.bvh2mjcf import BVH2MJCFGenerator
 from humanoid_retargeting.mjcf_generator.smpl2mjcf import SMPL2MJCFGenerator

@@ -134,19 +134,3 @@ class AMASSPlayer(MotionPlayerBase):
     #     offset_z = 0 if len(z_list) == 0 else (np.mean(z_list) - 0.05)
     #     print("offset_z: ", offset_z)
     #     self.ref_qpos[:, 2] -= offset_z
-
-
-if __name__ == '__main__':
-    import os.path as osp
-
-    import mujoco
-    import mujoco.viewer
-
-    from humanoid_retargeting import AMASS_DATA_PATH
-
-    amass_file_path = osp.join(AMASS_DATA_PATH, "amass", 'CMU', "12", "4_tai_chi_stageii.npz")
-
-    player = AMASSPlayer(source_file_path=amass_file_path)
-    player.lowpass_all_qpos(cutoff=5)
-    player.render()
-    # player.render_cali()
