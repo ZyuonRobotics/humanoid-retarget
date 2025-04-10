@@ -8,7 +8,8 @@ setup(
         "hurodes>=1.0",
         "tqdm",
         "matplotlib",
-        "pytest-cov"
+        "pytest-cov",
+        "scipy",
     ],
     python_requires=">=3.8",
 )

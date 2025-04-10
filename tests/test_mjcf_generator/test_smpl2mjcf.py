@@ -10,7 +10,7 @@ from humanoid_retargeting import AMASS_DATA_PATH
 from humanoid_retargeting.mjcf_generator.smpl2mjcf import SMPL2MJCFGenerator
 from humanoid_retargeting.mjcf_generator.constants import SMPLH_JOINT_NAMES
 
-AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "amass", 'CMU', "12", "4_tai_chi_stageii.npz")
+AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "ACCAD", 'Female1General_c3d', "A1_-_Stand_stageii.npz")
 ROBOT_EHDF_PATH = os.path.join(ROBOTS_PATH, "kuavo_s45")
 
 def test_smpl2mjcf():

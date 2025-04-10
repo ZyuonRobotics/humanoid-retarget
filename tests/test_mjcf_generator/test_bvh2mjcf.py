@@ -9,7 +9,8 @@ from hurodes import ROBOTS_PATH
 from humanoid_retargeting import BVH_DATA_PATH
 from humanoid_retargeting.mjcf_generator.bvh2mjcf import BVH2MJCFGenerator
 
-BVH_FILE_PATH = os.path.join(BVH_DATA_PATH, "Reallusion", "newtaichi", '1_Skill.bvh')
+
+BVH_FILE_PATH = os.path.join(BVH_DATA_PATH, "Reallusion", "Martial Arts - Taichi", '1_Skill.bvh')
 ROBOT_EHDF_PATH = os.path.join(ROBOTS_PATH, "kuavo_s45")
 
 def test_bvh2mjcf():

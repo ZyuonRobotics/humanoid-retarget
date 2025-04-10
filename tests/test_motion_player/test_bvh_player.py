@@ -3,7 +3,7 @@ import os
 from humanoid_retargeting.motion_player import BVHPlayer
 from humanoid_retargeting import BVH_DATA_PATH
 
-BVH_FILE_PATH = os.path.join(BVH_DATA_PATH, "Reallusion", "newtaichi", '1_Skill.bvh')
+BVH_FILE_PATH = os.path.join(BVH_DATA_PATH, "Reallusion", "Martial Arts - Taichi", '1_Skill.bvh')
 
 
 def test_plot():
