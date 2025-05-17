@@ -62,8 +62,8 @@ TRACKER_DICT = {
 class AMASSPlayer(MotionPlayerBase):
     generator_class = SMPL2MJCFGenerator
 
-    def __init__(self, source_file_path, cali_info=None, view=True):
-        super().__init__(source_file_path=source_file_path, cali_info=cali_info, view=view)
+    def __init__(self, source_file_path, view=True):
+        super().__init__(source_file_path=source_file_path, view=view)
 
     def get_frame_rate(self):
         if "mocap_frame_rate" in self.motion_data:
@@ -99,15 +99,6 @@ class AMASSPlayer(MotionPlayerBase):
 
         return ref_qpos
 
-    def load_cali_qpos(self):
-        self._cali_qpos = np.zeros(self.mujoco_model.nq)
-        self._cali_qpos[3] = 1
-        self.mujoco_data.qpos[:] = self._cali_qpos
-        mujoco.mj_forward(self.mujoco_model, self.mujoco_data)
-
-        foot_z = (self.mujoco_data.body("left_foot").xpos[2] + self.mujoco_data.body("left_foot").xpos[2]) / 2.
-        self._cali_qpos[2] -= foot_z
-
     def load_motion_file(self):
         self.motion_data = np.load(self.source_file_path)
         assert "poses" in self.motion_data
@@ -115,22 +106,12 @@ class AMASSPlayer(MotionPlayerBase):
         self._frame_rate = self.get_frame_rate()
         self._ref_qpos = self.get_qpos()
 
-    #     self.adjust_z_offset()
-    #
-    # def adjust_z_offset(self):
-    #     z_list = []
-    #
-    #     last_lowest_z = 0
-    #     for frame_id in range(self.ref_qpos.shape[0]):
-    #         self.mujoco_data.qpos[:] = self.ref_qpos[frame_id, :]
-    #         mujoco.mj_forward(self.mujoco_model, self.mujoco_data)
-    #
-    #         lowest_z = np.inf
-    #         for body_name in ["left_ankle", "right_ankle"]:
-    #             lowest_z = min(lowest_z, self.mujoco_data.body(body_name).xpos[2])
-    #         if abs(last_lowest_z - lowest_z) * self.frame_rate < 0.01 and lowest_z != np.inf:
-    #             z_list.append(lowest_z)
-    #         last_lowest_z = lowest_z
-    #     offset_z = 0 if len(z_list) == 0 else (np.mean(z_list) - 0.05)
-    #     print("offset_z: ", offset_z)
-    #     self.ref_qpos[:, 2] -= offset_z
+
+if __name__ == '__main__':
+    import os
+    from humanoid_retargeting import AMASS_DATA_PATH
+
+    AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "ACCAD", 'Female1General_c3d', "A11_-_crawl_forward_stageii.npz")
+
+    player = AMASSPlayer(source_file_path=AMASS_FILE_PATH)
+    player.render()

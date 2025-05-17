@@ -10,7 +10,7 @@ from hurodes.mjcf_generator.generator_base import MJCFGeneratorComposite
 from hurodes.mjcf_generator.unified_generator import UnifiedMJCFGenerator
 from hurodes import ROBOTS_PATH
 
-from humanoid_retargeting.mjcf_generator import RetargetingMJCFGenerator, BVH2MJCFGenerator, SMPL2MJCFGenerator
+from humanoid_retargeting.mjcf_generator import RetargetingMJCFGeneratorBase, BVH2MJCFGenerator, SMPL2MJCFGenerator
 
 retarget_params = {
     "robot":{
@@ -30,7 +30,7 @@ retarget_params = {
 model: Optional[mujoco.MjModel] = None
 data: Optional[mujoco.MjData] = None
 viewer: Optional[mujoco.viewer.Handle] = None
-human_generator: Optional[RetargetingMJCFGenerator] = None
+human_generator: Optional[RetargetingMJCFGeneratorBase] = None
 robot_generator: Optional[UnifiedMJCFGenerator] = None
 generator: Optional[MJCFGeneratorComposite] = None
 

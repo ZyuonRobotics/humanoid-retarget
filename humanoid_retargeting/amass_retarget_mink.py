@@ -67,7 +67,7 @@ class AmassRetargetMink(object):
             bodies_data=self.robot_data["bodies_data"],
             robot_name=robot_name,
             tracker_qpos_list=tracker_qpos_list,
-            smpl_root=self.viewer.generator.xml_root
+            smpl_root=self.viewer.human_generator.xml_root
         )
         self.model = mujoco.MjModel.from_xml_string(scene_str)
         self.data = mujoco.MjData(self.model)

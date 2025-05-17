@@ -11,5 +11,10 @@ setup(
         "pytest-cov",
         "scipy",
     ],
+    extras_require={
+        'all': [
+            'dearpygui',
+        ]
+    },
     python_requires=">=3.8",
 )

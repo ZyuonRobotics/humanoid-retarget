@@ -4,10 +4,11 @@ import pdb
 import numpy as np
 import xml.etree.ElementTree as ET
 
-from humanoid_retargeting.mjcf_generator.generator_base import RetargetingMJCFGenerator
+from humanoid_retargeting.mjcf_generator.generator_base import RetargetingMJCFGeneratorBase
 
 
-class BVH2MJCFGenerator(RetargetingMJCFGenerator):
+class BVH2MJCFGenerator(RetargetingMJCFGeneratorBase):
+    generator_type = "bvh"
     def __init__(self, source_file_path, whole_body_ratio=1.0, body_ratio_dict=None, parsing_end=False):
         super().__init__(
             source_file_path=source_file_path,

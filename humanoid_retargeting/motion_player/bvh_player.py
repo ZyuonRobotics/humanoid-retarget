@@ -1,5 +1,4 @@
 from collections import defaultdict
-import os.path as osp
 
 import numpy as np
 import mujoco
@@ -172,8 +171,8 @@ TRACKER_DICT = {
 
 class BVHPlayer(MotionPlayerBase):
     generator_class = BVH2MJCFGenerator
-    def __init__(self, source_file_path, cali_info=None, view=True, rotating_baselink=True):
-        super().__init__(source_file_path=source_file_path, cali_info=cali_info, view=view)
+    def __init__(self, source_file_path, view=True, rotating_baselink=True):
+        super().__init__(source_file_path=source_file_path, view=view)
         self.rotating_baselink = rotating_baselink
 
     def parse_bvh_file(self):
@@ -238,16 +237,6 @@ class BVHPlayer(MotionPlayerBase):
 
         self._ref_qpos = np.concatenate(qpos, axis=1)
 
-    def load_cali_qpos(self):
-        self._cali_qpos = np.zeros(self.mujoco_model.nq)
-        self.cali_qpos[3:7] = Rotation.from_euler("xyz", [90, 0, 90], degrees=True).as_quat()[[1, 2, 3, 0]]
-        self.cali_qpos[7:] = np.array(CC3PLUS_CALI_QUAT).reshape(-1)
-        self.mujoco_data.qpos[:] = self.cali_qpos
-        mujoco.mj_forward(self.mujoco_model, self.mujoco_data)
-
-        foot_z = (self.mujoco_data.body("CC_Base_L_ToeBase").xpos[2] + self.mujoco_data.body("CC_Base_R_ToeBase").xpos[2]) / 2.
-        self.cali_qpos[2] -= foot_z
-
     def get_qpos_offset(self, robot_data):
         self.mujoco_data.qpos[:] = self.cali_qpos
         mujoco.mj_forward(self.mujoco_model, self.mujoco_data)
@@ -262,4 +251,10 @@ class BVHPlayer(MotionPlayerBase):
 
         return qpos_list
 
+if __name__ == '__main__':
+    import os
 
+    BVH_FILE_PATH = os.path.join(BVH_DATA_PATH, "Reallusion", "Martial Arts - Taichi", '1_Skill.bvh')
+
+    player = BVHPlayer(source_file_path=BVH_FILE_PATH)
+    player.render()

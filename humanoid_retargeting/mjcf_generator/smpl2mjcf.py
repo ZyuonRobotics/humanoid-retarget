@@ -5,14 +5,15 @@ import numpy as np
 
 from humanoid_retargeting import SMPLH_PATH, DMPLS_PATH
 from humanoid_retargeting.mjcf_generator.constants import *
-from humanoid_retargeting.mjcf_generator.generator_base import RetargetingMJCFGenerator
+from humanoid_retargeting.mjcf_generator.generator_base import RetargetingMJCFGeneratorBase
 
 
 def array2str(array):
     return " ".join(map(lambda x: str(round(x, 4)), array))
 
 
-class SMPL2MJCFGenerator(RetargetingMJCFGenerator):
+class SMPL2MJCFGenerator(RetargetingMJCFGeneratorBase):
+    generator_type = "smpl"
     def __init__(self, source_file_path, whole_body_ratio=1.0, body_ratio_dict=None, using_dmpl=False):
         super().__init__(
             source_file_path=source_file_path,

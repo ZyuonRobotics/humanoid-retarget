@@ -2,11 +2,11 @@ from abc import ABC, abstractmethod
 
 import xml.etree.ElementTree as ET
 import numpy as np
-
 from hurodes.mjcf_generator.generator_base import MJCFGeneratorBase
 
 
-class RetargetingMJCFGenerator(MJCFGeneratorBase):
+class RetargetingMJCFGeneratorBase(MJCFGeneratorBase):
+    generator_type = "base"
     def __init__(self, source_file_path, whole_body_ratio=1.0, body_ratio_dict=None):
         super().__init__(disable_gravity=True)
 

@@ -8,7 +8,7 @@ from scipy.spatial.transform import Rotation
 from scipy.signal import butter, filtfilt
 import matplotlib.pyplot as plt
 
-from humanoid_retargeting.mjcf_generator.generator_base import RetargetingMJCFGenerator
+from humanoid_retargeting.mjcf_generator.generator_base import RetargetingMJCFGeneratorBase
 
 
 def plot_data(array, dim_label=None, view=True):
@@ -22,11 +22,10 @@ def plot_data(array, dim_label=None, view=True):
 
 
 class MotionPlayerBase(ABC):
-    generator_class = RetargetingMJCFGenerator
+    generator_class = RetargetingMJCFGeneratorBase
 
-    def __init__(self, source_file_path, cali_info=None, view=True):
+    def __init__(self, source_file_path, view=True):
         self.source_file_path = source_file_path
-        self.cali_info = cali_info
         self.view = view
 
         self.generator = self.generator_class(source_file_path=source_file_path)
@@ -39,7 +38,6 @@ class MotionPlayerBase(ABC):
         self._viewer = None
         self._frame_rate = None
         self._ref_qpos = None
-        self._cali_qpos = None
 
     @property
     def viewer(self):
@@ -54,12 +52,6 @@ class MotionPlayerBase(ABC):
         return self._ref_qpos
 
     @property
-    def cali_qpos(self):
-        if self._cali_qpos is None:
-            self.load_cali_qpos()
-        return self._cali_qpos
-
-    @property
     def frame_rate(self):
         if self._frame_rate is None:
             self.load_motion_file()
@@ -67,10 +59,6 @@ class MotionPlayerBase(ABC):
 
     @abstractmethod
     def load_motion_file(self):
-        raise NotImplemented
-
-    @abstractmethod
-    def load_cali_qpos(self):
         raise NotImplemented
 
     def render(self):
@@ -136,18 +124,6 @@ class MotionPlayerBase(ABC):
             quat = self.ref_qpos[:, 3 + joint_idx * 4: 3 + (joint_idx + 1) * 4]
             res_quat = self.lowpass_quaternion(quat, cutoff, order)
             self._ref_qpos[:, 3 + joint_idx * 4: 3 + (joint_idx + 1) * 4] = res_quat
-
-    def render_cali(self):
-        assert self.view, "Viewer is not enabled"
-        if self.cali_qpos is None:
-            self.load_cali_qpos()
-
-        while True:
-            self.mujoco_data.qpos[:] = self.cali_qpos
-            self.mujoco_data.qvel[:] = 0
-
-            mujoco.mj_forward(self.mujoco_model, self.mujoco_data)
-            self.viewer.sync()
 
 
     def close(self):
