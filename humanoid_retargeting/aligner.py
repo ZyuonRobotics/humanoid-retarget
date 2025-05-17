@@ -3,6 +3,7 @@ import time
 import os
 from copy import deepcopy
 import json
+from collections import defaultdict
 
 import mujoco
 import mujoco.viewer
@@ -14,22 +15,8 @@ from hurodes.mjcf_generator.unified_generator import UnifiedMJCFGenerator
 
 from humanoid_retargeting.utils.rot import euler2quat
 from humanoid_retargeting.mjcf_generator import generator_class, BVH2MJCFGenerator
+from humanoid_retargeting.utils.retarget_params import RetargetParams, FootParams, TrackerConfig
 
-RETARGET_PARAMS = {
-    "robot":{
-        "left_foot": None,
-        "right_foot": None,
-        "foot_height": 0.0,
-    },
-    "human": {
-        "left_foot": None,
-        "right_foot": None,
-        "foot_height": 0,
-    },
-    "whole_body_ratio": [1., 1., 1.],
-    "body_ratio_dict": {},
-    "body_rotate_dict": {}
-}
 
 class Aligner:
     def __init__(self, source_file_path, robot_name, generator_type, params_name=None, view=True):
@@ -40,15 +27,15 @@ class Aligner:
         self.view = view
 
         if self.params_name is None:
-            self.retarget_params = deepcopy(RETARGET_PARAMS)
+            self.retarget_params = RetargetParams()
         else:
-            with open(os.path.join(self.params_dir, f"{self.params_name}.json"), "r") as f:
-                self.retarget_params = json.load(f)
-
+            self.retarget_params = RetargetParams.from_json(
+                os.path.join(self.params_dir, f"{self.params_name}.json")
+            )
         self.human_generator = generator_class[self.generator_type](
             source_file_path=source_file_path,
-            whole_body_ratio=self.retarget_params["whole_body_ratio"],
-            body_ratio_dict=self.retarget_params["body_ratio_dict"],
+            whole_body_ratio=self.retarget_params.whole_body_ratio,
+            body_ratio_dict=self.retarget_params.body_ratio_dict,
         )
         self.robot_generator = UnifiedMJCFGenerator(os.path.join(ROBOTS_PATH, robot_name))
         self.generator = MJCFGeneratorComposite([self.human_generator, self.robot_generator])
@@ -61,13 +48,14 @@ class Aligner:
         self._cali_qpos = None
 
     @property
-    def params_dir(self):
+    def params_dir(self) -> str:
         res = os.path.join(ROBOTS_PATH, self.robot_name, "retargeting", self.generator_type)
         os.makedirs(res, exist_ok=True)
-        return res
+        return str(res)
 
     @property
     def viewer(self):
+        assert self.view, "Viewer is not enabled"
         if self._viewer is None:
             self._viewer = mujoco.viewer.launch_passive(self.mujoco_model, self.mujoco_data)
         return self._viewer
@@ -82,6 +70,8 @@ class Aligner:
         self.set_base_pose()
         self.set_dof_pos()
         self._cali_qpos = deepcopy(self.mujoco_data.qpos)
+        # make mujoco data consistent
+        mujoco.mj_forward(self.mujoco_model, self.mujoco_data)
 
     def set_base_pose(self):
         mujoco.mj_forward(self.mujoco_model, self.mujoco_data)
@@ -92,33 +82,29 @@ class Aligner:
             assert len(joint.qpos) == 7, "joint must be free"
 
             if target == "human":
-                joint.qpos[:2] = [self.retarget_params["base_x_shift"], self.retarget_params["base_y_shift"]]
+                joint.qpos[:2] = [self.retarget_params.base_x_shift, self.retarget_params.base_y_shift]
             else:
                 joint.qpos[:2] = 0
 
-            if all([v is not None for v in self.retarget_params[target].values()]):
-                left_foot_pos = self.mujoco_data.body(self.retarget_params[target]["left_foot"]).xpos
-                right_foot_pos = self.mujoco_data.body(self.retarget_params[target]["right_foot"]).xpos
-                foot_height = self.retarget_params[target]["foot_height"]
-                foot_pos_z = (left_foot_pos[2] + right_foot_pos[2]) / 2 - foot_height
+            foot_params : FootParams = getattr(self.retarget_params, f"{target}_foot")
+
+            if foot_params.is_valid():
+                left_foot_pos = self.mujoco_data.body(foot_params.left_name).xpos
+                right_foot_pos = self.mujoco_data.body(foot_params.right_name).xpos
+                foot_pos_z = (left_foot_pos[2] + right_foot_pos[2]) / 2 - foot_params.height
                 joint.qpos[2] -= foot_pos_z
 
     def set_dof_pos(self):
-        for key, value in self.retarget_params["body_rotate_dict"].items():
+        for key, value in self.retarget_params.body_rotate_dict.items():
             self.mujoco_data.joint(self.mujoco_model.body(key).jntadr[0]).qpos[0:4] = euler2quat(*value)
 
     def render(self):
-        assert self.view, "Viewer is not enabled"
-        if self.cali_qpos is None:
-            self.load_cali_qpos()
-
         while self.viewer.is_running():
             self.mujoco_data.qpos[:] = self.cali_qpos
             self.mujoco_data.qvel[:] = 0
 
             mujoco.mj_forward(self.mujoco_model, self.mujoco_data)
             self.viewer.sync()
-
 
     def close(self):
         if self.view:
@@ -129,10 +115,20 @@ class Aligner:
         if save_params_name is None:
             save_params_name = self.params_name
 
-        UnifiedMJCFGenerator(os.path.join(ROBOTS_PATH, self.robot_name, "retargeting"))
+        self.retarget_params.to_json(
+            os.path.join(self.params_dir, f"{save_params_name}.json")
+        )
 
-        with open(os.path.join(self.params_dir, f"{save_params_name}.json"), "w") as f:
-            json.dump(self.retarget_params, f, indent=4)
+    def get_tracker_offset(self):
+        qpos_list = defaultdict(list)
+
+        for group_name, group_value in self.retarget_params.tracker_dict.items():
+            for human_tracker, robot_tracker in zip(group_value.human, group_value.robot):
+                qpos = np.zeros(7)
+                qpos[:3] = self.mujoco_data.body(human_tracker).xpos - self.mujoco_data.body(robot_tracker).xpos
+                qpos[3:] = self.mujoco_data.body(human_tracker).xquat
+                qpos_list[group_name].append(qpos)
+        return qpos_list
 
 if __name__ == '__main__':
     import os
@@ -142,6 +138,9 @@ if __name__ == '__main__':
 
     aligner = Aligner(source_file_path=AMASS_FILE_PATH, generator_type="smpl",
                           robot_name="kuavo_s45", params_name="try")
-    aligner.set_base_pose()
+    aligner.load_cali_qpos()
+
+    aligner.get_tracker_offset()
+
     aligner.render()
     aligner.save_retarget_params("try")
