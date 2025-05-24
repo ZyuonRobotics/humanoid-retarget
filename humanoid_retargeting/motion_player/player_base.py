@@ -8,7 +8,7 @@ from scipy.spatial.transform import Rotation
 from scipy.signal import butter, filtfilt
 import matplotlib.pyplot as plt
 
-from humanoid_retargeting.mjcf_generator.generator_base import RetargetingMJCFGeneratorBase
+from humanoid_retargeting.mjcf_generator.retargeting_generator_base import RetargetingMJCFGeneratorBase
 
 
 def plot_data(array, dim_label=None, view=True):

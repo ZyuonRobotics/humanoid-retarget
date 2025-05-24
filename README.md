@@ -11,6 +11,14 @@ pip install -e .
 ## Usage
 data path: `~/.humanoid_retargeting`
 
+## Pipeline
+
+### Aligner
+- 根据robot_foot和human_foot修正机器人和人形的高度
+- 获取机器人和人形的neck高度，用于计算
+
+最终每个body的缩放比例：global_body_ratio * extra_body_ratio * relative_body_ratio_dict[body_name]
+
 ## Test
 To show test coverage:
 ```bash

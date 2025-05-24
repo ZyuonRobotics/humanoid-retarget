@@ -10,6 +10,7 @@ setup(
         "matplotlib",
         "pytest-cov",
         "scipy",
+        "mink",
     ],
     extras_require={
         'all': [

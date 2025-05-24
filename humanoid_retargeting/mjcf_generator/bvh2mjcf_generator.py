@@ -4,16 +4,16 @@ import pdb
 import numpy as np
 import xml.etree.ElementTree as ET
 
-from humanoid_retargeting.mjcf_generator.generator_base import RetargetingMJCFGeneratorBase
+from humanoid_retargeting.mjcf_generator.retargeting_generator_base import RetargetingMJCFGeneratorBase
 
 
 class BVH2MJCFGenerator(RetargetingMJCFGeneratorBase):
     generator_type = "bvh"
-    def __init__(self, source_file_path, whole_body_ratio=1.0, body_ratio_dict=None, parsing_end=False):
+    def __init__(self, source_file_path, global_body_ratio=1.0, relative_body_ratio_dict=None, parsing_end=False):
         super().__init__(
             source_file_path=source_file_path,
-            whole_body_ratio=whole_body_ratio,
-            body_ratio_dict=body_ratio_dict
+            global_body_ratio=global_body_ratio,
+            relative_body_ratio_dict=relative_body_ratio_dict
         )
         self.parsing_end = parsing_end
 

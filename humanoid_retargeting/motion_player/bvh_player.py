@@ -5,7 +5,7 @@ import mujoco
 import mujoco.viewer
 from scipy.spatial.transform import Rotation
 
-from humanoid_retargeting.mjcf_generator.bvh2mjcf import BVH2MJCFGenerator
+from humanoid_retargeting.mjcf_generator.bvh2mjcf_generator import BVH2MJCFGenerator
 from humanoid_retargeting.motion_player.player_base import MotionPlayerBase
 from humanoid_retargeting import BVH_DATA_PATH
 

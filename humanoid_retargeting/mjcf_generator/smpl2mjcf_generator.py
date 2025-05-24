@@ -5,7 +5,7 @@ import numpy as np
 
 from humanoid_retargeting import SMPLH_PATH, DMPLS_PATH
 from humanoid_retargeting.mjcf_generator.constants import *
-from humanoid_retargeting.mjcf_generator.generator_base import RetargetingMJCFGeneratorBase
+from humanoid_retargeting.mjcf_generator.retargeting_generator_base import RetargetingMJCFGeneratorBase
 
 
 def array2str(array):
@@ -14,11 +14,11 @@ def array2str(array):
 
 class SMPL2MJCFGenerator(RetargetingMJCFGeneratorBase):
     generator_type = "smpl"
-    def __init__(self, source_file_path, whole_body_ratio=1.0, body_ratio_dict=None, using_dmpl=False):
+    def __init__(self, source_file_path, global_body_ratio=1.0, relative_body_ratio_dict=None, using_dmpl=False):
         super().__init__(
             source_file_path=source_file_path,
-            whole_body_ratio=whole_body_ratio,
-            body_ratio_dict=body_ratio_dict
+            global_body_ratio=global_body_ratio,
+            relative_body_ratio_dict=relative_body_ratio_dict
         )
 
         self.using_dmpl = using_dmpl

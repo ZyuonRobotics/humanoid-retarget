@@ -5,7 +5,7 @@ import mujoco
 from scipy.spatial.transform import Rotation
 
 from humanoid_retargeting.motion_player.player_base import MotionPlayerBase
-from humanoid_retargeting.mjcf_generator.smpl2mjcf import SMPL2MJCFGenerator, SMPLH_JOINT_NAMES
+from humanoid_retargeting.mjcf_generator.smpl2mjcf_generator import SMPL2MJCFGenerator, SMPLH_JOINT_NAMES
 
 class AMASSPlayer(MotionPlayerBase):
     generator_class = SMPL2MJCFGenerator

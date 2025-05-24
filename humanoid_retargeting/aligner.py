@@ -17,6 +17,22 @@ from humanoid_retargeting.utils.rot import euler2quat
 from humanoid_retargeting.mjcf_generator import generator_class, BVH2MJCFGenerator
 from humanoid_retargeting.utils.retarget_params import RetargetParams, FootParams, TrackerConfig
 
+def get_whole_height(generator, foot_params, neck_params, body_rotate_dict=None):
+    generator.build()
+    model = mujoco.MjModel.from_xml_string(generator.mjcf_str)
+    data = mujoco.MjData(model)
+    mujoco.mj_forward(model, data)
+
+    if body_rotate_dict is not None:
+        for key, value in body_rotate_dict.items():
+            data.joint(model.body(key).jntadr[0]).qpos[0:4] = euler2quat(*value)
+
+    left_foot_pos = data.body(foot_params.left_name).xpos
+    right_foot_pos = data.body(foot_params.right_name).xpos
+    foot_pos_z = (left_foot_pos[2] + right_foot_pos[2]) / 2 + foot_params.offset
+    neck_pos_z = data.body(neck_params.name).xpos[2] + neck_params.offset
+    return neck_pos_z - foot_pos_z
+
 
 class Aligner:
     def __init__(self, source_file_path, robot_name, generator_type, params_name=None, view=True):
@@ -32,20 +48,36 @@ class Aligner:
             self.retarget_params = RetargetParams.from_json(
                 os.path.join(self.params_dir, f"{self.params_name}.json")
             )
+
+        self.global_body_ratio = self.get_global_body_ratio()
         self.human_generator = generator_class[self.generator_type](
             source_file_path=source_file_path,
-            whole_body_ratio=self.retarget_params.whole_body_ratio,
-            body_ratio_dict=self.retarget_params.body_ratio_dict,
+            global_body_ratio=self.global_body_ratio * np.array(self.retarget_params.extra_body_ratio),
+            relative_body_ratio_dict=self.retarget_params.relative_body_ratio_dict,
         )
         self.robot_generator = UnifiedMJCFGenerator(os.path.join(ROBOTS_PATH, robot_name))
         self.generator = MJCFGeneratorComposite([self.human_generator, self.robot_generator])
         self.generator.build()
 
-        self.mujoco_model = mujoco.MjModel.from_xml_string(self.generator.mjcf_str)
-        self.mujoco_data = mujoco.MjData(self.mujoco_model)
+        self.model = mujoco.MjModel.from_xml_string(self.generator.mjcf_str)
+        self.data = mujoco.MjData(self.model)
 
         self._viewer = None
         self._cali_qpos = None
+
+    def get_global_body_ratio(self):
+        human_height = get_whole_height(
+            generator=generator_class[self.generator_type](source_file_path=self.source_file_path),
+            foot_params=self.retarget_params.human_foot,
+            neck_params=self.retarget_params.human_neck,
+            body_rotate_dict=self.retarget_params.body_rotate_dict
+        )
+        robot_height = get_whole_height(
+            generator = UnifiedMJCFGenerator(os.path.join(ROBOTS_PATH, self.robot_name)),
+            foot_params = self.retarget_params.robot_foot,
+            neck_params = self.retarget_params.robot_neck,
+        )
+        return float(robot_height / human_height)
 
     @property
     def params_dir(self) -> str:
@@ -57,7 +89,7 @@ class Aligner:
     def viewer(self):
         assert self.view, "Viewer is not enabled"
         if self._viewer is None:
-            self._viewer = mujoco.viewer.launch_passive(self.mujoco_model, self.mujoco_data)
+            self._viewer = mujoco.viewer.launch_passive(self.model, self.data)
         return self._viewer
 
     @property
@@ -69,16 +101,16 @@ class Aligner:
     def load_cali_qpos(self):
         self.set_base_pose()
         self.set_dof_pos()
-        self._cali_qpos = deepcopy(self.mujoco_data.qpos)
+        self._cali_qpos = deepcopy(self.data.qpos)
         # make mujoco data consistent
-        mujoco.mj_forward(self.mujoco_model, self.mujoco_data)
+        mujoco.mj_forward(self.model, self.data)
 
     def set_base_pose(self):
-        mujoco.mj_forward(self.mujoco_model, self.mujoco_data)
+        mujoco.mj_forward(self.model, self.data)
 
         for target, generator in zip(["human", "robot"], [self.human_generator, self.robot_generator]):
             base_name = generator.all_body_names[0]
-            joint = self.mujoco_data.joint(self.mujoco_model.body(base_name).jntadr[0])
+            joint = self.data.joint(self.model.body(base_name).jntadr[0])
             assert len(joint.qpos) == 7, "joint must be free"
 
             if target == "human":
@@ -89,21 +121,21 @@ class Aligner:
             foot_params : FootParams = getattr(self.retarget_params, f"{target}_foot")
 
             if foot_params.is_valid():
-                left_foot_pos = self.mujoco_data.body(foot_params.left_name).xpos
-                right_foot_pos = self.mujoco_data.body(foot_params.right_name).xpos
-                foot_pos_z = (left_foot_pos[2] + right_foot_pos[2]) / 2 - foot_params.height
+                left_foot_pos = self.data.body(foot_params.left_name).xpos
+                right_foot_pos = self.data.body(foot_params.right_name).xpos
+                foot_pos_z = (left_foot_pos[2] + right_foot_pos[2]) / 2 + foot_params.offset
                 joint.qpos[2] -= foot_pos_z
 
     def set_dof_pos(self):
         for key, value in self.retarget_params.body_rotate_dict.items():
-            self.mujoco_data.joint(self.mujoco_model.body(key).jntadr[0]).qpos[0:4] = euler2quat(*value)
+            self.data.joint(self.model.body(key).jntadr[0]).qpos[0:4] = euler2quat(*value)
 
     def render(self):
         while self.viewer.is_running():
-            self.mujoco_data.qpos[:] = self.cali_qpos
-            self.mujoco_data.qvel[:] = 0
+            self.data.qpos[:] = self.cali_qpos
+            self.data.qvel[:] = 0
 
-            mujoco.mj_forward(self.mujoco_model, self.mujoco_data)
+            mujoco.mj_forward(self.model, self.data)
             self.viewer.sync()
 
     def close(self):
@@ -125,8 +157,8 @@ class Aligner:
         for group_name, group_value in self.retarget_params.tracker_dict.items():
             for human_tracker, robot_tracker in zip(group_value.human, group_value.robot):
                 qpos = np.zeros(7)
-                qpos[:3] = self.mujoco_data.body(human_tracker).xpos - self.mujoco_data.body(robot_tracker).xpos
-                qpos[3:] = self.mujoco_data.body(human_tracker).xquat
+                qpos[:3] = self.data.body(human_tracker).xpos - self.data.body(robot_tracker).xpos
+                qpos[3:] = self.data.body(human_tracker).xquat
                 qpos_list[group_name].append(qpos)
         return qpos_list
 

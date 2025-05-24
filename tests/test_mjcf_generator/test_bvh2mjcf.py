@@ -7,7 +7,7 @@ from hurodes.mjcf_generator.unified_generator import UnifiedMJCFGenerator
 from hurodes import ROBOTS_PATH
 
 from humanoid_retargeting import BVH_DATA_PATH
-from humanoid_retargeting.mjcf_generator.bvh2mjcf import BVH2MJCFGenerator
+from humanoid_retargeting.mjcf_generator.bvh2mjcf_generator import BVH2MJCFGenerator
 
 
 BVH_FILE_PATH = os.path.join(BVH_DATA_PATH, "Reallusion", "Martial Arts - Taichi", '1_Skill.bvh')

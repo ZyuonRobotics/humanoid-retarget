@@ -7,7 +7,7 @@ from hurodes.mjcf_generator.unified_generator import UnifiedMJCFGenerator
 from hurodes import ROBOTS_PATH
 
 from humanoid_retargeting import AMASS_DATA_PATH
-from humanoid_retargeting.mjcf_generator.smpl2mjcf import SMPL2MJCFGenerator
+from humanoid_retargeting.mjcf_generator.smpl2mjcf_generator import SMPL2MJCFGenerator
 from humanoid_retargeting.mjcf_generator.constants import SMPLH_JOINT_NAMES
 
 AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "ACCAD", 'Female1General_c3d', "A1_-_Stand_stageii.npz")
