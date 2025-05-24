@@ -1,13 +1,13 @@
 from collections import defaultdict
 
-import numpy as np
 import mujoco
 import mujoco.viewer
+import numpy as np
 from scipy.spatial.transform import Rotation
 
+from humanoid_retargeting import BVH_DATA_PATH
 from humanoid_retargeting.mjcf_generator.bvh2mjcf_generator import BVH2MJCFGenerator
 from humanoid_retargeting.motion_player.player_base import MotionPlayerBase
-from humanoid_retargeting import BVH_DATA_PATH
 
 CC3PLUS_CALI_QUAT = [
     [1., 0.1, 0., 0.],
@@ -111,7 +111,6 @@ CC3PLUS_CALI_QUAT = [
     [1., 0., 0., -0.]
 ]
 
-
 TRACKER_DICT = {
     "upper_base": {
         "smpl": ["CC_Base_Pelvis"],
@@ -169,8 +168,10 @@ TRACKER_DICT = {
     }
 }
 
+
 class BVHPlayer(MotionPlayerBase):
     generator_class = BVH2MJCFGenerator
+
     def __init__(self, source_file_path, view=True, rotating_baselink=True):
         super().__init__(source_file_path=source_file_path, view=view)
         self.rotating_baselink = rotating_baselink
@@ -250,6 +251,7 @@ class BVHPlayer(MotionPlayerBase):
                 qpos_list[group_name].append(qpos)
 
         return qpos_list
+
 
 if __name__ == '__main__':
     import os

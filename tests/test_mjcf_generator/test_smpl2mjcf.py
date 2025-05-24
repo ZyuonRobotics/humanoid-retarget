@@ -2,16 +2,17 @@ import os
 
 import mujoco
 import mujoco.viewer
+from hurodes import ROBOTS_PATH
 from hurodes.mjcf_generator.generator_base import MJCFGeneratorComposite
 from hurodes.mjcf_generator.unified_generator import UnifiedMJCFGenerator
-from hurodes import ROBOTS_PATH
 
 from humanoid_retargeting import AMASS_DATA_PATH
-from humanoid_retargeting.mjcf_generator.smpl2mjcf_generator import SMPL2MJCFGenerator
 from humanoid_retargeting.mjcf_generator.constants import SMPLH_JOINT_NAMES
+from humanoid_retargeting.mjcf_generator.smpl2mjcf_generator import SMPL2MJCFGenerator
 
 AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "ACCAD", 'Female1General_c3d', "A1_-_Stand_stageii.npz")
 ROBOT_EHDF_PATH = os.path.join(ROBOTS_PATH, "kuavo_s45")
+
 
 def test_smpl2mjcf():
     generator = SMPL2MJCFGenerator(AMASS_FILE_PATH)
@@ -19,6 +20,7 @@ def test_smpl2mjcf():
 
     m = mujoco.MjModel.from_xml_string(generator.mjcf_str)
     d = mujoco.MjData(m)
+
 
 def test_body_ratio():
     generator = SMPL2MJCFGenerator(AMASS_FILE_PATH, whole_body_ratio=1.1, body_ratio_dict={
@@ -30,6 +32,7 @@ def test_body_ratio():
 
     m = mujoco.MjModel.from_xml_string(generator.mjcf_str)
     d = mujoco.MjData(m)
+
 
 def test_smpl2mjcf_composite():
     smpl_generator = SMPL2MJCFGenerator(AMASS_FILE_PATH)

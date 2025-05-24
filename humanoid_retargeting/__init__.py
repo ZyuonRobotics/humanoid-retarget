@@ -12,6 +12,7 @@ dmpl_model_dict = {}
 
 try:
     import numpy as np
+
     for gender in ["male", "female", "neutral"]:
         with np.load(path.join(SMPLH_PATH, gender, "model.npz"), allow_pickle=True) as data:
             smpl_model_dict[gender] = {key: data[key] for key in data.files}

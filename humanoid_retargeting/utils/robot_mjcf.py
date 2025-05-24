@@ -1,11 +1,9 @@
 import os
-
 import xml.etree.ElementTree as ET
 
-import numpy as np
+from humanoid_retargeting.constant import TRACKER_DICT
 
 from humanoid_retargeting import ASSETS_PATH, KUAVO_S40_XML_PATH, KUAVO_S42_XML_PATH
-from humanoid_retargeting.constant import TRACKER_DICT
 
 
 def traverse_body(parent_index, parent_element, body_tree, bodies_data):

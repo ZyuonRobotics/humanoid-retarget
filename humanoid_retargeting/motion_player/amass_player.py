@@ -1,11 +1,9 @@
-import time
-
 import numpy as np
-import mujoco
 from scipy.spatial.transform import Rotation
 
-from humanoid_retargeting.motion_player.player_base import MotionPlayerBase
 from humanoid_retargeting.mjcf_generator.smpl2mjcf_generator import SMPL2MJCFGenerator, SMPLH_JOINT_NAMES
+from humanoid_retargeting.motion_player.player_base import MotionPlayerBase
+
 
 class AMASSPlayer(MotionPlayerBase):
     generator_class = SMPL2MJCFGenerator
@@ -42,7 +40,8 @@ class AMASSPlayer(MotionPlayerBase):
         mat = 0.5 * np.array([[1, -1, -1, -1], [1, 1, 1, -1], [1, -1, 1, 1], [1, 1, -1, 1]])
         ref_qpos[:, 3:7] = self.rotvec2quat(rotvec_all[:, 0]) @ mat
         for joint_id in range(1, 52):
-            joint_qposadr = self.mujoco_model.joint(self.mujoco_model.body(SMPLH_JOINT_NAMES[joint_id]).jntadr[0]).qposadr[0]
+            joint_qposadr = \
+                self.mujoco_model.joint(self.mujoco_model.body(SMPLH_JOINT_NAMES[joint_id]).jntadr[0]).qposadr[0]
             ref_qpos[:, joint_qposadr:joint_qposadr + 4] = self.rotvec2quat(rotvec_all[:, joint_id])
 
         return ref_qpos

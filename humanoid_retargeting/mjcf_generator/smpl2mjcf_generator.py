@@ -3,7 +3,7 @@ import xml.etree.ElementTree as ET
 
 import numpy as np
 
-from humanoid_retargeting import SMPLH_PATH, DMPLS_PATH
+from humanoid_retargeting import SMPLH_PATH
 from humanoid_retargeting.mjcf_generator.constants import *
 from humanoid_retargeting.mjcf_generator.retargeting_generator_base import RetargetingMJCFGeneratorBase
 
@@ -14,6 +14,7 @@ def array2str(array):
 
 class SMPL2MJCFGenerator(RetargetingMJCFGeneratorBase):
     generator_type = "smpl"
+
     def __init__(self, source_file_path, global_body_ratio=1.0, relative_body_ratio_dict=None, using_dmpl=False):
         super().__init__(
             source_file_path=source_file_path,
@@ -57,7 +58,7 @@ class SMPL2MJCFGenerator(RetargetingMJCFGeneratorBase):
         self.build_skeleton(worldbody, relative_jacob, self.kintree_table)
 
         deformable = ET.SubElement(self.xml_root, 'deformable')
-        skin = ET.SubElement(  deformable,  'skin', attrib=dict(
+        skin = ET.SubElement(deformable, 'skin', attrib=dict(
             rgba="1 1 1 0.5",
             vertex=array2str(self.vertices.reshape([-1, ])),
             face=array2str(self.faces.reshape([-1, ]))

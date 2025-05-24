@@ -1,14 +1,13 @@
-import os.path as osp
-import pdb
+import xml.etree.ElementTree as ET
 
 import numpy as np
-import xml.etree.ElementTree as ET
 
 from humanoid_retargeting.mjcf_generator.retargeting_generator_base import RetargetingMJCFGeneratorBase
 
 
 class BVH2MJCFGenerator(RetargetingMJCFGeneratorBase):
     generator_type = "bvh"
+
     def __init__(self, source_file_path, global_body_ratio=1.0, relative_body_ratio_dict=None, parsing_end=False):
         super().__init__(
             source_file_path=source_file_path,
@@ -102,18 +101,19 @@ class BVH2MJCFGenerator(RetargetingMJCFGeneratorBase):
         self.joint_offsets = np.array(self.joint_offsets)
 
     def create_body(self, parent, joint_name, offset):
-        default_geom_attr = {"contype":"0", "conaffinity":"0", "rgba":"0.8 0.8 0.8 1", "size":"0.005", "type":"sphere"}
+        default_geom_attr = {"contype": "0", "conaffinity": "0", "rgba": "0.8 0.8 0.8 1", "size": "0.005",
+                             "type": "sphere"}
         if np.linalg.norm(offset) > 0.01:
             ET.SubElement(parent, "geom", attrib=default_geom_attr | {
-                "type":"capsule",
-                "fromto":"0 0 0 " + " ".join(map(str, offset))
+                "type": "capsule",
+                "fromto": "0 0 0 " + " ".join(map(str, offset))
             })
-        body = ET.SubElement(parent, "body", attrib={"name":joint_name, "pos": " ".join(map(str, offset))})
+        body = ET.SubElement(parent, "body", attrib={"name": joint_name, "pos": " ".join(map(str, offset))})
 
         if self.parsing_end and joint_name.endswith("_bvhend"):
             ET.SubElement(body, "geom", attrib=default_geom_attr)
         else:
-            ET.SubElement(body, "joint", attrib={"name":joint_name, "type":"ball"})
+            ET.SubElement(body, "joint", attrib={"name": joint_name, "type": "ball"})
             ET.SubElement(body, "geom", attrib=default_geom_attr)
 
         self.body_element_list.append(body)
@@ -121,7 +121,7 @@ class BVH2MJCFGenerator(RetargetingMJCFGeneratorBase):
     def generate(self):
         baselink_elem = ET.SubElement(self.get_elem("worldbody"), "body", attrib={
             "name": self.joint_names[0],
-            "pos":" ".join(map(str, self.joint_offsets[0] * self.get_body_ratio(self.joint_names[0])))
+            "pos": " ".join(map(str, self.joint_offsets[0] * self.get_body_ratio(self.joint_names[0])))
         })
         self.body_element_list.append(baselink_elem)
         ET.SubElement(baselink_elem, "joint", name=self.joint_names[0], type="free")

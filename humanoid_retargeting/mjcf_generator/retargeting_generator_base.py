@@ -1,8 +1,8 @@
-from typing import List, Union, Optional, Dict
+from typing import List, Union, Optional
 
-import xml.etree.ElementTree as ET
 import numpy as np
 from hurodes.mjcf_generator.generator_base import MJCFGeneratorBase
+
 
 def get_array_ratio(ratio):
     if isinstance(ratio, float):
@@ -16,8 +16,10 @@ def get_array_ratio(ratio):
     else:
         raise ValueError("global_body_ratio must be a float or a list of floats")
 
+
 class RetargetingMJCFGeneratorBase(MJCFGeneratorBase):
     generator_type = "base"
+
     def __init__(
             self,
             source_file_path: str,
@@ -32,7 +34,7 @@ class RetargetingMJCFGeneratorBase(MJCFGeneratorBase):
         if relative_body_ratio_dict is None:
             self.relative_body_ratio_dict = {}
         else:
-            self.relative_body_ratio_dict = {k:get_array_ratio(v) for k, v in relative_body_ratio_dict.items()}
+            self.relative_body_ratio_dict = {k: get_array_ratio(v) for k, v in relative_body_ratio_dict.items()}
 
     def get_body_ratio(self, body_name):
         ratio = self.global_body_ratio

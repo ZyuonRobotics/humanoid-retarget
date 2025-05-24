@@ -1,21 +1,17 @@
-from abc import ABC, abstractmethod
-import time
-import os
-from copy import deepcopy
-import json
 from collections import defaultdict
+from copy import deepcopy
 
 import mujoco
 import mujoco.viewer
 import numpy as np
-from scipy.spatial.transform import Rotation
 from hurodes import ROBOTS_PATH
 from hurodes.mjcf_generator.generator_base import MJCFGeneratorComposite
 from hurodes.mjcf_generator.unified_generator import UnifiedMJCFGenerator
 
+from humanoid_retargeting.mjcf_generator import generator_class
+from humanoid_retargeting.utils.retarget_params import RetargetParams, FootParams
 from humanoid_retargeting.utils.rot import euler2quat
-from humanoid_retargeting.mjcf_generator import generator_class, BVH2MJCFGenerator
-from humanoid_retargeting.utils.retarget_params import RetargetParams, FootParams, TrackerConfig
+
 
 def get_whole_height(generator, foot_params, neck_params, body_rotate_dict=None):
     generator.build()
@@ -73,9 +69,9 @@ class Aligner:
             body_rotate_dict=self.retarget_params.body_rotate_dict
         )
         robot_height = get_whole_height(
-            generator = UnifiedMJCFGenerator(os.path.join(ROBOTS_PATH, self.robot_name)),
-            foot_params = self.retarget_params.robot_foot,
-            neck_params = self.retarget_params.robot_neck,
+            generator=UnifiedMJCFGenerator(os.path.join(ROBOTS_PATH, self.robot_name)),
+            foot_params=self.retarget_params.robot_foot,
+            neck_params=self.retarget_params.robot_neck,
         )
         return float(robot_height / human_height)
 
@@ -118,7 +114,7 @@ class Aligner:
             else:
                 joint.qpos[:2] = 0
 
-            foot_params : FootParams = getattr(self.retarget_params, f"{target}_foot")
+            foot_params: FootParams = getattr(self.retarget_params, f"{target}_foot")
 
             if foot_params.is_valid():
                 left_foot_pos = self.data.body(foot_params.left_name).xpos
@@ -162,6 +158,7 @@ class Aligner:
                 qpos_list[group_name].append(qpos)
         return qpos_list
 
+
 if __name__ == '__main__':
     import os
     from humanoid_retargeting import AMASS_DATA_PATH
@@ -169,7 +166,7 @@ if __name__ == '__main__':
     AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "ACCAD", 'Female1General_c3d', "A1_-_Stand_stageii.npz")
 
     aligner = Aligner(source_file_path=AMASS_FILE_PATH, generator_type="smpl",
-                          robot_name="kuavo_s45", params_name="try")
+                      robot_name="kuavo_s45", params_name="try")
     aligner.load_cali_qpos()
 
     aligner.get_tracker_offset()

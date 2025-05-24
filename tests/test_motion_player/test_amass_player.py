@@ -1,7 +1,7 @@
 import os
 
-from humanoid_retargeting.motion_player import AMASSPlayer
 from humanoid_retargeting import AMASS_DATA_PATH
+from humanoid_retargeting.motion_player import AMASSPlayer
 
 AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "ACCAD", 'Female1General_c3d', "A1_-_Stand_stageii.npz")
 
@@ -17,6 +17,7 @@ def test_plot():
 def test_lowpass_filter():
     player = AMASSPlayer(source_file_path=AMASS_FILE_PATH, view=False)
     player.lowpass_all_qpos()
+
 
 def test_cali():
     player = AMASSPlayer(source_file_path=AMASS_FILE_PATH, view=False)

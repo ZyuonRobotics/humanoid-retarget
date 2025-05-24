@@ -1,12 +1,12 @@
-from abc import ABC, abstractmethod
 import time
+from abc import ABC, abstractmethod
 
+import matplotlib.pyplot as plt
 import mujoco
 import mujoco.viewer
 import numpy as np
-from scipy.spatial.transform import Rotation
 from scipy.signal import butter, filtfilt
-import matplotlib.pyplot as plt
+from scipy.spatial.transform import Rotation
 
 from humanoid_retargeting.mjcf_generator.retargeting_generator_base import RetargetingMJCFGeneratorBase
 
@@ -125,8 +125,6 @@ class MotionPlayerBase(ABC):
             res_quat = self.lowpass_quaternion(quat, cutoff, order)
             self._ref_qpos[:, 3 + joint_idx * 4: 3 + (joint_idx + 1) * 4] = res_quat
 
-
     def close(self):
         if self.view:
             self.viewer.close()
-

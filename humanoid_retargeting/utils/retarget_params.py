@@ -1,21 +1,23 @@
-from dataclasses import dataclass, field, fields, asdict, MISSING
-from typing import Dict, List, Optional, Union
 import json
+from dataclasses import dataclass, field, asdict
+from typing import Dict, List, Optional, Union
 
 
 @dataclass
 class FootParams:
     left_name: Optional[str] = None
-    right_name:  Optional[str] = None
+    right_name: Optional[str] = None
     offset: float = 0.0
 
     def is_valid(self) -> bool:
         return self.left_name is not None and self.right_name is not None
 
+
 @dataclass
 class NeckParams:
     name: Optional[str] = None
     offset: float = 0.0
+
 
 @dataclass
 class TrackerConfig:
@@ -27,6 +29,7 @@ class TrackerConfig:
     def __post_init__(self):
         assert len(self.human) == len(self.robot), "human and robot lists must have the same length"
 
+
 @dataclass
 class RetargetParams:
     robot_foot: FootParams = field(default_factory=FootParams)
@@ -35,7 +38,7 @@ class RetargetParams:
     human_neck: NeckParams = field(default_factory=NeckParams)
     base_x_shift: float = 0.0
     base_y_shift: float = 0.0
-    extra_body_ratio:  Union[float, List[float]] = field(default_factory=lambda: [1.0, 1.0, 1.0])
+    extra_body_ratio: Union[float, List[float]] = field(default_factory=lambda: [1.0, 1.0, 1.0])
     relative_body_ratio_dict: Dict[str, Union[float, List[float]]] = field(default_factory=dict)
     body_rotate_dict: Dict[str, list] = field(default_factory=dict)
     tracker_dict: Dict[str, TrackerConfig] = field(default_factory=dict)

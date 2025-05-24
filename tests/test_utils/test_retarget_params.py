@@ -1,5 +1,6 @@
 from humanoid_retargeting.utils.retarget_params import RetargetParams, FootParams, TrackerConfig
 
+
 def build_test_obj():
     return RetargetParams(
         robot_foot=FootParams(left_name=1.0, right_name=1.0, height=0.1),
@@ -16,9 +17,11 @@ def build_test_obj():
         }
     )
 
+
 def test_retarget_params_to_json():
     params = build_test_obj()
     params.to_json("retarget_params.json")
+
 
 def test_retarget_params_from_json():
     params = build_test_obj()
