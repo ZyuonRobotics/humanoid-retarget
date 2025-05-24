@@ -37,7 +37,7 @@ class RetargetingMJCFGeneratorBase(MJCFGeneratorBase):
             self.relative_body_ratio_dict = {k: get_array_ratio(v) for k, v in relative_body_ratio_dict.items()}
 
     def get_body_ratio(self, body_name):
-        ratio = self.global_body_ratio
+        ratio = self.global_body_ratio.copy()
         if body_name in self.relative_body_ratio_dict:
             ratio *= self.relative_body_ratio_dict[body_name]
         return ratio
