@@ -5,8 +5,8 @@ from hurodes.mjcf_generator.generator_base import MJCFGeneratorBase
 
 
 def get_array_ratio(ratio):
-    if isinstance(ratio, float):
-        return np.array([ratio] * 3)
+    if isinstance(ratio, float) or isinstance(ratio, int):
+        return np.array([ratio] * 3, dtype=np.float32)
     elif isinstance(ratio, list):
         assert len(ratio) == 3
         return np.array(ratio)

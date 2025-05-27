@@ -17,8 +17,3 @@ def test_plot():
 def test_lowpass_filter():
     player = BVHPlayer(source_file_path=BVH_FILE_PATH)
     player.lowpass_all_qpos()
-
-
-def test_cali():
-    player = BVHPlayer(source_file_path=BVH_FILE_PATH)
-    player.load_cali_qpos()

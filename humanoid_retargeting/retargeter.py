@@ -1,5 +1,5 @@
 import time
-from os import path as osp
+import os
 
 import mink
 import mujoco
@@ -8,171 +8,230 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
 from tqdm import tqdm
+from hurodes import ROBOTS_PATH
+from hurodes.mjcf_generator.generator_base import MJCFGeneratorComposite
 
+from humanoid_retargeting.motion_player import player_class
+from humanoid_retargeting.mjcf_generator import generator_class
+from humanoid_retargeting.aligner import Aligner
+from humanoid_retargeting.mjcf_generator.tracker_generator import TrackerMJCFGenerator
 
 class Retargeter:
-    def __init__(self, source_file_path, robot_name, generator_type, params_name, view=True):
+    def __init__(
+            self,
+            source_file_path,
+            robot_name,
+            generator_type,
+            params_name,
+            view=True,
+            init_frame_loop_num=100,
+            mink_solver_dumping=0.1,
+    ):
         self.source_file_path = source_file_path
         self.robot_name = robot_name
         self.generator_type = generator_type
         self.params_name = params_name
         self.view = view
+        self.init_frame_loop_num = init_frame_loop_num
+        self.mink_solver_dumping = mink_solver_dumping
 
-        self.viewer = BVHViewer(amass_npz_fname, view=False)
-        tracker_qpos_list = get_qpos_list(amass_npz_fname, robot_name=robot_name)
-
-        kuavo_str = generate_xml(
-            body_tree=self.robot_data["body_tree"],
-            bodies_data=self.robot_data["bodies_data"],
+        self.aligner = Aligner(
+            source_file_path=source_file_path,
             robot_name=robot_name,
-            tracker_qpos_list=tracker_qpos_list,
+            generator_type=generator_type,
+            params_name=params_name,
+            view=False
         )
-        self.kuavo_model = mujoco.MjModel.from_xml_string(kuavo_str)
-        self.kuavo_data = mujoco.MjData(self.kuavo_model)
-        self.config = mink.Configuration(self.kuavo_model)
+        self.tracker_offset = self.aligner.get_tracker_offset()
+        self.global_body_ratio = self.aligner.get_global_body_ratio()
+        self.retarget_params = self.aligner.retarget_params
 
-        scene_str = generate_xml(
-            body_tree=self.robot_data["body_tree"],
-            bodies_data=self.robot_data["bodies_data"],
-            robot_name=robot_name,
-            tracker_qpos_list=tracker_qpos_list,
-            smpl_root=self.viewer.human_generator.xml_root
+        self.player = player_class[generator_type](
+            source_file_path=source_file_path,
+            global_body_ratio=self.global_body_ratio * np.array(self.retarget_params.extra_body_ratio),
+            relative_body_ratio_dict=self.retarget_params.relative_body_ratio_dict,
         )
-        self.model = mujoco.MjModel.from_xml_string(scene_str)
+
+        self.human_generator = generator_class[self.generator_type](
+            source_file_path=source_file_path,
+            global_body_ratio=self.global_body_ratio * np.array(self.retarget_params.extra_body_ratio),
+            relative_body_ratio_dict=self.retarget_params.relative_body_ratio_dict,
+        )
+        self.robot_generator = TrackerMJCFGenerator(
+            ehdf_path=os.path.join(ROBOTS_PATH, robot_name),
+            tracker_dict=self.retarget_params.tracker_dict,
+            tracker_offset=self.tracker_offset
+        )
+        self.generator = MJCFGeneratorComposite([self.human_generator, self.robot_generator])
+        self.generator.build()
+
+        self.robot_model = mujoco.MjModel.from_xml_string(self.robot_generator.mjcf_str)
+        self.robot_data = mujoco.MjData(self.robot_model)
+        self.mink_config = mink.Configuration(self.robot_model)
+
+        self.model = mujoco.MjModel.from_xml_string(self.generator.mjcf_str)
         self.data = mujoco.MjData(self.model)
-        if self.view:
-            self.viewer = mujoco.viewer.launch_passive(self.model, self.data)
-            self.viewer.sync()
-        else:
-            self.viewer = None
 
-        self.posture_task = mink.PostureTask(self.kuavo_model, cost=200.0)
+        self._viewer = None
+
+        self.posture_task = None
+        self.frame_tasks = None
+        self.build_mink_tasks()
+
+        self.robot_ref_qpos = np.zeros([self.frame_num, self.robot_model.nq])
+        self.robot_ref_qvel = np.zeros([self.frame_num, self.robot_model.nv])
+
+    @property
+    def viewer(self):
+        assert self.view, "Viewer is not enabled"
+        if self._viewer is None:
+            self._viewer = mujoco.viewer.launch_passive(self.model, self.data)
+        return self._viewer
+
+    @property
+    def all_tasks(self):
+        return [self.posture_task] + self.frame_tasks
+
+    @property
+    def human_trackers(self):
+        return [s for group_value in self.retarget_params.tracker_dict.values() for s in group_value.human]
+
+    @property
+    def frame_num(self):
+        return self.player.frame_num
+
+    @property
+    def frame_rate(self):
+        return self.player.frame_rate
+
+    def build_mink_tasks(self):
+        self.posture_task = mink.PostureTask(self.robot_model, cost=200.0)
         self.frame_tasks = []
-        for group_name, group_value in TRACKER_DICT.items():
-            for smpl_tracker, robot_tracker in zip(group_value["smpl"], group_value["robot"]):
+        for group_name, group_value in self.retarget_params.tracker_dict.items():
+            for human_body_name, robot_body_name in zip(group_value.human, group_value.robot):
                 task = mink.FrameTask(
-                    frame_name=f"{robot_tracker}_{smpl_tracker}_track",
+                    frame_name=f"{robot_body_name}_{human_body_name}_tracker",
                     frame_type="site",
-                    position_cost=group_value["position_cost"],
-                    orientation_cost=group_value["orientation_cost"],
+                    position_cost=group_value.position_cost,
+                    orientation_cost=group_value.orientation_cost,
                     lm_damping=1.)
                 self.frame_tasks.append(task)
-        self.all_tasks = [self.posture_task] + self.frame_tasks
-        self.frame_task_num = len(self.frame_tasks)
-        self.smpl_site_names = [s for group_value in TRACKER_DICT.values() for s in group_value["smpl"]]
-
-        self.nframes = self.viewer.nframes
-        self.framerate = self.viewer.framerate
-        self.robot_ref_qpos = np.zeros([self.nframes, self.kuavo_model.nq])
-        self.robot_ref_qvel = np.zeros([self.nframes, self.kuavo_model.nv])
-
-        self.lowest_foot_z = self.robot_data["foot_thickness"]
 
 
-def run_ik(self):
-    for i in tqdm(range(self.nframes), disable=self.viewer is None):
-        self.viewer.data.ref_qpos[:] = self.viewer.ref_qpos[i, :]
-        mujoco.mj_forward(self.viewer.model, self.viewer.data)
-        self.posture_task.set_target_from_configuration(self.config)
-        for j in range(self.frame_task_num):
-            self.frame_tasks[j].set_target(mink.SE3.from_rotation_and_translation(
-                mink.SO3.from_matrix(self.viewer.data.body(self.smpl_site_names[j]).xmat.reshape([3, 3])),
-                self.viewer.data.body(self.smpl_site_names[j]).xpos
-            ))
+    def run_ik(self):
+        for frame_idx in tqdm(range(self.frame_num), disable=self.player is None):
+            self.player.sync_data(frame_idx)
 
-        for _ in range(100 if i == 0 else 1):
-            vel = mink.solve_ik(self.config, self.all_tasks, 1. / self.framerate, "quadprog", 1e-1)
-            self.config.integrate_inplace(vel, 1. / self.framerate)
+            self.posture_task.set_target_from_configuration(self.mink_config)
+            for j in range(len(self.frame_tasks)):
+                self.frame_tasks[j].set_target(mink.SE3.from_rotation_and_translation(
+                    mink.SO3.from_matrix(self.player.data.body(self.human_trackers[j]).xmat.reshape([3, 3])),
+                    self.player.data.body(self.human_trackers[j]).xpos
+                ))
 
-        self.robot_ref_qvel[i, :] = vel.copy()
-        self.robot_ref_qpos[i, :] = self.config.q.copy()
+            for _ in range(self.init_frame_loop_num if frame_idx == 0 else 1):
+                vel = mink.solve_ik(
+                    configuration=self.mink_config,
+                    tasks=self.all_tasks,
+                    dt=1. / self.frame_rate,
+                    solver="daqp",
+                    damping=self.mink_solver_dumping
+                )
+                self.mink_config.integrate_inplace(vel, 1. / self.frame_rate)
 
-        self.data.qpos[:self.viewer.model.nq] = self.viewer.ref_qpos[i, :]
-        self.data.qpos[self.viewer.model.nq:] = self.robot_ref_qpos[i, :]
-        self.data.qvel[self.viewer.model.nv:] = self.robot_ref_qvel[i, :]
+            self.robot_ref_qvel[frame_idx, :] = vel.copy()
+            self.robot_ref_qpos[frame_idx, :] = self.mink_config.q.copy()
+
+            self.data.qpos[:self.player.model.nq] = self.player.ref_qpos[frame_idx, :]
+            self.data.qpos[self.player.model.nq:] = self.robot_ref_qpos[frame_idx, :]
+            self.data.qvel[self.player.model.nv:] = self.robot_ref_qvel[frame_idx, :]
+            mujoco.mj_forward(self.model, self.data)
+
+            if self.view:
+                self.viewer.sync()
+
+    def view_frame(self, frame_id=0, offset=None):
+        vec = offset if offset is not None else np.zeros(3)
+        res = np.zeros(3)
+        quat = self.player.ref_qpos[0, 3:7]
+        mujoco.mju_rotVecQuat(res, vec, quat)
+        self.data.qpos[:self.player.model.nq] = self.player.ref_qpos[frame_id, :]
+        self.data.qpos[-self.robot_model.nq:] = self.robot_ref_qpos[frame_id, :]
+        self.data.qpos[-self.robot_model.nq:-self.robot_model.nq + 2] += res[:2]
         mujoco.mj_forward(self.model, self.data)
-
-        if self.view:
-            self.viewer.sync()
-    self.viewer.ref_qpos[:, 2] += (self.robot_data["foot_thickness"] - self.lowest_foot_z)
-    self.robot_ref_qpos[:, 2] += (self.robot_data["foot_thickness"] - self.lowest_foot_z)
+        self.viewer.sync()
 
 
-def view_frame(self, frame_id=0, offset=None):
-    vec = offset if offset is not None else np.zeros(3)
-    res = np.zeros(3)
-    quat = self.viewer.ref_qpos[0, 3:7]
-    mujoco.mju_rotVecQuat(res, vec, quat)
-    self.data.qpos[:self.viewer.model.nq] = self.viewer.ref_qpos[frame_id, :]
-    self.data.qpos[-self.kuavo_model.nq:] = self.robot_ref_qpos[frame_id, :]
-    self.data.qpos[-self.kuavo_model.nq:-self.kuavo_model.nq + 2] += res[:2]
-    mujoco.mj_forward(self.model, self.data)
-    self.viewer.sync()
+    def interpolate(self, target_framerate=100):
+        t_original = np.linspace(0, (self.frame_num - 1) / self.frame_rate, self.frame_num)
+        new_frame_num = int(self.frame_num * target_framerate / self.frame_rate)
+        t_new = np.linspace(0, (self.frame_num - 1) / self.frame_rate, new_frame_num)
+
+        res_qpos = interp1d(t_original, self.robot_ref_qpos, axis=0)(t_new)
+        res_qvel = interp1d(t_original, self.robot_ref_qvel, axis=0)(t_new)
+        return res_qpos, res_qvel, new_frame_num
 
 
-def interpolate(self, target_framerate=100):
-    t_original = np.linspace(0, (self.nframes - 1) / self.framerate, self.nframes)
-    new_nframes = int(self.nframes * target_framerate / self.framerate)
-    t_new = np.linspace(0, (self.nframes - 1) / self.framerate, new_nframes)
+    def save_as_npy(self, res_path, target_framerate=100):
+        res_qpos, res_qvel, frame_num = self.interpolate(target_framerate=target_framerate)
 
-    res_qpos = interp1d(t_original, self.robot_ref_qpos, axis=0)(t_new)
-    res_qvel = interp1d(t_original, self.robot_ref_qvel, axis=0)(t_new)
-    return res_qpos, res_qvel, new_nframes
-
-
-def save_as_npy(self, res_path, target_framerate=100):
-    res_qpos, res_qvel, nframes = self.interpolate(target_framerate=target_framerate)
-
-    res_dict = {
-        "root_trans": res_qpos[:, :3],
-        "root_quat": res_qpos[:, [4, 5, 6, 3]],  # from w,x,y,z to x,y,z,w
-        "joint_pos": res_qpos[:, 7:],
-        "root_lin_vel": res_qvel[:, :3],
-        "root_ang_vel": res_qvel[:, 3:6],
-        "joint_vel": res_qvel[:, 6:],
-        "frame_rate": target_framerate,
-        "frames": nframes
-    }
-    np.save(res_path, res_dict)
+        res_dict = {
+            "root_trans": res_qpos[:, :3],
+            "root_quat": res_qpos[:, [4, 5, 6, 3]],  # from w,x,y,z to x,y,z,w
+            "joint_pos": res_qpos[:, 7:],
+            "root_lin_vel": res_qvel[:, :3],
+            "root_ang_vel": res_qvel[:, 3:6],
+            "joint_vel": res_qvel[:, 6:],
+            "frame_rate": target_framerate,
+            "frames": frame_num
+        }
+        np.save(res_path, res_dict)
 
 
-def save_as_csv(self, res_path, target_framerate=100):
-    res_qpos, res_qvel, nframes = self.interpolate(target_framerate=target_framerate)
-    res = np.concatenate([res_qpos, res_qvel], axis=1)
-    pd.DataFrame(res).to_csv(res_path, header=None, index=None)
+    def save_as_csv(self, res_path, target_framerate=100):
+        res_qpos, res_qvel, frame_num = self.interpolate(target_framerate=target_framerate)
+        res = np.concatenate([res_qpos, res_qvel], axis=1)
+        pd.DataFrame(res).to_csv(res_path, header=None, index=None)
 
 
-def play(self, speed=1., loop=True, offset=None):
-    assert self.viewer is not None, "Viewer is not initialized"
-    while True:
-        for frame_id in range(self.nframes):
-            step_start = time.time()
-            self.view_frame(frame_id, offset)
-            time_until_next_step = 1 / self.framerate / speed - (time.time() - step_start)
+    def play(self, speed=1., loop=True, offset=None):
+        assert self.viewer is not None, "Viewer is not initialized"
+        while True:
+            for frame_id in range(self.frame_num):
+                step_start = time.time()
+                self.view_frame(frame_id, offset)
+                time_until_next_step = 1 / self.frame_rate / speed - (time.time() - step_start)
+                if not self.viewer.is_running():
+                    break
+                if time_until_next_step > 0:
+                    time.sleep(time_until_next_step)
+            if not loop:
+                break
             if not self.viewer.is_running():
                 break
-            if time_until_next_step > 0:
-                time.sleep(time_until_next_step)
-        if not loop:
-            break
-        if not self.viewer.is_running():
-            break
 
 
-def close(self):
-    if self.viewer is not None:
-        self.viewer.close()
+    def close(self):
+        if self.viewer is not None:
+            self.viewer.close()
 
 
 if __name__ == '__main__':
-    robot_name = "kuavo_s45"
-    bvh_file_path = osp.join(BVH_DATA_PATH, "Reallusion", "newtaichi", '1_Skill.bvh')
-    bvh_type = "Reallusion"
+    import os
+    from humanoid_retargeting import AMASS_DATA_PATH
 
-    ar = AmassRetargetMink(bvh_file_path, robot_name=robot_name, view=True)
-    ar.run_ik()
-    ar.save_as_npy("taichi.npy", target_framerate=100)
-    ar.save_as_csv("taichi.csv", target_framerate=100)
+    AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "ACCAD", 'Female1General_c3d', "A11_-_crawl_forward_stageii.npz")
 
-    ar.play(speed=1., offset=np.array([0., 1., 0.]))
-    ar.close()
+    retargeter = Retargeter(
+        source_file_path=AMASS_FILE_PATH,
+        robot_name="kuavo_s45",
+        generator_type="smpl",
+        params_name="try",
+        view=True
+    )
+    retargeter.run_ik()
+    retargeter.save_as_npy("taichi.npy", target_framerate=100)
+    retargeter.save_as_csv("taichi.csv", target_framerate=100)
+
+    retargeter.play(speed=1., offset=np.array([0., 1., 0.]))
+    retargeter.close()

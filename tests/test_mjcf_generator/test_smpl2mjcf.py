@@ -23,7 +23,7 @@ def test_smpl2mjcf():
 
 
 def test_body_ratio():
-    generator = SMPL2MJCFGenerator(AMASS_FILE_PATH, whole_body_ratio=1.1, body_ratio_dict={
+    generator = SMPL2MJCFGenerator(AMASS_FILE_PATH, global_body_ratio=1.1, relative_body_ratio_dict={
         SMPLH_JOINT_NAMES[0]: 1,
         SMPLH_JOINT_NAMES[1]: 1.1,
         SMPLH_JOINT_NAMES[2]: [1, 1.1, 1.2]

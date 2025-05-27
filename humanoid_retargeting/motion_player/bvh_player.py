@@ -172,8 +172,20 @@ TRACKER_DICT = {
 class BVHPlayer(MotionPlayerBase):
     generator_class = BVH2MJCFGenerator
 
-    def __init__(self, source_file_path, view=True, rotating_baselink=True):
-        super().__init__(source_file_path=source_file_path, view=view)
+    def __init__(
+            self,
+            source_file_path,
+            view=True,
+            rotating_baselink=True,
+            global_body_ratio=1.0,
+            relative_body_ratio_dict=None
+    ):
+        super().__init__(
+            source_file_path=source_file_path,
+            view=view,
+            global_body_ratio=global_body_ratio,
+            relative_body_ratio_dict=relative_body_ratio_dict
+        )
         self.rotating_baselink = rotating_baselink
 
     def parse_bvh_file(self):
@@ -239,15 +251,15 @@ class BVHPlayer(MotionPlayerBase):
         self._ref_qpos = np.concatenate(qpos, axis=1)
 
     def get_qpos_offset(self, robot_data):
-        self.mujoco_data.qpos[:] = self.cali_qpos
-        mujoco.mj_forward(self.mujoco_model, self.mujoco_data)
+        self.data.qpos[:] = self.cali_qpos
+        mujoco.mj_forward(self.model, self.data)
 
         qpos_list = defaultdict(list)
         for group_name, group_value in TRACKER_DICT.items():
             for smpl_tracker, robot_tracker in zip(group_value["smpl"], group_value["robot"]):
                 qpos = np.zeros(7)
-                qpos[:3] = self.mujoco_data.body(smpl_tracker).xpos - robot_data.body(robot_tracker).xpos
-                qpos[3:] = self.mujoco_data.body(smpl_tracker).xquat
+                qpos[:3] = self.data.body(smpl_tracker).xpos - robot_data.body(robot_tracker).xpos
+                qpos[3:] = self.data.body(smpl_tracker).xquat
                 qpos_list[group_name].append(qpos)
 
         return qpos_list

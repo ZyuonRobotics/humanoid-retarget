@@ -17,8 +17,3 @@ def test_plot():
 def test_lowpass_filter():
     player = AMASSPlayer(source_file_path=AMASS_FILE_PATH, view=False)
     player.lowpass_all_qpos()
-
-
-def test_cali():
-    player = AMASSPlayer(source_file_path=AMASS_FILE_PATH, view=False)
-    player.load_cali_qpos()

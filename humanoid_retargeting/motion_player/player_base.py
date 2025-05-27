@@ -24,15 +24,19 @@ def plot_data(array, dim_label=None, view=True):
 class MotionPlayerBase(ABC):
     generator_class = RetargetingMJCFGeneratorBase
 
-    def __init__(self, source_file_path, view=True):
+    def __init__(self, source_file_path, global_body_ratio=1.0, relative_body_ratio_dict=None, view=True):
         self.source_file_path = source_file_path
         self.view = view
 
-        self.generator = self.generator_class(source_file_path=source_file_path)
+        self.generator = self.generator_class(
+            source_file_path=source_file_path,
+            global_body_ratio=global_body_ratio,
+            relative_body_ratio_dict=relative_body_ratio_dict
+        )
         self.generator.build()
 
-        self.mujoco_model = mujoco.MjModel.from_xml_string(self.generator.mjcf_str)
-        self.mujoco_data = mujoco.MjData(self.mujoco_model)
+        self.model = mujoco.MjModel.from_xml_string(self.generator.mjcf_str)
+        self.data = mujoco.MjData(self.model)
         self.motion_data = None
 
         self._viewer = None
@@ -42,7 +46,7 @@ class MotionPlayerBase(ABC):
     @property
     def viewer(self):
         if self._viewer is None:
-            self._viewer = mujoco.viewer.launch_passive(self.mujoco_model, self.mujoco_data)
+            self._viewer = mujoco.viewer.launch_passive(self.model, self.data)
         return self._viewer
 
     @property
@@ -57,21 +61,28 @@ class MotionPlayerBase(ABC):
             self.load_motion_file()
         return self._frame_rate
 
+    @property
+    def frame_num(self):
+        return self.ref_qpos.shape[0]
+
     @abstractmethod
     def load_motion_file(self):
         raise NotImplemented
+
+    def sync_data(self, frame_idx):
+        self.data.qpos[:] = self.ref_qpos[frame_idx]
+        self.data.qvel[:] = 0
+        mujoco.mj_forward(self.model, self.data)
 
     def render(self):
         assert self.view, "Viewer is not enabled"
         if self.ref_qpos is None:
             self.load_motion_file()
 
-        for i in range(self.ref_qpos.shape[0]):
+        for frame_idx in range(self.frame_num):
             step_start = time.time()
 
-            self.mujoco_data.qpos[:] = self.ref_qpos[i]
-            self.mujoco_data.qvel[:] = 0
-            mujoco.mj_forward(self.mujoco_model, self.mujoco_data)
+            self.sync_data(frame_idx)
             self.viewer.sync()
 
             time_until_next_step = 1 / self.frame_rate - (time.time() - step_start)
@@ -91,8 +102,8 @@ class MotionPlayerBase(ABC):
         plot_data(euler_pos, ["roll", "pitch", "yaw"], view=self.view)
 
     def plot_ref_joint_quaternion(self, joint_idx=0):
-        assert joint_idx + 1 < self.mujoco_model.njnt, "Invalid joint index"
-        assert self.mujoco_model.joint(joint_idx + 1).type[0] == 1, f"Joint type of {joint_idx} is not ball"
+        assert joint_idx + 1 < self.model.njnt, "Invalid joint index"
+        assert self.model.joint(joint_idx + 1).type[0] == 1, f"Joint type of {joint_idx} is not ball"
         plot_data(
             array=self.ref_qpos[:, 7 + joint_idx * 4: 7 + (joint_idx + 1) * 4],
             dim_label=["w", "x", "y", "z"],
@@ -115,12 +126,12 @@ class MotionPlayerBase(ABC):
         return filtered_quat
 
     def lowpass_all_qpos(self, cutoff=20, order=2):
-        for joint_idx in range(self.mujoco_model.njnt):
+        for joint_idx in range(self.model.njnt):
             if joint_idx == 0:
-                assert self.mujoco_model.joint(0).type[0] == 0, "Root joint should be free"
+                assert self.model.joint(0).type[0] == 0, "Root joint should be free"
                 self._ref_qpos[:, :3] = self.lowpass(self.ref_qpos[:, :3], cutoff, order)
             else:
-                assert self.mujoco_model.joint(joint_idx).type[0] == 1, f"Joint type of {joint_idx} is not ball"
+                assert self.model.joint(joint_idx).type[0] == 1, f"Joint type of {joint_idx} is not ball"
             quat = self.ref_qpos[:, 3 + joint_idx * 4: 3 + (joint_idx + 1) * 4]
             res_quat = self.lowpass_quaternion(quat, cutoff, order)
             self._ref_qpos[:, 3 + joint_idx * 4: 3 + (joint_idx + 1) * 4] = res_quat

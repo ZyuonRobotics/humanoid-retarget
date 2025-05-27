@@ -18,6 +18,9 @@ class NeckParams:
     name: Optional[str] = None
     offset: float = 0.0
 
+    def is_valid(self) -> bool:
+        return self.name is not None
+
 
 @dataclass
 class TrackerConfig:

@@ -1,12 +1,13 @@
 from humanoid_retargeting.utils.retarget_params import RetargetParams, FootParams, TrackerConfig
 
-
 def build_test_obj():
     return RetargetParams(
-        robot_foot=FootParams(left_name=1.0, right_name=1.0, height=0.1),
-        human_foot=FootParams(left_name=0.9, right_name=0.9, height=0.08),
-        whole_body_ratio=[1.0, 1.0, 1.0],
-        body_ratio_dict={"arm": 1.2, "leg": 0.9},
+        robot_foot=FootParams(left_name="l6left", right_name="l6right", offset=0.1),
+        human_foot=FootParams(left_name="l6left", right_name="l6right", offset=0.08),
+        base_x_shift=0.0,
+        base_y_shift=0.0,
+        extra_body_ratio=[1.0, 1.0, 1.0],
+        relative_body_ratio_dict={"arm": 1.2, "leg": 0.9},
         tracker_dict={
             "main_tracker": TrackerConfig(
                 human=["left_shoulder", "right_shoulder"],

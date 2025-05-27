@@ -8,8 +8,13 @@ from humanoid_retargeting.motion_player.player_base import MotionPlayerBase
 class AMASSPlayer(MotionPlayerBase):
     generator_class = SMPL2MJCFGenerator
 
-    def __init__(self, source_file_path, view=True):
-        super().__init__(source_file_path=source_file_path, view=view)
+    def __init__(self, source_file_path, view=True, global_body_ratio=1.0, relative_body_ratio_dict=None):
+        super().__init__(
+            source_file_path=source_file_path,
+            view=view,
+            global_body_ratio=global_body_ratio,
+            relative_body_ratio_dict=relative_body_ratio_dict
+        )
 
     def get_frame_rate(self):
         if "mocap_frame_rate" in self.motion_data:
@@ -32,16 +37,16 @@ class AMASSPlayer(MotionPlayerBase):
         pose_body = self.motion_data['poses'][:, 3:66]
         pose_hand = self.motion_data['poses'][:, 66:52 * 3]
         rotvec_all = np.hstack([root_orient, pose_body, pose_hand]).reshape([-1, 52, 3])
-        trans = self.motion_data['trans'] + self.mujoco_model.body("pelvis").pos[[1, 2, 0]]
+        trans = self.motion_data['trans'] + self.model.body("pelvis").pos[[1, 2, 0]]
         rotvec_all[:, 1:, :] = rotvec_all[:, 1:, [2, 0, 1]]
 
-        ref_qpos = np.zeros([trans.shape[0], self.mujoco_model.nq])
+        ref_qpos = np.zeros([trans.shape[0], self.model.nq])
         ref_qpos[:, 0:3] = trans
         mat = 0.5 * np.array([[1, -1, -1, -1], [1, 1, 1, -1], [1, -1, 1, 1], [1, 1, -1, 1]])
         ref_qpos[:, 3:7] = self.rotvec2quat(rotvec_all[:, 0]) @ mat
         for joint_id in range(1, 52):
             joint_qposadr = \
-                self.mujoco_model.joint(self.mujoco_model.body(SMPLH_JOINT_NAMES[joint_id]).jntadr[0]).qposadr[0]
+                self.model.joint(self.model.body(SMPLH_JOINT_NAMES[joint_id]).jntadr[0]).qposadr[0]
             ref_qpos[:, joint_qposadr:joint_qposadr + 4] = self.rotvec2quat(rotvec_all[:, joint_id])
 
         return ref_qpos

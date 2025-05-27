@@ -1,5 +1,6 @@
 from collections import defaultdict
 from copy import deepcopy
+import os
 
 import mujoco
 import mujoco.viewer
@@ -14,6 +15,8 @@ from humanoid_retargeting.utils.rot import euler2quat
 
 
 def get_whole_height(generator, foot_params, neck_params, body_rotate_dict=None):
+    if not (foot_params.is_valid() and neck_params.is_valid()):
+        return None
     generator.build()
     model = mujoco.MjModel.from_xml_string(generator.mjcf_str)
     data = mujoco.MjData(model)
@@ -73,7 +76,10 @@ class Aligner:
             foot_params=self.retarget_params.robot_foot,
             neck_params=self.retarget_params.robot_neck,
         )
-        return float(robot_height / human_height)
+        if human_height is not None and robot_height is not None:
+            return float(robot_height / human_height)
+        else:
+            return 1
 
     @property
     def params_dir(self) -> str:
@@ -148,6 +154,9 @@ class Aligner:
         )
 
     def get_tracker_offset(self):
+        if self._cali_qpos is None:
+            self.load_cali_qpos()
+
         qpos_list = defaultdict(list)
 
         for group_name, group_value in self.retarget_params.tracker_dict.items():
