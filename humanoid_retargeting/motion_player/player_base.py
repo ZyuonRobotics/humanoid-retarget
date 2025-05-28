@@ -26,6 +26,8 @@ class MotionPlayerBase(ABC):
 
     def __init__(self, source_file_path, global_body_ratio=1.0, relative_body_ratio_dict=None, view=True):
         self.source_file_path = source_file_path
+        self.global_body_ratio = global_body_ratio
+        self.relative_body_ratio_dict = relative_body_ratio_dict
         self.view = view
 
         self.generator = self.generator_class(
@@ -53,6 +55,7 @@ class MotionPlayerBase(ABC):
     def ref_qpos(self):
         if self._ref_qpos is None:
             self.load_motion_file()
+            self._ref_qpos[:, :3] *= self.global_body_ratio
         return self._ref_qpos
 
     @property
