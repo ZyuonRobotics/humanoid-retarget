@@ -24,16 +24,22 @@ class Retargeter:
             generator_type,
             params_name,
             view=True,
+            solver="daqp",
             init_frame_loop_num=100,
             mink_solver_dumping=0.1,
+            max_velocities = None,
+            avoid_ground_collision=False
     ):
         self.source_file_path = source_file_path
         self.robot_name = robot_name
         self.generator_type = generator_type
         self.params_name = params_name
         self.view = view
+        self.solver = solver
         self.init_frame_loop_num = init_frame_loop_num
         self.mink_solver_dumping = mink_solver_dumping
+        self.max_velocities = max_velocities
+        self.avoid_ground_collision = avoid_ground_collision
 
         self.aligner = Aligner(
             source_file_path=source_file_path,
@@ -65,6 +71,8 @@ class Retargeter:
         self.generator = MJCFGeneratorComposite([self.human_generator, self.robot_generator])
         self.generator.build()
 
+        # TODO: optimize generator build logics
+        self.robot_generator.build()
         self.robot_model = mujoco.MjModel.from_xml_string(self.robot_generator.mjcf_str)
         self.robot_data = mujoco.MjData(self.robot_model)
         self.mink_config = mink.Configuration(self.robot_model)
@@ -77,6 +85,11 @@ class Retargeter:
         self.posture_task = None
         self.frame_tasks = None
         self.build_mink_tasks()
+
+        self.collision_avoidance_limit = None
+        self.configuration_limit = None
+        self.velocity_limit = None
+        self.build_mink_limits()
 
         self.robot_ref_qpos = np.zeros([self.frame_num, self.robot_model.nq])
         self.robot_ref_qvel = np.zeros([self.frame_num, self.robot_model.nv])
@@ -93,6 +106,11 @@ class Retargeter:
         return [self.posture_task] + self.frame_tasks
 
     @property
+    def all_limits(self):
+        limits = [self.configuration_limit, self.velocity_limit, self.collision_avoidance_limit]
+        return list(filter(lambda l: l is not None, limits))
+
+    @property
     def human_trackers(self):
         return [s for group_value in self.retarget_params.tracker_dict.values() for s in group_value.human]
 
@@ -103,6 +121,23 @@ class Retargeter:
     @property
     def frame_rate(self):
         return self.player.frame_rate
+
+    def build_mink_limits(self):
+        self.configuration_limit = mink.ConfigurationLimit(model=self.robot_model)
+        if self.avoid_ground_collision:
+            self.collision_avoidance_limit = mink.CollisionAvoidanceLimit(
+                model=self.robot_model,
+                geom_pairs=[(["floor"], self.robot_generator.all_collision_names)]
+            )
+        if self.max_velocities is not None:
+            if isinstance(self.max_velocities, int) or isinstance(self.max_velocities, float):
+                max_velocities = np.full(self.model.nv - 7, self.max_velocities, dtype=np.float32)
+            elif isinstance(self.max_velocities, list) or isinstance(self.max_velocities, np.ndarray):
+                assert len(self.max_velocities) == self.model.nn - 7
+                max_velocities = np.array(self.max_velocities)
+            else:
+                raise NotImplemented
+            self.velocity_limit = mink.VelocityLimit(self.model, max_velocities)
 
     def build_mink_tasks(self):
         self.posture_task = mink.PostureTask(self.robot_model, cost=200.0)
@@ -133,8 +168,9 @@ class Retargeter:
                 vel = mink.solve_ik(
                     configuration=self.mink_config,
                     tasks=self.all_tasks,
+                    limits=self.all_limits,
                     dt=1. / self.frame_rate,
-                    solver="daqp",
+                    solver=self.solver,
                     damping=self.mink_solver_dumping
                 )
                 self.mink_config.integrate_inplace(vel, 1. / self.frame_rate)
@@ -220,7 +256,7 @@ if __name__ == '__main__':
     import os
     from humanoid_retargeting import AMASS_DATA_PATH
 
-    AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "ACCAD", 'Female1General_c3d', "A11_-_crawl_forward_stageii.npz")
+    AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "ACCAD", 'Female1Walking_c3d', "B2_-_walk_to_stand_stageii.npz")
 
     retargeter = Retargeter(
         source_file_path=AMASS_FILE_PATH,
