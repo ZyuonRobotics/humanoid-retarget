@@ -2,10 +2,10 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 from humanoid_retargeting.mjcf_generator.smpl2mjcf_generator import SMPL2MJCFGenerator, SMPLH_JOINT_NAMES
-from humanoid_retargeting.motion_player.player_base import MotionPlayerBase
+from humanoid_retargeting.motion_player.humanoid_player_base import HumanoidMotionPlayerBase
 
 
-class AMASSPlayer(MotionPlayerBase):
+class AMASSPlayer(HumanoidMotionPlayerBase):
     generator_class = SMPL2MJCFGenerator
 
     def __init__(self, source_file_path, view=True, global_body_ratio=1.0, relative_body_ratio_dict=None):
@@ -67,3 +67,5 @@ if __name__ == '__main__':
 
     player = AMASSPlayer(source_file_path=AMASS_FILE_PATH)
     player.render()
+    player.close()
+

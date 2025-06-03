@@ -1,40 +1,23 @@
 import time
 from abc import ABC, abstractmethod
 
-import matplotlib.pyplot as plt
 import mujoco
 import mujoco.viewer
-import numpy as np
-from scipy.signal import butter, filtfilt
 from scipy.spatial.transform import Rotation
+from hurodes.mjcf_generator.generator_base import MJCFGeneratorBase
 
-from humanoid_retargeting.mjcf_generator.retargeting_generator_base import RetargetingMJCFGeneratorBase
-
-
-def plot_data(array, dim_label=None, view=True):
-    if dim_label is None:
-        dim_label = [f"dim{i}" for i in range(array.shape[1])]
-    for i, label in zip(range(array.shape[1]), dim_label):
-        plt.plot(array[:, i], label=label)
-    plt.legend()
-    if view:
-        plt.show()
+from humanoid_retargeting.utils.plot import plot2d
 
 
 class MotionPlayerBase(ABC):
-    generator_class = RetargetingMJCFGeneratorBase
+    generator_class = MJCFGeneratorBase
 
-    def __init__(self, source_file_path, global_body_ratio=1.0, relative_body_ratio_dict=None, view=True):
+    def __init__(self, source_file_path, view=True):
         self.source_file_path = source_file_path
-        self.global_body_ratio = global_body_ratio
-        self.relative_body_ratio_dict = relative_body_ratio_dict
         self.view = view
 
-        self.generator = self.generator_class(
-            source_file_path=source_file_path,
-            global_body_ratio=global_body_ratio,
-            relative_body_ratio_dict=relative_body_ratio_dict
-        )
+        self.generator:MJCFGeneratorBase = None
+        self.create_generator()
         self.generator.build()
 
         self.model = mujoco.MjModel.from_xml_string(self.generator.mjcf_str)
@@ -44,6 +27,10 @@ class MotionPlayerBase(ABC):
         self._viewer = None
         self._frame_rate = None
         self._ref_qpos = None
+
+    @abstractmethod
+    def create_generator(self):
+        raise NotImplementedError()
 
     @property
     def viewer(self):
@@ -55,7 +42,6 @@ class MotionPlayerBase(ABC):
     def ref_qpos(self):
         if self._ref_qpos is None:
             self.load_motion_file()
-            self._ref_qpos[:, :3] *= self.global_body_ratio
         return self._ref_qpos
 
     @property
@@ -95,49 +81,23 @@ class MotionPlayerBase(ABC):
         self.close()
 
     def plot_ref_baselink_cartesian(self):
-        plot_data(self.ref_qpos[:, :3], ["x", "y", "z"], view=self.view)
+        plot2d(self.ref_qpos[:, :3], ["x", "y", "z"], view=self.view)
 
     def plot_ref_baselink_quaternion(self):
-        plot_data(self.ref_qpos[:, 3:7], ["w", "x", "y", "z"], view=self.view)
+        plot2d(self.ref_qpos[:, 3:7], ["w", "x", "y", "z"], view=self.view)
 
     def plot_ref_baselink_euler(self):
         euler_pos = Rotation.from_quat(self.ref_qpos[:, [4, 5, 6, 3]]).as_euler("xyz")
-        plot_data(euler_pos, ["roll", "pitch", "yaw"], view=self.view)
+        plot2d(euler_pos, ["roll", "pitch", "yaw"], view=self.view)
 
     def plot_ref_joint_quaternion(self, joint_idx=0):
         assert joint_idx + 1 < self.model.njnt, "Invalid joint index"
         assert self.model.joint(joint_idx + 1).type[0] == 1, f"Joint type of {joint_idx} is not ball"
-        plot_data(
+        plot2d(
             array=self.ref_qpos[:, 7 + joint_idx * 4: 7 + (joint_idx + 1) * 4],
             dim_label=["w", "x", "y", "z"],
             view=self.view
         )
-
-    def lowpass(self, data, cutoff=20, order=2):
-        nyq = 0.5 * self.frame_rate
-        normal_cutoff = cutoff / nyq
-        b, a = butter(order, normal_cutoff, btype='low', analog=False)
-        filtered = np.zeros_like(data)
-        for i in range(data.shape[1]):
-            filtered[:, i] = filtfilt(b, a, data[:, i])
-        return filtered
-
-    def lowpass_quaternion(self, quat, cutoff=20, order=2):
-        rotvec = Rotation.from_quat(quat[:, [1, 2, 3, 0]]).as_rotvec()
-        lowpass_filter_rotvec = self.lowpass(rotvec, cutoff, order)
-        filtered_quat = Rotation.from_rotvec(lowpass_filter_rotvec).as_quat()[:, [3, 0, 1, 2]]
-        return filtered_quat
-
-    def lowpass_all_qpos(self, cutoff=20, order=2):
-        for joint_idx in range(self.model.njnt):
-            if joint_idx == 0:
-                assert self.model.joint(0).type[0] == 0, "Root joint should be free"
-                self._ref_qpos[:, :3] = self.lowpass(self.ref_qpos[:, :3], cutoff, order)
-            else:
-                assert self.model.joint(joint_idx).type[0] == 1, f"Joint type of {joint_idx} is not ball"
-            quat = self.ref_qpos[:, 3 + joint_idx * 4: 3 + (joint_idx + 1) * 4]
-            res_quat = self.lowpass_quaternion(quat, cutoff, order)
-            self._ref_qpos[:, 3 + joint_idx * 4: 3 + (joint_idx + 1) * 4] = res_quat
 
     def close(self):
         if self.view:

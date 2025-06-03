@@ -7,7 +7,7 @@ from scipy.spatial.transform import Rotation
 
 from humanoid_retargeting import BVH_DATA_PATH
 from humanoid_retargeting.mjcf_generator.bvh2mjcf_generator import BVH2MJCFGenerator
-from humanoid_retargeting.motion_player.player_base import MotionPlayerBase
+from humanoid_retargeting.motion_player.humanoid_player_base import HumanoidMotionPlayerBase
 
 CC3PLUS_CALI_QUAT = [
     [1., 0.1, 0., 0.],
@@ -169,7 +169,7 @@ TRACKER_DICT = {
 }
 
 
-class BVHPlayer(MotionPlayerBase):
+class BVHPlayer(HumanoidMotionPlayerBase):
     generator_class = BVH2MJCFGenerator
 
     def __init__(
@@ -272,3 +272,4 @@ if __name__ == '__main__':
 
     player = BVHPlayer(source_file_path=BVH_FILE_PATH)
     player.render()
+    player.close()
