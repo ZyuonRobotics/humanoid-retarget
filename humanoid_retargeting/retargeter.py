@@ -11,7 +11,7 @@ from tqdm import tqdm
 from hurodes import ROBOTS_PATH
 from hurodes.mjcf_generator.generator_base import MJCFGeneratorComposite
 
-from humanoid_retargeting.motion_player import player_class
+from humanoid_retargeting.motion_player import PLAYERS_CLASS
 from humanoid_retargeting.mjcf_generator import generator_class
 from humanoid_retargeting.aligner import Aligner
 from humanoid_retargeting.mjcf_generator.tracker_generator import TrackerMJCFGenerator
@@ -52,7 +52,7 @@ class Retargeter:
         self.global_body_ratio = self.aligner.get_global_body_ratio()
         self.retarget_params = self.aligner.retarget_params
 
-        self.player = player_class[generator_type](
+        self.player = PLAYERS_CLASS[generator_type](
             source_file_path=source_file_path,
             global_body_ratio=self.global_body_ratio * np.array(self.retarget_params.extra_body_ratio),
             relative_body_ratio_dict=self.retarget_params.relative_body_ratio_dict,
@@ -248,7 +248,8 @@ class Retargeter:
 
 
     def close(self):
-        if self.viewer is not None:
+        if self.view:
+            assert self.viewer is not None
             self.viewer.close()
 
 

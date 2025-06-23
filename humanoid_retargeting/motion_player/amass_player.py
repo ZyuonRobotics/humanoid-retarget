@@ -7,6 +7,7 @@ from humanoid_retargeting.motion_player.humanoid_player_base import HumanoidMoti
 
 class AMASSPlayer(HumanoidMotionPlayerBase):
     generator_class = SMPL2MJCFGenerator
+    file_suffix = "npz"
 
     def __init__(self, source_file_path, view=True, global_body_ratio=1.0, relative_body_ratio_dict=None):
         super().__init__(

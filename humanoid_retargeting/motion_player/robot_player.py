@@ -10,6 +10,7 @@ from humanoid_retargeting.utils.lowpass import filter_lowpass2d, filter_lowpass_
 
 class RobotMotionPlayer(MotionPlayerBase):
     generator_class = UnifiedMJCFGenerator
+    file_suffix = "npy"
 
     def __init__(self, source_file_path, robot_name, view=True):
         self.robot_name = robot_name

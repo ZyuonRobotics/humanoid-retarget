@@ -11,6 +11,7 @@ from humanoid_retargeting.utils.plot import plot2d
 
 class MotionPlayerBase(ABC):
     generator_class = MJCFGeneratorBase
+    file_suffix = ""
 
     def __init__(self, source_file_path, view=True):
         self.source_file_path = source_file_path

@@ -171,6 +171,7 @@ TRACKER_DICT = {
 
 class BVHPlayer(HumanoidMotionPlayerBase):
     generator_class = BVH2MJCFGenerator
+    file_suffix = "bvh"
 
     def __init__(
             self,

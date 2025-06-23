@@ -58,7 +58,13 @@ class Aligner:
         self.generator = MJCFGeneratorComposite([self.human_generator, self.robot_generator])
         self.generator.build()
 
-        self.model = mujoco.MjModel.from_xml_string(self.generator.mjcf_str)
+        try:
+            self.model = mujoco.MjModel.from_xml_string(self.generator.mjcf_str)
+        except ValueError:
+            with open("tmp.xml", "w") as f:
+                f.write(self.generator.mjcf_str)
+            print("wrong xml")
+            exit()
         self.data = mujoco.MjData(self.model)
 
         self._viewer = None
