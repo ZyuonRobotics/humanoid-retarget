@@ -1,4 +1,4 @@
-# File: utils/bvh_offset_rotate.py
+# File: utils/bvh_calibration.py
 
 import os
 from pathlib import Path

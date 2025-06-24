@@ -175,23 +175,7 @@ class Aligner:
 
 
 if __name__ == '__main__':
-    # import os
-    # from humanoid_retargeting import AMASS_DATA_PATH
-
-    # AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "ACCAD", 'Female1General_c3d', "A1_-_Stand_stageii.npz")
-
-    # aligner = Aligner(source_file_path=AMASS_FILE_PATH, generator_type="smpl",
-    #                   robot_name="kuavo_s45", params_name="try")
-    
-    # aligner.load_cali_qpos()
-
-    # aligner.get_tracker_offset()
-
-    # aligner.render()
-    # aligner.save_retarget_params("try")
-    
     import os
-    from pathlib import Path
     from humanoid_retargeting import BVH_DATA_PATH
 
     BVH_FILE_PATH = os.path.join(BVH_DATA_PATH, "Reallusion", "myData", 'BJJ_General_02_calibrated.bvh')
