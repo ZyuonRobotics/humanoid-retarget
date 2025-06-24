@@ -10,7 +10,7 @@ from humanoid_retargeting.motion_player.player_base import MotionPlayerBase
 
 class RobotMotionPlayer(MotionPlayerBase):
     generator_class = UnifiedMJCFGenerator
-    file_suffix = "npy"
+    file_suffix = "npz"
 
     def __init__(self, source_file_path, robot_name, view=True):
         self.robot_name = robot_name
@@ -22,7 +22,7 @@ class RobotMotionPlayer(MotionPlayerBase):
         self.generator = self.generator_class(os.path.join(ROBOTS_PATH, self.robot_name), disable_gravity=True)
 
     def load_motion_file(self):
-        motion_dict = np.load(self.source_file_path, allow_pickle=True).item()
+        motion_dict = np.load(self.source_file_path)
 
         self._frame_rate = motion_dict["frame_rate"]
         self._ref_qpos = np.concatenate([
@@ -107,7 +107,10 @@ class RobotSinePlayer(RobotMotionPlayer):
         plt.show()
 
 if __name__ == '__main__':
-    player = RobotSinePlayer(robot_name="unitree_g1")
+    player = RobotMotionPlayer(
+        robot_name="kuavo_s45",
+        source_file_path="/home/frank/Projects/humanoid-retargeting/humanoid_retargeting/taichi.npz"
+    )
     player.render()
     player.close()
 

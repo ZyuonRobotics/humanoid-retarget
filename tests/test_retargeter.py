@@ -15,5 +15,5 @@ def test_retargeter():
         view=False
     )
     retargeter.run_ik()
-    retargeter.save_as_npy("test.npy", target_framerate=100)
+    retargeter.save_as_npz("test.npy", target_framerate=100)
     retargeter.save_as_csv("test.csv", target_framerate=100)
