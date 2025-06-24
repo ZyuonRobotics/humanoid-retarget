@@ -13,7 +13,7 @@ setup(
         "mink",
     ],
     extras_require={
-        'all': [
+        'gui': [
             'dearpygui',
         ]
     },

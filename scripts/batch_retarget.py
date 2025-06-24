@@ -7,18 +7,18 @@ from humanoid_retargeting.retargeter import Retargeter
 from humanoid_retargeting.motion_player import PLAYER_FILE_SUFFIXES
 
 
-def process_file(file_path, output_path, robot_name, generator_type, params_name, target_fps):
-    click.echo(f"Processing {file_path}")
+def process_file(source_file_path, target_file_path, robot_name, generator_type, params_name, target_fps):
+    click.echo(f"Processing {source_file_path}")
     retargeter = Retargeter(
-        source_file_path=str(file_path),
+        source_file_path=str(source_file_path),
         robot_name=robot_name,
         generator_type=generator_type,
         params_name=params_name,
         view=False
     )
     retargeter.run_ik()
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    retargeter.save_as_npy(str(output_path), target_framerate=target_fps)
+    target_file_path.parent.mkdir(parents=True, exist_ok=True)
+    retargeter.save_as_npy(str(target_file_path), target_framerate=target_fps)
 
 
 @click.command()
@@ -39,8 +39,8 @@ def process_file(file_path, output_path, robot_name, generator_type, params_name
               help='Skip files whose names contain any of these keywords. Can be used multiple times.')
 @click.option('--num-processes', type=int, default=1,
               help='Number of processes to use. Set to 1 to disable multiprocessing.')
-def batch_retarget(source_path, target_path, robot_name, generator_type, params_name, target_fps, overwrite,
-                   pos_filter, neg_filter, num_processes):
+def main(source_path, target_path, robot_name, generator_type, params_name, target_fps, overwrite,
+         pos_filter, neg_filter, num_processes):
     """
     Batch process motion files in the specified folder using Retargeter,
     convert to .npy format and save in a separate target folder with preserved directory structure.
@@ -55,9 +55,9 @@ def batch_retarget(source_path, target_path, robot_name, generator_type, params_
     suffix = PLAYER_FILE_SUFFIXES[generator_type]
 
     source_path = Path(source_path)
-    motion_files = list(source_path.rglob(f"*{suffix}"))
+    source_motion_files = list(source_path.rglob(f"*{suffix}"))
 
-    if not motion_files:
+    if not source_motion_files:
         click.echo(f"No motion files found with suffix '{suffix}' in {source_path}.")
         return
 
@@ -66,20 +66,20 @@ def batch_retarget(source_path, target_path, robot_name, generator_type, params_
     target_path.mkdir(parents=True, exist_ok=True)
 
     # Filter files based on pos_filter and neg_filter
-    filtered_files = []
-    target_files = []
-    for file_path in motion_files:
+    filtered_motion_files = []
+    target_motion_files = []
+    for file_path in source_motion_files:
         if pos_filter and not any(kw.lower() in file_path.name.lower() for kw in pos_filter):
             continue
         if neg_filter and any(kw.lower() in file_path.name.lower() for kw in neg_filter):
             continue
-        target_file = target_path / file_path.relative_to(source_path).with_suffix(".npy")
-        if not overwrite and target_file.exists():
+        target_path = target_path / file_path.relative_to(source_path).with_suffix(".npy")
+        if not overwrite and target_path.exists():
             continue
-        filtered_files.append(file_path)
-        target_files.append(target_file)
+        filtered_motion_files.append(file_path)
+        target_motion_files.append(target_path)
 
-    if not filtered_files:
+    if not filtered_motion_files:
         click.echo("No files matched the filters.")
         return
 
@@ -91,12 +91,12 @@ def batch_retarget(source_path, target_path, robot_name, generator_type, params_
     # Use multiprocessing only if num_processes > 1
     if num_processes > 1:
         with Pool(processes=num_processes) as pool:
-            pool.starmap(func, zip(filtered_files, target_files))
+            pool.starmap(func, zip(filtered_motion_files, target_motion_files))
     else:
         # Single process mode
-        for file, out_path in zip(filtered_files, target_files):
-            func(file, out_path)
+        for source_path, target_path in zip(filtered_motion_files, target_motion_files):
+            func(source_path, target_path)
 
 
 if __name__ == '__main__':
-    batch_retarget()
+    main()
