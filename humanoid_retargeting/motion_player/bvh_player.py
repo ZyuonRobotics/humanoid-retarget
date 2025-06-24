@@ -264,6 +264,17 @@ class BVHPlayer(HumanoidMotionPlayerBase):
                 qpos_list[group_name].append(qpos)
 
         return qpos_list
+    
+    def render_first_frame(self):
+        self.load_motion_file()  # 加载 BVH 动作数据（第一帧包含在其中）
+
+        self.data.qpos[:] = self._ref_qpos[0]  # 只取第 0 帧
+        self.data.qvel[:] = 0
+        mujoco.mj_forward(self.model, self.data)
+
+        # with mujoco.viewer.launch_passive(self.model, self.data) as viewer:
+        #     while viewer.is_running():
+        #         viewer.sync()
 
 
 if __name__ == '__main__':

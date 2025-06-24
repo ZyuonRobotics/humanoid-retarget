@@ -176,12 +176,13 @@ class Aligner:
 
 if __name__ == '__main__':
     import os
-    from humanoid_retargeting import AMASS_DATA_PATH
+    from humanoid_retargeting import BVH_DATA_PATH
 
-    AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "ACCAD", 'Female1General_c3d', "A1_-_Stand_stageii.npz")
+    BVH_FILE_PATH = os.path.join(BVH_DATA_PATH, "Reallusion", "myData", 'BJJ_General_02_calibrated.bvh')
 
-    aligner = Aligner(source_file_path=AMASS_FILE_PATH, generator_type="smpl",
+    aligner = Aligner(source_file_path=BVH_FILE_PATH, generator_type="bvh",
                       robot_name="kuavo_s45", params_name="try")
+    
     aligner.load_cali_qpos()
 
     aligner.get_tracker_offset()
