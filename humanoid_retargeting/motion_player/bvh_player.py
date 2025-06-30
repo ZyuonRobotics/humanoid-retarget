@@ -272,15 +272,10 @@ class BVHPlayer(HumanoidMotionPlayerBase):
         self.data.qvel[:] = 0
         mujoco.mj_forward(self.model, self.data)
 
-        # with mujoco.viewer.launch_passive(self.model, self.data) as viewer:
-        #     while viewer.is_running():
-        #         viewer.sync()
-
-
 if __name__ == '__main__':
     import os
 
-    BVH_FILE_PATH = os.path.join(BVH_DATA_PATH, "Reallusion", "Martial Arts - Taichi", '1_Skill.bvh')
+    BVH_FILE_PATH = os.path.join(BVH_DATA_PATH, "Reallusion", "Folk Artistry - Ba Jia Jiang", 'test.bvh')
 
     player = BVHPlayer(source_file_path=BVH_FILE_PATH)
     player.render()

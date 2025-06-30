@@ -254,21 +254,41 @@ class Retargeter:
 
 
 if __name__ == '__main__':
+    # import os
+    # from humanoid_retargeting import AMASS_DATA_PATH
+
+    # AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "ACCAD", 'Female1Walking_c3d', "B2_-_walk_to_stand_stageii.npz")
+
+    # retargeter = Retargeter(
+    #     source_file_path=AMASS_FILE_PATH,
+    #     robot_name="kuavo_s45",
+    #     generator_type="smpl",
+    #     params_name="try",
+    #     view=True
+    # )
+    # retargeter.run_ik()
+    # retargeter.save_as_npy("taichi.npy", target_framerate=100)
+    # retargeter.save_as_csv("taichi.csv", target_framerate=100)
+
+    # retargeter.play(speed=1., offset=np.array([0., 1., 0.]))
+    # retargeter.close()
+
     import os
-    from humanoid_retargeting import AMASS_DATA_PATH
-
-    AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "ACCAD", 'Female1Walking_c3d', "B2_-_walk_to_stand_stageii.npz")
-
+    from humanoid_retargeting import BVH_DATA_PATH
+    
+    BVH_FILE_PATH = os.path.join(
+        BVH_DATA_PATH,
+        "Reallusion", "Folk Artistry - Ba Jia Jiang",
+        "test.bvh"  
+    )
     retargeter = Retargeter(
-        source_file_path=AMASS_FILE_PATH,
-        robot_name="kuavo_s45",
-        generator_type="smpl",
+        source_file_path=BVH_FILE_PATH,
+        robot_name="unitree_g1",
+        generator_type="bvh",  
         params_name="try",
         view=True
     )
     retargeter.run_ik()
-    retargeter.save_as_npy("taichi.npy", target_framerate=100)
-    retargeter.save_as_csv("taichi.csv", target_framerate=100)
-
-    retargeter.play(speed=1., offset=np.array([0., 1., 0.]))
+    
+    retargeter.play(speed=1.0, offset=np.array([0.0, 1.5, 0.0]))
     retargeter.close()
