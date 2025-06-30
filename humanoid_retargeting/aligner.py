@@ -25,12 +25,13 @@ def get_whole_height(generator, foot_params, neck_params, body_rotate_dict=None)
     if body_rotate_dict is not None:
         for key, value in body_rotate_dict.items():
             data.joint(model.body(key).jntadr[0]).qpos[0:4] = euler2quat(*value)
-
+    
     left_foot_pos = data.body(foot_params.left_name).xpos
     right_foot_pos = data.body(foot_params.right_name).xpos
-    foot_pos_z = (left_foot_pos[2] + right_foot_pos[2]) / 2 + foot_params.offset
-    neck_pos_z = data.body(neck_params.name).xpos[2] + neck_params.offset
-    return neck_pos_z - foot_pos_z
+    bottom_pos = (left_foot_pos + right_foot_pos) / 2
+    neck_pos = data.body(neck_params.name).xpos
+    bottom_to_neck_distance = np.linalg.norm(neck_pos - bottom_pos)
+    return bottom_to_neck_distance + neck_params.offset - foot_params.offset
 
 
 class Aligner:
@@ -52,7 +53,7 @@ class Aligner:
         self.human_generator = generator_class[self.generator_type](
             source_file_path=source_file_path,
             global_body_ratio=self.global_body_ratio * np.array(self.retarget_params.extra_body_ratio),
-            relative_body_ratio_dict=self.retarget_params.relative_body_ratio_dict,
+            relative_body_ratio_dict=self.retarget_params.relative_body_ratio_dict
         )
         self.robot_generator = UnifiedMJCFGenerator(os.path.join(ROBOTS_PATH, robot_name))
         self.generator = MJCFGeneratorComposite([self.human_generator, self.robot_generator])
@@ -123,9 +124,16 @@ class Aligner:
 
             if target == "human":
                 joint.qpos[:2] = [self.retarget_params.base_x_shift, self.retarget_params.base_y_shift]
+                
+                #  rotate according to 'base_rotation'
+                if hasattr(self.retarget_params, "base_rotation"):
+                    base_rot = self.retarget_params.base_rotation
+                    base_quat = euler2quat(*base_rot)
+                    joint.qpos[3:7] = base_quat
             else:
                 joint.qpos[:2] = 0
 
+            mujoco.mj_forward(self.model, self.data)
             foot_params: FootParams = getattr(self.retarget_params, f"{target}_foot")
 
             if foot_params.is_valid():
@@ -178,10 +186,10 @@ if __name__ == '__main__':
     import os
     from humanoid_retargeting import BVH_DATA_PATH
 
-    BVH_FILE_PATH = os.path.join(BVH_DATA_PATH, "Reallusion", "myData", 'BJJ_General_02_calibrated.bvh')
+    BVH_FILE_PATH = os.path.join(BVH_DATA_PATH, "Reallusion", "Folk Artistry - Ba Jia Jiang", 'test.bvh')
 
     aligner = Aligner(source_file_path=BVH_FILE_PATH, generator_type="bvh",
-                      robot_name="kuavo_s45", params_name="try")
+                      robot_name="unitree_g1", params_name="try")
     
     aligner.load_cali_qpos()
 
