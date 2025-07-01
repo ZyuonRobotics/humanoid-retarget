@@ -5,7 +5,7 @@ Retargeting motion from human to humanoid robots.
 ```bash
 conda create -n humanoid-retargeting python=3.10
 conda activate humanoid-retargeting
-pip install -e ../humanoid-robot-description
+pip install git+https://github.com/ZyuonRobotics/humanoid-robot-description
 pip install -e .
 ```
 ## Usage
