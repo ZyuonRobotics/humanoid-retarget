@@ -38,13 +38,14 @@ class TrackerConfig:
 class RetargetParams:
     robot_foot: FootParams = field(default_factory=FootParams)
     human_foot: FootParams = field(default_factory=FootParams)
-    robot_hip: HipParams = field(default_factory=HipParams)
-    human_hip: HipParams = field(default_factory=HipParams)
     base_x_shift: float = 0.0
     base_y_shift: float = 0.0
+
     base_rotation: List[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
     body_rotate_dict: Dict[str, list] = field(default_factory=dict)
 
+    robot_hip: HipParams = field(default_factory=HipParams)
+    human_hip: HipParams = field(default_factory=HipParams)
     extra_body_ratio: Union[float, List[float]] = field(default_factory=lambda: [1.0, 1.0, 1.0]) 
     relative_body_ratio_dict: Dict[str, Union[float, List[float]]] = field(default_factory=dict)
 

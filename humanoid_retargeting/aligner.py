@@ -9,6 +9,7 @@ from hurodes import ROBOTS_PATH
 from hurodes.mjcf_generator.generator_base import MJCFGeneratorComposite
 from hurodes.mjcf_generator.unified_generator import UnifiedMJCFGenerator
 
+from humanoid_retargeting import PARAMETERS_PATH
 from humanoid_retargeting.mjcf_generator import generator_class
 from humanoid_retargeting.utils.retarget_params import RetargetParams, FootParams
 from humanoid_retargeting.utils.rot import euler2quat
@@ -88,7 +89,7 @@ class Aligner:
 
     @property
     def params_dir(self) -> str:
-        res = os.path.join(ROBOTS_PATH, self.robot_name, "retargeting", self.generator_type)
+        res = os.path.join(PARAMETERS_PATH, self.robot_name, self.generator_type)
         os.makedirs(res, exist_ok=True)
         return str(res)
 
