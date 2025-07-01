@@ -58,15 +58,3 @@ class AMASSPlayer(HumanoidMotionPlayerBase):
 
         self._frame_rate = self.get_frame_rate()
         self._ref_qpos = self.get_qpos()
-
-
-if __name__ == '__main__':
-    import os
-    from humanoid_retargeting import AMASS_DATA_PATH
-
-    AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "ACCAD", 'Female1General_c3d', "A11_-_crawl_forward_stageii.npz")
-
-    player = AMASSPlayer(source_file_path=AMASS_FILE_PATH)
-    player.render()
-    player.close()
-

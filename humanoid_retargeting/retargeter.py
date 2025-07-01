@@ -140,7 +140,7 @@ class Retargeter:
             self.velocity_limit = mink.VelocityLimit(self.model, max_velocities)
 
     def build_mink_tasks(self):
-        self.posture_task = mink.PostureTask(self.robot_model, cost=200.0)
+        self.posture_task = mink.PostureTask(self.robot_model, cost=self.retarget_params.damping_cost)
         self.frame_tasks = []
         for group_name, group_value in self.retarget_params.tracker_dict.items():
             for human_body_name, robot_body_name in zip(group_value.human, group_value.robot):
@@ -187,13 +187,10 @@ class Retargeter:
                 self.viewer.sync()
 
     def view_frame(self, frame_id=0, offset=None):
-        vec = offset if offset is not None else np.zeros(3)
-        res = np.zeros(3)
-        quat = self.player.ref_qpos[0, 3:7]
-        mujoco.mju_rotVecQuat(res, vec, quat)
+        offset = np.array(offset) if offset is not None else np.zeros(3)
         self.data.qpos[:self.player.model.nq] = self.player.ref_qpos[frame_id, :]
         self.data.qpos[-self.robot_model.nq:] = self.robot_ref_qpos[frame_id, :]
-        self.data.qpos[-self.robot_model.nq:-self.robot_model.nq + 2] += res[:2]
+        self.data.qpos[-self.robot_model.nq:-self.robot_model.nq + 2] += offset[:2]
         mujoco.mj_forward(self.model, self.data)
         self.viewer.sync()
 
@@ -251,44 +248,3 @@ class Retargeter:
         if self.view:
             assert self.viewer is not None
             self.viewer.close()
-
-
-if __name__ == '__main__':
-    # import os
-    # from humanoid_retargeting import AMASS_DATA_PATH
-
-    # AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "ACCAD", 'Female1Walking_c3d', "B2_-_walk_to_stand_stageii.npz")
-
-    # retargeter = Retargeter(
-    #     source_file_path=AMASS_FILE_PATH,
-    #     robot_name="kuavo_s45",
-    #     generator_type="smpl",
-    #     params_name="try",
-    #     view=True
-    # )
-    # retargeter.run_ik()
-    # retargeter.save_as_npy("taichi.npy", target_framerate=100)
-    # retargeter.save_as_csv("taichi.csv", target_framerate=100)
-
-    # retargeter.play(speed=1., offset=np.array([0., 1., 0.]))
-    # retargeter.close()
-
-    import os
-    from humanoid_retargeting import BVH_DATA_PATH
-    
-    BVH_FILE_PATH = os.path.join(
-        BVH_DATA_PATH,
-        "Reallusion", "Folk Artistry - Ba Jia Jiang",
-        "test.bvh"  
-    )
-    retargeter = Retargeter(
-        source_file_path=BVH_FILE_PATH,
-        robot_name="unitree_g1",
-        generator_type="bvh",  
-        params_name="try",
-        view=True
-    )
-    retargeter.run_ik()
-    
-    retargeter.play(speed=1.0, offset=np.array([0.0, 1.5, 0.0]))
-    retargeter.close()

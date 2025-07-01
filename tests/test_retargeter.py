@@ -11,7 +11,7 @@ def test_retargeter():
         source_file_path=AMASS_FILE_PATH,
         robot_name="kuavo_s45",
         generator_type="smpl",
-        params_name="try",
+        params_name="default",
         view=False
     )
     retargeter.run_ik()

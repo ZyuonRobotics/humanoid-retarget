@@ -86,15 +86,3 @@ class BVHPlayer(HumanoidMotionPlayerBase):
             qpos.append(quat)
 
         self._ref_qpos = np.concatenate(qpos, axis=1)
-
-
-
-if __name__ == '__main__':
-    import os
-    from humanoid_retargeting import BVH_DATA_PATH
-
-    BVH_FILE_PATH = os.path.join(BVH_DATA_PATH, "Reallusion", "Folk Artistry - Ba Jia Jiang", 'test.bvh')
-
-    player = BVHPlayer(source_file_path=BVH_FILE_PATH)
-    player.render()
-    player.close()
