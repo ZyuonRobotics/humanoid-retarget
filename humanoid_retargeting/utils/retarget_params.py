@@ -41,6 +41,7 @@ class RetargetParams:
     human_neck: NeckParams = field(default_factory=NeckParams)
     base_x_shift: float = 0.0
     base_y_shift: float = 0.0
+    base_rotation: List[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
     extra_body_ratio: Union[float, List[float]] = field(default_factory=lambda: [1.0, 1.0, 1.0]) 
     relative_body_ratio_dict: Dict[str, Union[float, List[float]]] = field(default_factory=dict)
     body_rotate_dict: Dict[str, list] = field(default_factory=dict)
