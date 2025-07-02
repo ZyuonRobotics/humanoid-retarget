@@ -9,13 +9,14 @@ from hurodes import ROBOTS_PATH
 from hurodes.mjcf_generator.generator_base import MJCFGeneratorComposite
 from hurodes.mjcf_generator.unified_generator import UnifiedMJCFGenerator
 
+from humanoid_retargeting import PARAMETERS_PATH
 from humanoid_retargeting.mjcf_generator import generator_class
 from humanoid_retargeting.utils.retarget_params import RetargetParams, FootParams
 from humanoid_retargeting.utils.rot import euler2quat
 
 
-def get_whole_height(generator, foot_params, neck_params, body_rotate_dict=None):
-    if not (foot_params.is_valid() and neck_params.is_valid()):
+def get_leg_length(generator, foot_params, hip_params, body_rotate_dict=None):
+    if not (foot_params.is_valid() and hip_params.is_valid()):
         return None
     generator.build()
     model = mujoco.MjModel.from_xml_string(generator.mjcf_str)
@@ -26,11 +27,10 @@ def get_whole_height(generator, foot_params, neck_params, body_rotate_dict=None)
         for key, value in body_rotate_dict.items():
             data.joint(model.body(key).jntadr[0]).qpos[0:4] = euler2quat(*value)
 
-    left_foot_pos = data.body(foot_params.left_name).xpos
-    right_foot_pos = data.body(foot_params.right_name).xpos
-    foot_pos_z = (left_foot_pos[2] + right_foot_pos[2]) / 2 + foot_params.offset
-    neck_pos_z = data.body(neck_params.name).xpos[2] + neck_params.offset
-    return neck_pos_z - foot_pos_z
+    foot_pos = (data.body(foot_params.left_name).xpos + data.body(foot_params.right_name).xpos) / 2
+    hip_pos = (data.body(hip_params.left_name).xpos + data.body(hip_params.right_name).xpos) / 2
+    length = np.linalg.norm(hip_pos - foot_pos) + hip_params.offset - foot_params.offset
+    return length
 
 
 class Aligner:
@@ -52,7 +52,7 @@ class Aligner:
         self.human_generator = generator_class[self.generator_type](
             source_file_path=source_file_path,
             global_body_ratio=self.global_body_ratio * np.array(self.retarget_params.extra_body_ratio),
-            relative_body_ratio_dict=self.retarget_params.relative_body_ratio_dict,
+            relative_body_ratio_dict=self.retarget_params.relative_body_ratio_dict
         )
         self.robot_generator = UnifiedMJCFGenerator(os.path.join(ROBOTS_PATH, robot_name))
         self.generator = MJCFGeneratorComposite([self.human_generator, self.robot_generator])
@@ -71,25 +71,25 @@ class Aligner:
         self._cali_qpos = None
 
     def get_global_body_ratio(self):
-        human_height = get_whole_height(
+        human_length = get_leg_length(
             generator=generator_class[self.generator_type](source_file_path=self.source_file_path),
             foot_params=self.retarget_params.human_foot,
-            neck_params=self.retarget_params.human_neck,
+            hip_params=self.retarget_params.human_hip,
             body_rotate_dict=self.retarget_params.body_rotate_dict
         )
-        robot_height = get_whole_height(
+        robot_length = get_leg_length(
             generator=UnifiedMJCFGenerator(os.path.join(ROBOTS_PATH, self.robot_name)),
             foot_params=self.retarget_params.robot_foot,
-            neck_params=self.retarget_params.robot_neck,
+            hip_params=self.retarget_params.robot_hip,
         )
-        if human_height is not None and robot_height is not None:
-            return float(robot_height / human_height)
+        if human_length is not None and robot_length is not None:
+            return float(robot_length / human_length)
         else:
             return 1
 
     @property
     def params_dir(self) -> str:
-        res = os.path.join(ROBOTS_PATH, self.robot_name, "retargeting", self.generator_type)
+        res = os.path.join(PARAMETERS_PATH, self.robot_name, self.generator_type)
         os.makedirs(res, exist_ok=True)
         return str(res)
 
@@ -123,9 +123,16 @@ class Aligner:
 
             if target == "human":
                 joint.qpos[:2] = [self.retarget_params.base_x_shift, self.retarget_params.base_y_shift]
+                
+                #  rotate according to 'base_rotation'
+                if hasattr(self.retarget_params, "base_rotation"):
+                    base_rot = self.retarget_params.base_rotation
+                    base_quat = euler2quat(*base_rot)
+                    joint.qpos[3:7] = base_quat
             else:
                 joint.qpos[:2] = 0
 
+            mujoco.mj_forward(self.model, self.data)
             foot_params: FootParams = getattr(self.retarget_params, f"{target}_foot")
 
             if foot_params.is_valid():
@@ -172,19 +179,3 @@ class Aligner:
                 qpos[3:] = self.data.body(human_tracker).xquat
                 qpos_list[group_name].append(qpos)
         return qpos_list
-
-
-if __name__ == '__main__':
-    import os
-    from humanoid_retargeting import AMASS_DATA_PATH
-
-    AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "ACCAD", 'Female1General_c3d', "A1_-_Stand_stageii.npz")
-
-    aligner = Aligner(source_file_path=AMASS_FILE_PATH, generator_type="smpl",
-                      robot_name="kuavo_s45", params_name="try")
-    aligner.load_cali_qpos()
-
-    aligner.get_tracker_offset()
-
-    aligner.render()
-    aligner.save_retarget_params("try")

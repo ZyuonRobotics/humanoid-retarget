@@ -15,13 +15,13 @@ def test_aligner_default_params():
 
 def test_aligner_load_params():
     aligner = Aligner(source_file_path=AMASS_FILE_PATH, generator_type="smpl",
-                      robot_name="kuavo_s45", view=False, params_name="try")
+                      robot_name="kuavo_s45", view=False, params_name="default")
     aligner.load_cali_qpos()
-    aligner.save_retarget_params("try")
+    aligner.save_retarget_params("default")
 
 
 def test_aligner_offset_qpos():
     aligner = Aligner(source_file_path=AMASS_FILE_PATH, generator_type="smpl",
-                      robot_name="kuavo_s45", view=False, params_name="try")
+                      robot_name="kuavo_s45", view=False, params_name="default")
     aligner.load_cali_qpos()
     aligner.get_tracker_offset()
