@@ -187,13 +187,10 @@ class Retargeter:
                 self.viewer.sync()
 
     def view_frame(self, frame_id=0, offset=None):
-        vec = offset if offset is not None else np.zeros(3)
-        res = np.zeros(3)
-        quat = self.player.ref_qpos[0, 3:7]
-        mujoco.mju_rotVecQuat(res, vec, quat)
+        offset = np.array(offset) if offset is not None else np.zeros(3)
         self.data.qpos[:self.player.model.nq] = self.player.ref_qpos[frame_id, :]
         self.data.qpos[-self.robot_model.nq:] = self.robot_ref_qpos[frame_id, :]
-        self.data.qpos[-self.robot_model.nq:-self.robot_model.nq + 2] += res[:2]
+        self.data.qpos[-self.robot_model.nq:-self.robot_model.nq + 2] += offset[:2]
         mujoco.mj_forward(self.model, self.data)
         self.viewer.sync()
 
@@ -208,20 +205,20 @@ class Retargeter:
         return res_qpos, res_qvel, new_frame_num
 
 
-    def save_as_npy(self, res_path, target_framerate=100):
+    def save_as_npz(self, res_path, target_framerate=100):
         res_qpos, res_qvel, frame_num = self.interpolate(target_framerate=target_framerate)
 
-        res_dict = {
-            "root_trans": res_qpos[:, :3],
-            "root_quat": res_qpos[:, [4, 5, 6, 3]],  # from w,x,y,z to x,y,z,w
-            "joint_pos": res_qpos[:, 7:],
-            "root_lin_vel": res_qvel[:, :3],
-            "root_ang_vel": res_qvel[:, 3:6],
-            "joint_vel": res_qvel[:, 6:],
-            "frame_rate": target_framerate,
-            "frames": frame_num
-        }
-        np.save(res_path, res_dict)
+        np.savez_compressed(
+            res_path,
+            root_trans=res_qpos[:, :3],
+            root_quat=res_qpos[:, [4, 5, 6, 3]],  # from w,x,y,z to x,y,z,w
+            joint_pos=res_qpos[:, 7:],
+            root_lin_vel=res_qvel[:, :3],
+            root_ang_vel=res_qvel[:, 3:6],
+            joint_vel=res_qvel[:, 6:],
+            frame_rate=target_framerate,
+            frame=frame_num
+        )
 
 
     def save_as_csv(self, res_path, target_framerate=100):
@@ -251,44 +248,3 @@ class Retargeter:
         if self.view:
             assert self.viewer is not None
             self.viewer.close()
-
-
-if __name__ == '__main__':
-    # import os
-    # from humanoid_retargeting import AMASS_DATA_PATH
-
-    # AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "ACCAD", 'Female1Walking_c3d', "B2_-_walk_to_stand_stageii.npz")
-
-    # retargeter = Retargeter(
-    #     source_file_path=AMASS_FILE_PATH,
-    #     robot_name="kuavo_s45",
-    #     generator_type="smpl",
-    #     params_name="try",
-    #     view=True
-    # )
-    # retargeter.run_ik()
-    # retargeter.save_as_npy("taichi.npy", target_framerate=100)
-    # retargeter.save_as_csv("taichi.csv", target_framerate=100)
-
-    # retargeter.play(speed=1., offset=np.array([0., 1., 0.]))
-    # retargeter.close()
-
-    import os
-    from humanoid_retargeting import BVH_DATA_PATH
-    
-    BVH_FILE_PATH = os.path.join(
-        BVH_DATA_PATH,
-        "Reallusion", "Folk Artistry - Ba Jia Jiang",
-        "test.bvh"  
-    )
-    retargeter = Retargeter(
-        source_file_path=BVH_FILE_PATH,
-        robot_name="unitree_g1",
-        generator_type="bvh",  
-        params_name="try",
-        view=True
-    )
-    retargeter.run_ik()
-    
-    retargeter.play(speed=1.0, offset=np.array([0.0, 1.5, 0.0]))
-    retargeter.close()

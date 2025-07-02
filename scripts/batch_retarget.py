@@ -18,7 +18,7 @@ def process_file(source_file_path, target_file_path, robot_name, generator_type,
     )
     retargeter.run_ik()
     target_file_path.parent.mkdir(parents=True, exist_ok=True)
-    retargeter.save_as_npy(str(target_file_path), target_framerate=target_fps)
+    retargeter.save_as_npz(str(target_file_path), target_framerate=target_fps)
 
 
 @click.command()
@@ -68,16 +68,16 @@ def main(source_path, target_path, robot_name, generator_type, params_name, targ
     # Filter files based on pos_filter and neg_filter
     filtered_motion_files = []
     target_motion_files = []
-    for file_path in source_motion_files:
-        if pos_filter and not any(kw.lower() in file_path.name.lower() for kw in pos_filter):
+    for source_file_path in source_motion_files:
+        if pos_filter and not any(kw.lower() in source_file_path.name.lower() for kw in pos_filter):
             continue
-        if neg_filter and any(kw.lower() in file_path.name.lower() for kw in neg_filter):
+        if neg_filter and any(kw.lower() in source_file_path.name.lower() for kw in neg_filter):
             continue
-        target_path = target_path / file_path.relative_to(source_path).with_suffix(".npy")
-        if not overwrite and target_path.exists():
+        target_file_path = target_path / source_file_path.relative_to(source_path).with_suffix(".npz") # save as .npz
+        if not overwrite and target_file_path.exists():
             continue
-        filtered_motion_files.append(file_path)
-        target_motion_files.append(target_path)
+        filtered_motion_files.append(source_file_path)
+        target_motion_files.append(target_file_path)
 
     if not filtered_motion_files:
         click.echo("No files matched the filters.")
