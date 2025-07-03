@@ -3,7 +3,7 @@ import os
 from humanoid_retargeting import AMASS_DATA_PATH
 from humanoid_retargeting.aligner import Aligner
 
-AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "ACCAD", 'Female1General_c3d', "A1_-_Stand_stageii.npz")
+AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "ACCAD", 'Female1Walking_c3d', "B1_-_stand_to_walk_stageii.npz")
 
 
 def test_aligner_default_params():

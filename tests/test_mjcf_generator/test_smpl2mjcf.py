@@ -3,14 +3,14 @@ import os
 import mujoco
 import mujoco.viewer
 from hurodes import ROBOTS_PATH
-from hurodes.mjcf_generator.generator_base import MJCFGeneratorComposite
+from hurodes.mjcf_generator.generator_composite import MJCFGeneratorComposite
 from hurodes.mjcf_generator.unified_generator import UnifiedMJCFGenerator
 
 from humanoid_retargeting import AMASS_DATA_PATH
 from humanoid_retargeting.mjcf_generator.constants import SMPLH_JOINT_NAMES
 from humanoid_retargeting.mjcf_generator.smpl2mjcf_generator import SMPL2MJCFGenerator
 
-AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "ACCAD", 'Female1General_c3d', "A1_-_Stand_stageii.npz")
+AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "ACCAD", 'Female1Walking_c3d', "B1_-_stand_to_walk_stageii.npz")
 ROBOT_EHDF_PATH = os.path.join(ROBOTS_PATH, "kuavo_s45")
 
 
@@ -18,8 +18,8 @@ def test_smpl2mjcf():
     generator = SMPL2MJCFGenerator(AMASS_FILE_PATH)
     generator.build()
 
-    m = mujoco.MjModel.from_xml_string(generator.mjcf_str)
-    d = mujoco.MjData(m)
+    m = mujoco.MjModel.from_xml_string(generator.mjcf_str) # type: ignore
+    d = mujoco.MjData(m) # type: ignore
 
 
 def test_body_ratio():
@@ -30,8 +30,8 @@ def test_body_ratio():
     })
     generator.build()
 
-    m = mujoco.MjModel.from_xml_string(generator.mjcf_str)
-    d = mujoco.MjData(m)
+    m = mujoco.MjModel.from_xml_string(generator.mjcf_str) # type: ignore
+    d = mujoco.MjData(m) # type: ignore
 
 
 def test_smpl2mjcf_composite():
@@ -40,5 +40,5 @@ def test_smpl2mjcf_composite():
     composite_generator = MJCFGeneratorComposite([smpl_generator, robot_generator])
     composite_generator.build()
 
-    m = mujoco.MjModel.from_xml_string(composite_generator.mjcf_str)
-    d = mujoco.MjData(m)
+    m = mujoco.MjModel.from_xml_string(composite_generator.mjcf_str) # type: ignore
+    d = mujoco.MjData(m) # type: ignore

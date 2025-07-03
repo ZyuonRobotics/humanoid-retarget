@@ -15,5 +15,10 @@ def test_plot():
 
 
 def test_lowpass_filter():
-    player = BVHPlayer(source_file_path=BVH_FILE_PATH)
+    player = BVHPlayer(source_file_path=BVH_FILE_PATH, view=False)
+    player.load_motion_file()
     player.lowpass_all_qpos()
+
+def test_frame_rate():
+    player = BVHPlayer(source_file_path=BVH_FILE_PATH, view=False)
+    assert isinstance(player.frame_rate, int)

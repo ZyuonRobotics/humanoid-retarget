@@ -5,7 +5,7 @@ from humanoid_retargeting.retargeter import Retargeter
 
 
 def test_retargeter():
-    AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "ACCAD", 'Female1General_c3d', "A11_-_crawl_forward_stageii.npz")
+    AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "ACCAD", 'Female1Walking_c3d', "B1_-_stand_to_walk_stageii.npz")
 
     retargeter = Retargeter(
         source_file_path=AMASS_FILE_PATH,
