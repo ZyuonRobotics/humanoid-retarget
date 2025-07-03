@@ -19,7 +19,7 @@ class RobotMotionPlayer(MotionPlayerBase):
 
 
     def create_generator(self):
-        self.generator = self.generator_class(os.path.join(ROBOTS_PATH, self.robot_name), disable_gravity=True)
+        self._generator = self.generator_class(os.path.join(ROBOTS_PATH, self.robot_name), disable_gravity=True)
 
     def load_motion_file(self):
         motion_dict = np.load(self.source_file_path)
@@ -48,12 +48,12 @@ class RobotSinePlayer(RobotMotionPlayer):
         self.stepping_period = stepping_period
         self.joint_pos_scale = joint_pos_scale
 
-        self.stance_mask = None
+        self.stance_mask: np.ndarray | None = None
 
     def load_motion_file(self):
         self._ref_qpos = np.zeros((self.max_steps, self.model.nq))
 
-        time_idx = np.linspace(0, self.max_steps, num=self.max_steps) / self._frame_rate
+        time_idx = np.linspace(0, self.max_steps, num=self.max_steps) / self.frame_rate
         sine = np.sin(time_idx / self.stepping_period * 2 * np.pi)
         sin_left = np.where(sine > -0.1, 0, sine)
         sin_right = np.where(sine < 0.1, 0, sine)
@@ -99,6 +99,7 @@ class RobotSinePlayer(RobotMotionPlayer):
             foot_height[frame_idx, 0] = self.data.xpos[self.model.body("leg_l5_link").id, 2]
             foot_height[frame_idx, 1] = self.data.xpos[self.model.body("leg_r5_link").id, 2]
 
+        assert self.stance_mask is not None, "Stance mask is not loaded"
         plt.plot(foot_height[:, 0], label="left")
         plt.plot(foot_height[:, 1], label="right")
         plt.plot(self.stance_mask[:, 0], label="left_mask")

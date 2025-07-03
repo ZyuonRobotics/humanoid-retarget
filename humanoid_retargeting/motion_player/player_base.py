@@ -1,6 +1,7 @@
 import time
 from abc import ABC, abstractmethod
 
+import numpy as np
 import mujoco
 import mujoco.viewer
 from scipy.spatial.transform import Rotation
@@ -17,17 +18,24 @@ class MotionPlayerBase(ABC):
         self.source_file_path = source_file_path
         self.view = view
 
-        self.generator:MJCFGeneratorBase = None
-        self.create_generator()
-        self.generator.build()
-
-        self.model = mujoco.MjModel.from_xml_string(self.generator.mjcf_str)
-        self.data = mujoco.MjData(self.model)
+        self._generator: MJCFGeneratorBase | None = None
+        self._viewer = None
+        self._frame_rate: int | None = None
+        self._ref_qpos: np.ndarray | None = None
         self.motion_data = None
 
-        self._viewer = None
-        self._frame_rate = None
-        self._ref_qpos = None
+        self.generator.build()
+        self.model = mujoco.MjModel.from_xml_string(self.generator.mjcf_str) # type: ignore
+        self.data = mujoco.MjData(self.model) # type: ignore
+
+
+    @property
+    def generator(self) -> MJCFGeneratorBase:
+        if self._generator is None:
+            self.create_generator()
+        assert self._generator is not None, "Generator is not created"
+        assert isinstance(self._generator, self.generator_class), "Generator is not of the correct type"
+        return self._generator
 
     @abstractmethod
     def create_generator(self):
@@ -40,15 +48,17 @@ class MotionPlayerBase(ABC):
         return self._viewer
 
     @property
-    def ref_qpos(self):
+    def ref_qpos(self) -> np.ndarray:
         if self._ref_qpos is None:
             self.load_motion_file()
+        assert isinstance(self._ref_qpos, np.ndarray), "Reference qpos is not loaded"
         return self._ref_qpos
 
     @property
-    def frame_rate(self):
+    def frame_rate(self) -> int:
         if self._frame_rate is None:
             self.load_motion_file()
+            assert isinstance(self._frame_rate, int), "Frame rate is not loaded"
         return self._frame_rate
 
     @property
@@ -62,7 +72,7 @@ class MotionPlayerBase(ABC):
     def sync_data(self, frame_idx):
         self.data.qpos[:] = self.ref_qpos[frame_idx]
         self.data.qvel[:] = 0
-        mujoco.mj_forward(self.model, self.data)
+        mujoco.mj_forward(self.model, self.data) # type: ignore
 
     def render(self):
         assert self.view, "Viewer is not enabled"

@@ -4,6 +4,9 @@ import numpy as np
 
 from humanoid_retargeting.mjcf_generator.retargeting_generator_base import RetargetingMJCFGeneratorBase
 
+def get_prefix_name(prefix, name):
+    return f"{prefix}_{name}" if prefix else name
+
 
 class BVH2MJCFGenerator(RetargetingMJCFGeneratorBase):
     generator_type = "bvh"
@@ -16,13 +19,13 @@ class BVH2MJCFGenerator(RetargetingMJCFGeneratorBase):
         )
         self.parsing_end = parsing_end
 
-        self.lines = None
-        self.line_number = None
+        self.lines: list[str] = []
+        self.line_number: int = 0
 
-        self.joint_parents = None
-        self.joint_names = None
-        self.joint_offsets = None
-        self.channels = None
+        self.joint_parents: list[int] = []
+        self.joint_names: list[str] = []
+        self.joint_offsets: list[list[float]] = []
+        self.channels: list[list[str]] = []
 
         self.body_element_list = []
 
@@ -98,9 +101,7 @@ class BVH2MJCFGenerator(RetargetingMJCFGeneratorBase):
         self.parse_startswith("HIERARCHY")
         self.parse_joint(-1)
 
-        self.joint_offsets = np.array(self.joint_offsets)
-
-    def create_body(self, parent, joint_name, offset):
+    def create_body(self, parent, joint_name, offset, prefix=None):
         default_geom_attr = {"contype": "0", "conaffinity": "0", "rgba": "0.8 0.8 0.8 1", "size": "0.005",
                              "type": "sphere"}
         if np.linalg.norm(offset) > 0.01:
@@ -108,19 +109,19 @@ class BVH2MJCFGenerator(RetargetingMJCFGeneratorBase):
                 "type": "capsule",
                 "fromto": "0 0 0 " + " ".join(map(str, offset))
             })
-        body = ET.SubElement(parent, "body", attrib={"name": joint_name, "pos": " ".join(map(str, offset))})
+        body = ET.SubElement(parent, "body", attrib={"name": get_prefix_name(prefix, joint_name), "pos": " ".join(map(str, offset))})
 
         if self.parsing_end and joint_name.endswith("_bvhend"):
             ET.SubElement(body, "geom", attrib=default_geom_attr)
         else:
-            ET.SubElement(body, "joint", attrib={"name": joint_name, "type": "ball"})
+            ET.SubElement(body, "joint", attrib={"name": get_prefix_name(prefix, joint_name), "type": "ball"})
             ET.SubElement(body, "geom", attrib=default_geom_attr)
 
         self.body_element_list.append(body)
 
-    def generate(self):
+    def generate(self, prefix: str | None = None):
         baselink_elem = ET.SubElement(self.get_elem("worldbody"), "body", attrib={
-            "name": self.joint_names[0],
+            "name": get_prefix_name(prefix, self.joint_names[0]),
             "pos": " ".join(map(str, self.joint_offsets[0] * self.get_body_ratio(self.joint_names[0])))
         })
         self.body_element_list.append(baselink_elem)
@@ -129,4 +130,4 @@ class BVH2MJCFGenerator(RetargetingMJCFGeneratorBase):
 
         for i, joint_name in enumerate(self.joint_names[1:], start=1):
             parent_body = self.body_element_list[self.joint_parents[i]]
-            self.create_body(parent_body, joint_name, self.joint_offsets[i] * self.get_body_ratio(joint_name))
+            self.create_body(parent_body, joint_name, self.joint_offsets[i] * self.get_body_ratio(joint_name), prefix=prefix)
