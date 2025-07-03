@@ -19,13 +19,14 @@ def build_test_obj():
     )
 
 
-def test_retarget_params_to_json():
+def test_retarget_params_to_json(tmp_path):
     params = build_test_obj()
-    params.to_json("retarget_params.json")
+    params.to_json(str(tmp_path / "retarget_params.json"))
 
 
-def test_retarget_params_from_json():
+def test_retarget_params_from_json(tmp_path):
     params = build_test_obj()
-    params.to_json("retarget_params.json")
-    loaded_params = RetargetParams.from_json("retarget_params.json")
+    json_path = tmp_path / "retarget_params.json"
+    params.to_json(str(json_path))
+    loaded_params = RetargetParams.from_json(str(json_path))
     assert loaded_params == params
