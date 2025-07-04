@@ -1,5 +1,3 @@
-from pipes import SOURCE
-
 from humanoid_retargeting.retargeter import Retargeter
 import click
 import os

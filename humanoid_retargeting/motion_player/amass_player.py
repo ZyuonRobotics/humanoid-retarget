@@ -16,15 +16,20 @@ class AMASSPlayer(HumanoidMotionPlayerBase):
             global_body_ratio=global_body_ratio,
             relative_body_ratio_dict=relative_body_ratio_dict
         )
+    @property
+    def generator(self) -> SMPL2MJCFGenerator:
+        generator = super().generator
+        assert isinstance(generator, self.generator_class), "Generator is not a subclass of BVH2MJCFGenerator"
+        return generator
 
-    def get_frame_rate(self):
+    def get_frame_rate(self) -> int:
         if "mocap_frame_rate" in self.motion_data:
             frame_rate = self.motion_data["mocap_frame_rate"]
         elif "mocap_framerate" in self.motion_data:
             frame_rate = self.motion_data["mocap_framerate"]
         else:
             raise ValueError("Invalid npz file")
-        return frame_rate
+        return int(frame_rate)
 
     @staticmethod
     def rotvec2quat(rotvec):

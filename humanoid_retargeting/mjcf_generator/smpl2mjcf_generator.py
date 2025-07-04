@@ -11,6 +11,8 @@ from humanoid_retargeting.mjcf_generator.retargeting_generator_base import Retar
 def array2str(array):
     return " ".join(map(lambda x: str(round(x, 4)), array))
 
+def get_prefix_name(prefix, name):
+    return f"{prefix}_{name}" if prefix else name
 
 class SMPL2MJCFGenerator(RetargetingMJCFGeneratorBase):
     generator_type = "smpl"
@@ -24,11 +26,11 @@ class SMPL2MJCFGenerator(RetargetingMJCFGeneratorBase):
 
         self.using_dmpl = using_dmpl
 
-        self.vertices = None
-        self.kintree_table = None
-        self.bones = None
-        self.weights = None
-        self.faces = None
+        self._vertices: np.ndarray | None = None
+        self._kintree_table: np.ndarray | None = None
+        self._bones: np.ndarray | None = None
+        self._weights: np.ndarray | None = None
+        self._faces: np.ndarray | None = None
 
     @staticmethod
     def create_body_element(name, pos, joint_type="ball", geom=True):
@@ -39,23 +41,48 @@ class SMPL2MJCFGenerator(RetargetingMJCFGeneratorBase):
             ET.SubElement(body, 'geom', size="0.01", contype="0", conaffinity="0")
         return body
 
-    def build_skeleton(self, parent, relative_jacob, kintree_table, index=0):
+    def build_skeleton(self, parent, relative_jacob, kintree_table, index=0, prefix=None):
         if index >= len(SMPLH_JOINT_NAMES):
             return
-        joint_name = SMPLH_JOINT_NAMES[index]
+        joint_name = get_prefix_name(prefix, SMPLH_JOINT_NAMES[index])
         pos = array2str(relative_jacob[index] * self.get_body_ratio(joint_name))
         body = self.create_body_element(joint_name, pos, joint_type="free" if index == 0 else "ball")
         parent.append(body)
 
         for child_idx in np.where(kintree_table[0] == index)[0]:
-            self.build_skeleton(body, relative_jacob, kintree_table, child_idx)
+            self.build_skeleton(body, relative_jacob, kintree_table, child_idx, prefix=prefix)
 
-    def generate(self):
+    @property
+    def vertices(self) -> np.ndarray:
+        assert self._vertices is not None, "vertices not loaded, call load() first"
+        return self._vertices
+
+    @property
+    def kintree_table(self) -> np.ndarray:
+        assert self._kintree_table is not None, "kintree_table not loaded, call load() first"
+        return self._kintree_table
+
+    @property
+    def bones(self) -> np.ndarray:
+        assert self._bones is not None, "bones not loaded, call load() first"
+        return self._bones
+
+    @property
+    def weights(self) -> np.ndarray:
+        assert self._weights is not None, "weights not loaded, call load() first"
+        return self._weights
+
+    @property
+    def faces(self) -> np.ndarray:
+        assert self._faces is not None, "faces not loaded, call load() first"
+        return self._faces
+
+    def generate(self, prefix: str | None = None):
         relative_jacob = self.bones.copy()
         relative_jacob[1:] -= self.bones[self.kintree_table[0, 1:]]
 
         worldbody = ET.SubElement(self.xml_root, 'worldbody')
-        self.build_skeleton(worldbody, relative_jacob, self.kintree_table)
+        self.build_skeleton(worldbody, relative_jacob, self.kintree_table, prefix=prefix)
 
         deformable = ET.SubElement(self.xml_root, 'deformable')
         skin = ET.SubElement(deformable, 'skin', attrib=dict(
@@ -68,7 +95,7 @@ class SMPL2MJCFGenerator(RetargetingMJCFGeneratorBase):
             vertex_ids = np.nonzero(full_weight)[0]
             vertex_weight = full_weight[vertex_ids]
             ET.SubElement(skin, 'bone', attrib=dict(
-                body=SMPLH_JOINT_NAMES[joint_id],
+                body=get_prefix_name(prefix, SMPLH_JOINT_NAMES[joint_id]),
                 bindpos=array2str(self.bones[joint_id]),
                 bindquat="1 0 0 0",
                 vertid=array2str(vertex_ids),
@@ -85,8 +112,8 @@ class SMPL2MJCFGenerator(RetargetingMJCFGeneratorBase):
         vertices = smpl_dict["v_template"] + (smpl_dict["shapedirs"] @ bdata["betas"]).reshape([-1, 3])
         vertices[:, :] = vertices[:, [2, 0, 1]]
 
-        self.vertices = vertices
-        self.kintree_table = smpl_dict["kintree_table"]
-        self.bones = smpl_dict["J_regressor"] @ vertices
-        self.weights = smpl_dict["weights"]
-        self.faces = smpl_dict["f"]
+        self._vertices = vertices
+        self._kintree_table = smpl_dict["kintree_table"]
+        self._bones = smpl_dict["J_regressor"] @ vertices
+        self._weights = smpl_dict["weights"]
+        self._faces = smpl_dict["f"]

@@ -9,7 +9,7 @@ import pandas as pd
 from scipy.interpolate import interp1d
 from tqdm import tqdm
 from hurodes import ROBOTS_PATH
-from hurodes.mjcf_generator.generator_base import MJCFGeneratorComposite
+from hurodes.mjcf_generator.generator_composite import MJCFGeneratorComposite
 
 from humanoid_retargeting.motion_player import PLAYERS_CLASS
 from humanoid_retargeting.mjcf_generator import generator_class
@@ -68,22 +68,22 @@ class Retargeter:
             tracker_dict=self.retarget_params.tracker_dict,
             tracker_offset=self.tracker_offset
         )
-        self.generator = MJCFGeneratorComposite([self.human_generator, self.robot_generator])
+        self.generator = MJCFGeneratorComposite(dict(human=self.human_generator, robot=self.robot_generator))
         self.generator.build()
 
         # TODO: optimize generator build logics
         self.robot_generator.build()
-        self.robot_model = mujoco.MjModel.from_xml_string(self.robot_generator.mjcf_str)
-        self.robot_data = mujoco.MjData(self.robot_model)
+        self.robot_model = mujoco.MjModel.from_xml_string(self.robot_generator.mjcf_str) # type: ignore
+        self.robot_data = mujoco.MjData(self.robot_model) # type: ignore
         self.mink_config = mink.Configuration(self.robot_model)
 
-        self.model = mujoco.MjModel.from_xml_string(self.generator.mjcf_str)
-        self.data = mujoco.MjData(self.model)
+        self.model = mujoco.MjModel.from_xml_string(self.generator.mjcf_str) # type: ignore
+        self.data = mujoco.MjData(self.model) # type: ignore
 
         self._viewer = None
 
-        self.posture_task = None
-        self.frame_tasks = None
+        self.posture_task: mink.PostureTask | None = None
+        self.frame_tasks: list[mink.FrameTask] | None = None
         self.build_mink_tasks()
 
         self.collision_avoidance_limit = None
@@ -103,6 +103,7 @@ class Retargeter:
 
     @property
     def all_tasks(self):
+        assert self.posture_task is not None and self.frame_tasks is not None
         return [self.posture_task] + self.frame_tasks
 
     @property
@@ -130,14 +131,16 @@ class Retargeter:
                 geom_pairs=[(["floor"], self.robot_generator.all_collision_names)]
             )
         if self.max_velocities is not None:
-            if isinstance(self.max_velocities, int) or isinstance(self.max_velocities, float):
+            if isinstance(self.max_velocities, (int, float)):
                 max_velocities = np.full(self.model.nv - 7, self.max_velocities, dtype=np.float32)
-            elif isinstance(self.max_velocities, list) or isinstance(self.max_velocities, np.ndarray):
-                assert len(self.max_velocities) == self.model.nn - 7
+            elif isinstance(self.max_velocities, (list, np.ndarray)):
+                assert len(self.max_velocities) == self.model.nv - 7
                 max_velocities = np.array(self.max_velocities)
             else:
                 raise NotImplemented
-            self.velocity_limit = mink.VelocityLimit(self.model, max_velocities)
+            joint_names = [self.model.joint(i).name for i in range(7, self.model.njnt)]
+            velocities_dict = {name: vel for name, vel in zip(joint_names, max_velocities)}
+            self.velocity_limit = mink.VelocityLimit(self.model, velocities_dict)
 
     def build_mink_tasks(self):
         self.posture_task = mink.PostureTask(self.robot_model, cost=200.0)
@@ -154,6 +157,8 @@ class Retargeter:
 
 
     def run_ik(self):
+        assert self.posture_task is not None and self.frame_tasks is not None
+        
         for frame_idx in tqdm(range(self.frame_num), disable=self.player is None):
             self.player.sync_data(frame_idx)
 
@@ -181,7 +186,7 @@ class Retargeter:
             self.data.qpos[:self.player.model.nq] = self.player.ref_qpos[frame_idx, :]
             self.data.qpos[self.player.model.nq:] = self.robot_ref_qpos[frame_idx, :]
             self.data.qvel[self.player.model.nv:] = self.robot_ref_qvel[frame_idx, :]
-            mujoco.mj_forward(self.model, self.data)
+            mujoco.mj_forward(self.model, self.data) # type: ignore
 
             if self.view:
                 self.viewer.sync()
@@ -191,7 +196,7 @@ class Retargeter:
         self.data.qpos[:self.player.model.nq] = self.player.ref_qpos[frame_id, :]
         self.data.qpos[-self.robot_model.nq:] = self.robot_ref_qpos[frame_id, :]
         self.data.qpos[-self.robot_model.nq:-self.robot_model.nq + 2] += offset[:2]
-        mujoco.mj_forward(self.model, self.data)
+        mujoco.mj_forward(self.model, self.data) # type: ignore
         self.viewer.sync()
 
 
@@ -224,7 +229,7 @@ class Retargeter:
     def save_as_csv(self, res_path, target_framerate=100):
         res_qpos, res_qvel, frame_num = self.interpolate(target_framerate=target_framerate)
         res = np.concatenate([res_qpos, res_qvel], axis=1)
-        pd.DataFrame(res).to_csv(res_path, header=None, index=None)
+        pd.DataFrame(res).to_csv(res_path, header=False, index=False)
 
 
     def play(self, speed=1., loop=True, offset=None):

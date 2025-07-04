@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.spatial.transform import Rotation
+from typing import List
 
 from humanoid_retargeting.mjcf_generator.bvh2mjcf_generator import BVH2MJCFGenerator
 from humanoid_retargeting.motion_player.humanoid_player_base import HumanoidMotionPlayerBase
@@ -25,7 +26,13 @@ class BVHPlayer(HumanoidMotionPlayerBase):
         )
         self.rotating_baselink = rotating_baselink
 
-    def parse_bvh_file(self):
+    @property
+    def generator(self) -> BVH2MJCFGenerator:
+        generator = super().generator
+        assert isinstance(generator, self.generator_class), "Generator is not a subclass of BVH2MJCFGenerator"
+        return generator
+
+    def parse_bvh_file(self) -> tuple[int, np.ndarray]:
         with open(self.source_file_path, 'r') as f:
             lines = f.readlines()
             for i in range(len(lines)):
@@ -40,9 +47,9 @@ class BVHPlayer(HumanoidMotionPlayerBase):
                     break
                 motion_data.append(np.array(data).reshape(1, -1))
             motion_data = np.concatenate(motion_data, axis=0)
-        return frame_rate, motion_data
+        return int(frame_rate), motion_data
 
-    def parse_channel(self, joint_idx, array, channel):
+    def parse_channel(self, joint_idx: int, array: np.ndarray, channel: list[str]) -> tuple[np.ndarray | None, np.ndarray]:
         pos, euler, pos_order, euler_order = [], [], "", ""
 
         for i, c in enumerate(channel):

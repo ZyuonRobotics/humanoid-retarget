@@ -6,7 +6,7 @@ import mujoco
 import mujoco.viewer
 import numpy as np
 from hurodes import ROBOTS_PATH
-from hurodes.mjcf_generator.generator_base import MJCFGeneratorComposite
+from hurodes.mjcf_generator.generator_composite import MJCFGeneratorComposite
 from hurodes.mjcf_generator.unified_generator import UnifiedMJCFGenerator
 
 from humanoid_retargeting import PARAMETERS_PATH
@@ -19,9 +19,9 @@ def get_leg_length(generator, foot_params, hip_params, body_rotate_dict=None):
     if not (foot_params.is_valid() and hip_params.is_valid()):
         return None
     generator.build()
-    model = mujoco.MjModel.from_xml_string(generator.mjcf_str)
-    data = mujoco.MjData(model)
-    mujoco.mj_forward(model, data)
+    model = mujoco.MjModel.from_xml_string(generator.mjcf_str) # type: ignore
+    data = mujoco.MjData(model) # type: ignore
+    mujoco.mj_forward(model, data) # type: ignore
 
     if body_rotate_dict is not None:
         for key, value in body_rotate_dict.items():
@@ -55,17 +55,17 @@ class Aligner:
             relative_body_ratio_dict=self.retarget_params.relative_body_ratio_dict
         )
         self.robot_generator = UnifiedMJCFGenerator(os.path.join(ROBOTS_PATH, robot_name))
-        self.generator = MJCFGeneratorComposite([self.human_generator, self.robot_generator])
+        self.generator = MJCFGeneratorComposite(dict(human=self.human_generator, robot=self.robot_generator))
         self.generator.build()
 
         try:
-            self.model = mujoco.MjModel.from_xml_string(self.generator.mjcf_str)
+            self.model = mujoco.MjModel.from_xml_string(self.generator.mjcf_str) # type: ignore
         except ValueError:
             with open("tmp.xml", "w") as f:
                 f.write(self.generator.mjcf_str)
             print("wrong xml")
             exit()
-        self.data = mujoco.MjData(self.model)
+        self.data = mujoco.MjData(self.model) # type: ignore
 
         self._viewer = None
         self._cali_qpos = None
@@ -111,10 +111,10 @@ class Aligner:
         self.set_dof_pos()
         self._cali_qpos = deepcopy(self.data.qpos)
         # make mujoco data consistent
-        mujoco.mj_forward(self.model, self.data)
+        mujoco.mj_forward(self.model, self.data) # type: ignore
 
     def set_base_pose(self):
-        mujoco.mj_forward(self.model, self.data)
+        mujoco.mj_forward(self.model, self.data) # type: ignore
 
         for target, generator in zip(["human", "robot"], [self.human_generator, self.robot_generator]):
             base_name = generator.all_body_names[0]
@@ -132,25 +132,25 @@ class Aligner:
             else:
                 joint.qpos[:2] = 0
 
-            mujoco.mj_forward(self.model, self.data)
+            mujoco.mj_forward(self.model, self.data) # type: ignore
             foot_params: FootParams = getattr(self.retarget_params, f"{target}_foot")
 
             if foot_params.is_valid():
-                left_foot_pos = self.data.body(foot_params.left_name).xpos
-                right_foot_pos = self.data.body(foot_params.right_name).xpos
+                left_foot_pos = self.data.body(f"{target}_{foot_params.left_name}").xpos
+                right_foot_pos = self.data.body(f"{target}_{foot_params.right_name}").xpos
                 foot_pos_z = (left_foot_pos[2] + right_foot_pos[2]) / 2 + foot_params.offset
                 joint.qpos[2] -= foot_pos_z
 
     def set_dof_pos(self):
         for key, value in self.retarget_params.body_rotate_dict.items():
-            self.data.joint(self.model.body(key).jntadr[0]).qpos[0:4] = euler2quat(*value)
+            self.data.joint(self.model.body(f"human_{key}").jntadr[0]).qpos[0:4] = euler2quat(*value)
 
     def render(self):
         while self.viewer.is_running():
             self.data.qpos[:] = self.cali_qpos
             self.data.qvel[:] = 0
 
-            mujoco.mj_forward(self.model, self.data)
+            mujoco.mj_forward(self.model, self.data) # type: ignore
             self.viewer.sync()
 
     def close(self):
@@ -175,7 +175,7 @@ class Aligner:
         for group_name, group_value in self.retarget_params.tracker_dict.items():
             for human_tracker, robot_tracker in zip(group_value.human, group_value.robot):
                 qpos = np.zeros(7)
-                qpos[:3] = self.data.body(human_tracker).xpos - self.data.body(robot_tracker).xpos
-                qpos[3:] = self.data.body(human_tracker).xquat
+                qpos[:3] = self.data.body(f"human_{human_tracker}").xpos - self.data.body(f"robot_{robot_tracker}").xpos
+                qpos[3:] = self.data.body(f"human_{human_tracker}").xquat
                 qpos_list[group_name].append(qpos)
         return qpos_list
