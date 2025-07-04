@@ -64,7 +64,7 @@ class Retargeter:
             relative_body_ratio_dict=self.retarget_params.relative_body_ratio_dict,
         )
         self.robot_generator = TrackerMJCFGenerator(
-            ehdf_path=os.path.join(ROBOTS_PATH, robot_name),
+            hrdf_path=os.path.join(ROBOTS_PATH, robot_name),
             tracker_dict=self.retarget_params.tracker_dict,
             tracker_offset=self.tracker_offset
         )

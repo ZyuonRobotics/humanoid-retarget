@@ -8,8 +8,8 @@ def get_prefix_name(prefix, name):
     return f"{prefix}_{name}" if prefix else name
 
 class TrackerMJCFGenerator(UnifiedMJCFGenerator):
-    def __init__(self, ehdf_path, tracker_dict, tracker_offset):
-        super().__init__(ehdf_path=ehdf_path)
+    def __init__(self, hrdf_path, tracker_dict, tracker_offset):
+        super().__init__(hrdf_path=hrdf_path)
 
         assert len(tracker_offset) > 0, "tracker_offset should not be empty"
 
