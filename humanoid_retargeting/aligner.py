@@ -107,6 +107,7 @@ class Aligner:
         return self._cali_qpos
 
     def load_cali_qpos(self):
+        self.set_base_rotation()
         self.set_base_pose()
         self.set_dof_pos()
         self._cali_qpos = deepcopy(self.data.qpos)
@@ -114,7 +115,8 @@ class Aligner:
         mujoco.mj_forward(self.model, self.data) # type: ignore
 
     def set_base_pose(self):
-        mujoco.mj_forward(self.model, self.data) # type: ignore
+        """Set base XY translation and Z height alignment based on feet positions."""
+        mujoco.mj_forward(self.model, self.data)
 
         for target, generator in zip(["human", "robot"], [self.human_generator, self.robot_generator]):
             base_name = generator.all_body_names[0]
@@ -123,23 +125,34 @@ class Aligner:
 
             if target == "human":
                 joint.qpos[:2] = [self.retarget_params.base_x_shift, self.retarget_params.base_y_shift]
-                
-                #  rotate according to 'base_rotation'
-                if hasattr(self.retarget_params, "base_rotation"):
-                    base_rot = self.retarget_params.base_rotation
-                    base_quat = euler2quat(*base_rot)
-                    joint.qpos[3:7] = base_quat
             else:
                 joint.qpos[:2] = 0
 
-            mujoco.mj_forward(self.model, self.data) # type: ignore
-            foot_params: FootParams = getattr(self.retarget_params, f"{target}_foot")
+            mujoco.mj_forward(self.model, self.data)
 
+            # Align feet on Z axis
+            foot_params: FootParams = getattr(self.retarget_params, f"{target}_foot")
             if foot_params.is_valid():
                 left_foot_pos = self.data.body(f"{target}_{foot_params.left_name}").xpos
                 right_foot_pos = self.data.body(f"{target}_{foot_params.right_name}").xpos
                 foot_pos_z = (left_foot_pos[2] + right_foot_pos[2]) / 2 + foot_params.offset
                 joint.qpos[2] -= foot_pos_z
+
+    def set_base_rotation(self):
+        """Apply user-defined base Euler rotation to the human root."""
+        if self.params_name is None:
+            base_rot = [90, 0, 90] if self.generator_type == "bvh" else [0, 0, 0]
+        else:
+            base_rot = getattr(self.retarget_params, "base_rotation")
+        
+        base_name = self.human_generator.all_body_names[0]
+        joint = self.data.joint(self.model.body(base_name).jntadr[0])
+        assert len(joint.qpos) == 7
+
+        base_quat = euler2quat(*base_rot)
+        joint.qpos[3:7] = base_quat
+        
+        mujoco.mj_forward(self.model, self.data)
 
     def set_dof_pos(self):
         for key, value in self.retarget_params.body_rotate_dict.items():
