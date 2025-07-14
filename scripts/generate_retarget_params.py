@@ -196,7 +196,7 @@ def main(robot_name, motion_type, motion_path):
 
     if motion_type.lower() == "bvh":
         human_generator_class = BVH2MJCFGenerator
-    elif motion_type.lower() == "amass":
+    elif motion_type.lower() == "smpl":
         human_generator_class = SMPL2MJCFGenerator
     else:
         raise ValueError("Invalid motion type")

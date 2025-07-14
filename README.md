@@ -2,7 +2,7 @@
 
 [中文](README_zh.md)
 
-**humanoid-retargeting** is a tool for retargeting human motion data (e.g., from BVH or AMASS) onto humanoid robots. It supports various motion file formats, provides alignment tools, and allows batch processing.
+**humanoid-retargeting** is a tool for retargeting human motion data (e.g., from BVH or SMPL) onto humanoid robots. It supports various motion file formats, provides alignment tools, and allows batch processing.
 
 ## Installation
 
@@ -39,7 +39,7 @@ The default path for storing data is:
 ```
 ~/.humanoid_retargeting
 ├── data
-│   ├── amass         # Motion capture data from the AMASS dataset
+│   ├── smpl          # SMPL format motion capture data
 │   ├── bvh           # BVH format motion capture data
 │   └── ...           # Other types of motion capture data (e.g., bip, fbx)
 ├── models
@@ -47,7 +47,7 @@ The default path for storing data is:
 │   └── smplh         # SMPL+H body model files
 └── parameters
     ├── unitree_g1     
-    │   ├── amass     # Retargeting parameters for Unitree G1 robot using AMASS dataset
+    │   ├── smpl      # Retargeting parameters for Unitree G1 robot using SMPL dataset
     │   └── bvh       # Retargeting parameters for Unitree G1 robot using BVH dataset
     └── ...           # Other retargeting configuration parameters
 ```
@@ -59,7 +59,7 @@ The default path for storing data is:
 
 ### Play Motion (Optional)
 
-Allows playing motion sequences using selected player classes (e.g., `BVHPlayer`, `AMASSPlayer`) for visualization or debugging before retargeting. Uses MuJoCo renderer to play action files.
+Allows playing motion sequences using selected player classes (e.g., `BVHPlayer`, `SMPLPlayer`) for visualization or debugging before retargeting. Uses MuJoCo renderer to play action files.
 
 You should use the appropriate player according to the `generator-type`. For example, set `generator-type` to `bvh` or `smpl` to play BVH format or SMPL format data respectively.
 

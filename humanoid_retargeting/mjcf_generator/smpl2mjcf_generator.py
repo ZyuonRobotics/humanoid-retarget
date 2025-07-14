@@ -1,9 +1,10 @@
 import os.path as osp
 import xml.etree.ElementTree as ET
+import pickle
 
 import numpy as np
 
-from humanoid_retargeting import SMPLH_PATH
+from humanoid_retargeting import SMPL_PATH, SMPLH_PATH
 from humanoid_retargeting.mjcf_generator.constants import *
 from humanoid_retargeting.mjcf_generator.retargeting_generator_base import RetargetingMJCFGeneratorBase
 
@@ -25,6 +26,7 @@ class SMPL2MJCFGenerator(RetargetingMJCFGeneratorBase):
         )
 
         self.using_dmpl = using_dmpl
+        self.smpl_type = None
 
         self._vertices: np.ndarray | None = None
         self._kintree_table: np.ndarray | None = None
@@ -42,9 +44,9 @@ class SMPL2MJCFGenerator(RetargetingMJCFGeneratorBase):
         return body
 
     def build_skeleton(self, parent, relative_jacob, kintree_table, index=0, prefix=None):
-        if index >= len(SMPLH_JOINT_NAMES):
+        if index >= len(self.joint_names):
             return
-        joint_name = get_prefix_name(prefix, SMPLH_JOINT_NAMES[index])
+        joint_name = get_prefix_name(prefix, self.joint_names[index])
         pos = array2str(relative_jacob[index] * self.get_body_ratio(joint_name))
         body = self.create_body_element(joint_name, pos, joint_type="free" if index == 0 else "ball")
         parent.append(body)
@@ -95,7 +97,7 @@ class SMPL2MJCFGenerator(RetargetingMJCFGeneratorBase):
             vertex_ids = np.nonzero(full_weight)[0]
             vertex_weight = full_weight[vertex_ids]
             ET.SubElement(skin, 'bone', attrib=dict(
-                body=get_prefix_name(prefix, SMPLH_JOINT_NAMES[joint_id]),
+                body=get_prefix_name(prefix, self.joint_names[joint_id]),
                 bindpos=array2str(self.bones[joint_id]),
                 bindquat="1 0 0 0",
                 vertid=array2str(vertex_ids),
@@ -106,10 +108,20 @@ class SMPL2MJCFGenerator(RetargetingMJCFGeneratorBase):
         bdata = np.load(self.source_file_path)
         gender = str(bdata['gender'].astype(str))
 
-        with np.load(osp.join(SMPLH_PATH, gender, "model.npz"), allow_pickle=True) as data:
-            smpl_dict = {key: data[key] for key in data.files}
+        if bdata['poses'].shape[1] == 24 * 3: # SMPL
+            self.smpl_type = "smpl"
+            with open(osp.join(SMPL_PATH, f"SMPL_{gender.upper()}.pkl"), "rb") as f:
+                smpl_dict = pickle.load(f, encoding='latin1')
+            self._joint_names = SMPL_JOINT_NAMES
+        elif bdata['poses'].shape[1] == 52 * 3 or bdata['poses'].shape[1] == 55 * 3: # SMPLH
+            self.smpl_type = "smplh"
+            with np.load(osp.join(SMPLH_PATH, gender, "model.npz"), allow_pickle=True) as data:
+                smpl_dict = {key: data[key] for key in data.files}
+            self._joint_names = SMPLH_JOINT_NAMES
+        else:
+            raise ValueError("Invalid poses shape")
 
-        vertices = smpl_dict["v_template"] + (smpl_dict["shapedirs"] @ bdata["betas"]).reshape([-1, 3])
+        vertices = smpl_dict["v_template"] + (smpl_dict["shapedirs"] @ bdata["betas"][:smpl_dict["shapedirs"].shape[2]]).reshape([-1, 3])
         vertices[:, :] = vertices[:, [2, 0, 1]]
 
         self._vertices = vertices

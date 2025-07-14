@@ -23,7 +23,7 @@ class BVH2MJCFGenerator(RetargetingMJCFGeneratorBase):
         self.line_number: int = 0
 
         self.joint_parents: list[int] = []
-        self.joint_names: list[str] = []
+        self._joint_names: list[str] = []
         self.joint_offsets: list[list[float]] = []
         self.channels: list[list[str]] = []
 
@@ -49,12 +49,12 @@ class BVH2MJCFGenerator(RetargetingMJCFGeneratorBase):
         assert len(self.lines[self.line_number].split()) == 2
         joint_type, joint_name = self.lines[self.line_number].split()
         assert joint_type in ["ROOT", "JOINT"]
-        self.joint_names.append(joint_name)
+        self._joint_names.append(joint_name)
         self.line_number += 1
 
     def parse_joint(self, parent):
         self.joint_parents.append(parent)
-        index = len(self.joint_names)
+        index = len(self._joint_names)
 
         self.parse_joint_name()
         self.parse_startswith("{")
@@ -72,7 +72,7 @@ class BVH2MJCFGenerator(RetargetingMJCFGeneratorBase):
     def parse_end(self, parent):
         if self.parsing_end:
             self.joint_parents.append(parent)
-            self.joint_names.append(self.joint_names[parent] + '_bvhend')
+            self._joint_names.append(self._joint_names[parent] + '_bvhend')
             self.line_number += 1
         else:
             self.parse_startswith("End")
@@ -96,7 +96,7 @@ class BVH2MJCFGenerator(RetargetingMJCFGeneratorBase):
                 self.lines.append(line)
 
         self.line_number = 0
-        self.joint_parents, self.joint_names, self.joint_offsets, self.channels = [], [], [], []
+        self.joint_parents, self._joint_names, self.joint_offsets, self.channels = [], [], [], []
 
         self.parse_startswith("HIERARCHY")
         self.parse_joint(-1)
@@ -121,13 +121,13 @@ class BVH2MJCFGenerator(RetargetingMJCFGeneratorBase):
 
     def generate(self, prefix: str | None = None):
         baselink_elem = ET.SubElement(self.get_elem("worldbody"), "body", attrib={
-            "name": get_prefix_name(prefix, self.joint_names[0]),
-            "pos": " ".join(map(str, self.joint_offsets[0] * self.get_body_ratio(self.joint_names[0])))
+            "name": get_prefix_name(prefix, self._joint_names[0]),
+            "pos": " ".join(map(str, self.joint_offsets[0] * self.get_body_ratio(self._joint_names[0])))
         })
         self.body_element_list.append(baselink_elem)
-        ET.SubElement(baselink_elem, "joint", name=self.joint_names[0], type="free")
+        ET.SubElement(baselink_elem, "joint", name=self._joint_names[0], type="free")
         ET.SubElement(baselink_elem, "geom", type="sphere", size="0.02", contype="0", conaffinity="0")
 
-        for i, joint_name in enumerate(self.joint_names[1:], start=1):
+        for i, joint_name in enumerate(self._joint_names[1:], start=1):
             parent_body = self.body_element_list[self.joint_parents[i]]
             self.create_body(parent_body, joint_name, self.joint_offsets[i] * self.get_body_ratio(joint_name), prefix=prefix)

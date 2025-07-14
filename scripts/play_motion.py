@@ -8,7 +8,7 @@ SOURCE_FILE_PATH = os.path.join(BVH_DATA_PATH, "Reallusion", "Folk Artistry - Ba
 @click.command()
 @click.option('--source-file-path', default=SOURCE_FILE_PATH, help='Path to the BVH file.')
 @click.option('--generator-type', type=click.Choice(list(PLAYERS_CLASS.keys())), default='bvh',
-              help='Type of generator (e.g., bvh, amass).')
+              help='Type of generator (e.g., bvh, smpl).')
 def main(source_file_path, generator_type):
     player_class = PLAYERS_CLASS[generator_type]
 

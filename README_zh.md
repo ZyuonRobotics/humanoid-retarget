@@ -1,6 +1,6 @@
 # humanoid-retargeting
 
-**humanoid-retargeting** 是一个将人类动作数据（例如来自 BVH 或 AMASS 的动作）重新定向到人形机器人上的工具。它支持多种类型的运动文件，提供对齐工具，并允许批量处理。
+**humanoid-retargeting** 是一个将人类动作数据（例如来自 BVH 或 SMPL 的动作）重新定向到人形机器人上的工具。它支持多种类型的运动文件，提供对齐工具，并允许批量处理。
 
 ## 安装
 
@@ -35,16 +35,16 @@ pip install -e .[gui]
 ```
 ~/.humanoid_retargeting
 ├── data
-│   ├── amass         # AMASS数据集中的动捕数据
-│   ├── bvh           # bvh格式的动捕数据
+│   ├── smpl          # SMPL格式的动捕数据
+│   ├── bvh           # BVH格式的动捕数据
 │   └── ...           # 其他种类的动捕数据 (例如bip，fbx等)
 ├── models
 │   ├── dmpls         # SMPL-X模型的DMP姿态库（可选）
 │   └── smplh         # SMPL+H身体模型文件
 └── parameters
     ├── unitree_g1     
-    │   ├── amass     # unitree g1机器人在AMASS数据集中使用的重定向参数
-    │   └── bvh       # unitree g1机器人在bvh数据集中的重定向参数
+    │   ├── smpl      # unitree g1机器人在SMPL数据集中使用的重定向参数
+    │   └── bvh       # unitree g1机器人在BVH数据集中的重定向参数
     └── ...           # 其他重定向配置参数
 ```
 
@@ -54,7 +54,7 @@ pip install -e .[gui]
 
 ### 播放动作（可选）
 
-允许使用选定的动作播放器类（如 `BVHPlayer`, `AMASSPlayer`）来播放动作序列，可以用于在重定向之前可视化或调试动作。使用mujoco渲染动作文件。
+允许使用选定的动作播放器类（如 `BVHPlayer`, `SMPLPlayer`）来播放动作序列，可以用于在重定向之前可视化或调试动作。使用mujoco渲染动作文件。
 
 需要根据 `generator-type` 使用合适的播放器播放动作文件，例如设置 `generator-type`为`bvh`或者`smpl`，分别用于播放bvh格式的数据或者smpl格式的数据。
 

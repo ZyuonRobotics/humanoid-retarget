@@ -1,4 +1,4 @@
-SMPLH_JOINT_NAMES = [
+BODY_JOINT_NAMES = [
     'pelvis',
     'left_hip',
     'right_hip',
@@ -21,6 +21,9 @@ SMPLH_JOINT_NAMES = [
     'right_elbow',
     'left_wrist',
     'right_wrist',
+]
+
+FINGER_JOINT_NAMES = [
     'left_index1',
     'left_index2',
     'left_index3',
@@ -52,3 +55,11 @@ SMPLH_JOINT_NAMES = [
     'right_thumb2',
     'right_thumb3',
 ]
+
+SIMPLE_HAND_JOINT_NAMES = [
+    'left_hand',
+    'right_hand',
+]
+
+SMPL_JOINT_NAMES = BODY_JOINT_NAMES + SIMPLE_HAND_JOINT_NAMES
+SMPLH_JOINT_NAMES = BODY_JOINT_NAMES + FINGER_JOINT_NAMES

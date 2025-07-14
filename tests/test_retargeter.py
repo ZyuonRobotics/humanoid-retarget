@@ -1,14 +1,14 @@
 import os
 
-from humanoid_retargeting import AMASS_DATA_PATH
+from humanoid_retargeting import SMPL_DATA_PATH
 from humanoid_retargeting.retargeter import Retargeter
 
 
 def test_retargeter(tmp_path):
-    AMASS_FILE_PATH = os.path.join(AMASS_DATA_PATH, "ACCAD", 'Female1Walking_c3d', "B1_-_stand_to_walk_stageii.npz")
+    SMPL_FILE_PATH = os.path.join(SMPL_DATA_PATH, "ACCAD", 'Female1Walking_c3d', "B1_-_stand_to_walk_stageii.npz")
 
     retargeter = Retargeter(
-        source_file_path=AMASS_FILE_PATH,
+        source_file_path=SMPL_FILE_PATH,
         robot_name="kuavo_s45",
         generator_type="smpl",
         params_name="default",
