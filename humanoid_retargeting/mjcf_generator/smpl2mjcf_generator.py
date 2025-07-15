@@ -47,7 +47,7 @@ class SMPL2MJCFGenerator(RetargetingMJCFGeneratorBase):
         if index >= len(self.joint_names):
             return
         joint_name = get_prefix_name(prefix, self.joint_names[index])
-        pos = array2str(relative_jacob[index] * self.get_body_ratio(joint_name))
+        pos = array2str(relative_jacob[index] * self.get_body_ratio(joint_name, prefix=prefix))
         body = self.create_body_element(joint_name, pos, joint_type="free" if index == 0 else "ball")
         parent.append(body)
 

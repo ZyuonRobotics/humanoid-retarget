@@ -42,8 +42,13 @@ class RetargetingMJCFGeneratorBase(MJCFGeneratorBase):
     def joint_names(self):
         return self._joint_names
 
-    def get_body_ratio(self, body_name):
+    def get_body_ratio(self, body_name, prefix=None):
         ratio = self.global_body_ratio.copy()
+        # TODO: check if every body_name in self.relative_body_ratio_dict is in self.joint_names
+        if prefix is None:
+            body_name = body_name
+        else:
+            body_name = body_name.replace(f"{prefix}_", "")
         if body_name in self.relative_body_ratio_dict:
             ratio *= self.relative_body_ratio_dict[body_name]
         return ratio
