@@ -141,9 +141,9 @@ class Aligner:
     def set_base_rotation(self):
         """Apply user-defined base Euler rotation to the human root."""
         if self.params_name is None:
-            base_rot = [90, 0, 90] if self.generator_type == "bvh" else [0, 0, 0]
-        else:
-            base_rot = getattr(self.retarget_params, "base_rotation")
+            self.retarget_params.base_rotation = [90, 0, 90] if self.generator_type == "bvh" else [0, 0, 0]
+        
+        base_rot = getattr(self.retarget_params, "base_rotation")
         
         base_name = self.human_generator.all_body_names[0]
         joint = self.data.joint(self.model.body(base_name).jntadr[0])
@@ -158,6 +158,29 @@ class Aligner:
         for key, value in self.retarget_params.body_rotate_dict.items():
             self.data.joint(self.model.body(f"human_{key}").jntadr[0]).qpos[0:4] = euler2quat(*value)
 
+    def reload(self, retarget_params):
+        self.retarget_params = retarget_params
+        self.global_body_ratio = self.get_global_body_ratio()
+        self.human_generator = generator_class[self.generator_type](
+            source_file_path=self.source_file_path,
+            global_body_ratio=self.global_body_ratio * np.array(self.retarget_params.extra_body_ratio),
+            relative_body_ratio_dict=self.retarget_params.relative_body_ratio_dict
+        )
+        self.generator = MJCFGeneratorComposite(dict(human=self.human_generator, robot=self.robot_generator))
+        self.generator.build()
+
+        try:
+            self.model = mujoco.MjModel.from_xml_string(self.generator.mjcf_str) # type: ignore
+        except ValueError:
+            with open("tmp.xml", "w") as f:
+                f.write(self.generator.mjcf_str)
+            print("wrong xml")
+            exit()
+        self.data = mujoco.MjData(self.model)
+        self._viewer = None
+        
+        mujoco.mj_forward(self.model, self.data)
+    
     def render(self):
         while self.viewer.is_running():
             self.data.qpos[:] = self.cali_qpos

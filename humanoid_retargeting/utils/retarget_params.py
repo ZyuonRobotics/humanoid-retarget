@@ -61,17 +61,43 @@ class RetargetParams:
     def from_json(cls, file_path: str) -> 'RetargetParams':
         with open(file_path, 'r') as f:
             data = json.load(f)
+        return cls.from_dict(data)
 
-        if 'robot_foot' in data:
-            data['robot_foot'] = FootParams(**data['robot_foot'])
-        if 'human_foot' in data:
-            data['human_foot'] = FootParams(**data['human_foot'])
-        if 'human_hip' in data:
-            data['human_hip'] = HipParams(**data['human_hip'])
-        if 'robot_hip' in data:
-            data['robot_hip'] = HipParams(**data['robot_hip'])
-        if 'tracker_dict' in data:
-            for key, tracker_data in data['tracker_dict'].items():
-                data['tracker_dict'][key] = TrackerConfig(**tracker_data)
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'RetargetParams':
+        clean: Dict = {}
 
-        return cls(**data)
+        for key in ("robot_foot", "human_foot"):
+            if key in data:
+                f = data[key]
+                clean[key] = FootParams(f["left_name"], f["right_name"], f["offset"])
+        for key in ("robot_hip", "human_hip"):
+            if key in data:
+                h = data[key]
+                clean[key] = HipParams(h["left_name"], h["right_name"], h["offset"])
+
+        clean.update({
+            "base_x_shift":   data.get("base_x_shift", 0.0),
+            "base_y_shift":   data.get("base_y_shift", 0.0),
+            "base_rotation":  data.get("base_rotation", [0.0, 0.0, 0.0]),
+            "extra_body_ratio": data.get("extra_body_ratio", [1.0, 1.0, 1.0]),
+            "relative_body_ratio_dict": {k: v for k, v in data.get("relative_body_ratio_dict", {}).items()},
+            "body_rotate_dict":         {k: v for k, v in data.get("body_rotate_dict", {}).items()},
+        })
+
+        track_raw = data.get("tracker_dict", {})
+        track_clean: Dict[str, TrackerConfig] = {}
+        for part, cfg in track_raw.items():
+            track_clean[part] = TrackerConfig(
+                human=[x for x in cfg["human"]],
+                robot=[x for x in cfg["robot"]],
+                position_cost=cfg.get("position_cost", 100),
+                orientation_cost=cfg.get("orientation_cost", 50),
+            )
+        clean["tracker_dict"] = track_clean
+
+        defaults = cls()
+        for k in asdict(defaults):
+            clean.setdefault(k, getattr(defaults, k))
+
+        return cls(**clean)

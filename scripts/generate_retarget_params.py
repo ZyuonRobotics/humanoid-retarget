@@ -1,23 +1,14 @@
 import os
 import threading
-from dataclasses import asdict
-from copy import deepcopy
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 import click
 import dearpygui.dearpygui as dpg
 import mujoco
 import mujoco.viewer
 
-from hurodes.mjcf_generator.generator_composite import MJCFGeneratorComposite
-from hurodes.mjcf_generator.unified_generator import UnifiedMJCFGenerator
-from hurodes import ROBOTS_PATH
-
-from humanoid_retargeting.mjcf_generator import (
-    RetargetingMJCFGeneratorBase, BVH2MJCFGenerator, SMPL2MJCFGenerator  # noqa: F401
-)
+from humanoid_retargeting import PARAMETERS_PATH
 from humanoid_retargeting.aligner import Aligner
-from humanoid_retargeting.utils.rot import euler2quat                       # noqa: F401 – may be used elsewhere
 from humanoid_retargeting.utils.retarget_params import (
     RetargetParams, FootParams, HipParams, TrackerConfig,
 )
@@ -25,19 +16,7 @@ from humanoid_retargeting.utils.retarget_params import (
 # -----------------------------------------------------------------------------
 # Global mutable state – mirrors GUI widgets
 # -----------------------------------------------------------------------------
-retarget_params: Dict = {
-    "robot_foot":  {"left_name": None, "right_name": None, "offset": 0.0},
-    "human_foot":  {"left_name": None, "right_name": None, "offset": 0.0},
-    "robot_hip":   {"left_name": None, "right_name": None, "offset": 0.0},
-    "human_hip":   {"left_name": None, "right_name": None, "offset": 0.0},
-    "base_x_shift": 0.0,
-    "base_y_shift": 0.0,
-    "base_rotation": [90, 0, 90],
-    "extra_body_ratio": [1.0, 1.0, 1.0],
-    "relative_body_ratio_dict": {},
-    "body_rotate_dict": {},
-    "tracker_dict": {}
-}
+retarget_params = RetargetParams()
 
 aligner: Aligner | None = None
 lock = threading.Lock()
@@ -46,6 +25,9 @@ lock = threading.Lock()
 body_ratio_dict: Dict[str, str | None] = {}
 body_rotate_dict: Dict[str, str | None] = {}
 tracker_ui_groups: List[str] = []
+
+json_name = "params_test"
+json_path = None
 
 # -----------------------------------------------------------------------------
 # Utility helpers
@@ -65,50 +47,6 @@ def strip_prefix(value, prefixes: Tuple[str, ...] = ("human_", "robot_")):
     return value
 
 
-def convert_dict_to_retarget_params(src: Dict) -> RetargetParams:
-    """Convert GUI dictionary **src** → immutable ``RetargetParams`` dataclass."""
-    data = deepcopy(src)  # avoid mutating caller
-    clean: Dict = {}
-
-    # -- Foot / Hip params
-    for key in ("robot_foot", "human_foot"):
-        if key in data:
-            f = data[key]
-            clean[key] = FootParams(strip_prefix(f["left_name"]), strip_prefix(f["right_name"]), f["offset"])
-    for key in ("robot_hip", "human_hip"):
-        if key in data:
-            h = data[key]
-            clean[key] = HipParams(strip_prefix(h["left_name"]), strip_prefix(h["right_name"]), h["offset"])
-
-    # -- Scalars / vectors
-    clean.update({
-        "base_x_shift":   data.get("base_x_shift", 0.0),
-        "base_y_shift":   data.get("base_y_shift", 0.0),
-        "base_rotation":  data.get("base_rotation", [0.0, 0.0, 0.0]),
-        "extra_body_ratio": data.get("extra_body_ratio", [1.0, 1.0, 1.0]),
-        "relative_body_ratio_dict": {strip_prefix(k): v for k, v in data.get("relative_body_ratio_dict", {}).items()},
-        "body_rotate_dict":         {strip_prefix(k): v for k, v in data.get("body_rotate_dict", {}).items()},
-    })
-
-    # -- Tracker dict
-    track_raw = data.get("tracker_dict", {})
-    track_clean: Dict[str, TrackerConfig] = {}
-    for part, cfg in track_raw.items():
-        track_clean[part] = TrackerConfig(
-            human=[strip_prefix(x) for x in cfg["human"]],
-            robot=[strip_prefix(x) for x in cfg["robot"]],
-            position_cost=cfg.get("position_cost", 100),
-            orientation_cost=cfg.get("orientation_cost", 50),
-        )
-    clean["tracker_dict"] = track_clean
-
-    # -- Fill unspecified fields with defaults
-    defaults = RetargetParams()
-    for k in asdict(defaults):
-        clean.setdefault(k, getattr(defaults, k))
-
-    return RetargetParams(**clean)
-
 # -----------------------------------------------------------------------------
 # Simulation loop (background thread)
 # -----------------------------------------------------------------------------
@@ -118,11 +56,12 @@ def simulation_loop():
     assert aligner and all([aligner.data, aligner.model, aligner.viewer])
     while aligner.viewer.is_running():
         with lock:
-            aligner.retarget_params = convert_dict_to_retarget_params(retarget_params)
+            aligner.retarget_params = retarget_params
             aligner.set_base_pose()
             aligner.set_dof_pos()
             mujoco.mj_forward(aligner.model, aligner.data)
             aligner.viewer.sync()
+
 
 # -----------------------------------------------------------------------------
 # Generic GUI‑building primitives & callbacks
@@ -133,37 +72,35 @@ def simulation_loop():
 
 def update_height_callback(sender, app_data, user_data):
     """Slider callback for foot / hip height."""
-    retarget_params[user_data]["offset"] = app_data
+    target = getattr(retarget_params, user_data)
+    target.offset = app_data
 
 
 def update_foot_name_callback(sender, app_data, user_data):
-    robot_or_human, side = user_data.split("_")
-    retarget_params[f"{robot_or_human}_foot"][f"{side}_name"] = app_data
+    robot_or_human, left_or_right = user_data.split("_")
+    foot_params : FootParams = getattr(retarget_params, f"{robot_or_human}_foot")
+    setattr(foot_params, f"{left_or_right}_name", strip_prefix(app_data))
 
 
 def update_hip_name_callback(sender, app_data, user_data):
-    robot_or_human, side = user_data.split("_")
-    retarget_params[f"{robot_or_human}_hip"][f"{side}_name"] = app_data
-
-
-def update_body_ratio_callback(sender, app_data, user_data):
-    retarget_params["extra_body_ratio"][user_data["idx"]] = app_data
+    robot_or_human, left_or_right = user_data.split("_")
+    hip_params: HipParams = getattr(retarget_params, f"{robot_or_human}_hip")
+    setattr(hip_params, f"{left_or_right}_name", strip_prefix(app_data))
 
 
 def update_base_shift_callback(sender, app_data, user_data):
-    retarget_params[user_data] = app_data
+    setattr(retarget_params, user_data, app_data)
 
 # Model refresh (not finished) 
 
-def refresh_human_model_callback(*_):
-    """Re-build MJCF after global scaling changes, preserving viewer window."""
-    aligner.human_generator.whole_body_ratio = retarget_params["whole_body_ratio"]
+def refresh_human_model_callback(sender, app_data, user_data):
+    """Re-build MJCF after body ratio scaling changes, preserving viewer window."""
+    global retarget_params
     with lock:
-        aligner.generator.build()
-        model = mujoco.MjModel.from_xml_string(aligner.generator.mjcf_str)
-        data = mujoco.MjData(model)
-        viewer.close()
-        viewer = mujoco.viewer.launch_passive(model, data)
+        aligner.viewer.close()
+        aligner.reload(retarget_params=retarget_params)
+        aligner.set_base_rotation()
+        aligner.viewer.sync()
 
 # Popup tree viewer
 
@@ -185,7 +122,7 @@ def create_three_slider(*, prefix: str = "", labels: Tuple[str, str, str] = ("x"
 def add_three_axis_editor_callback(
     *,
     group_prefix: str,
-    target_dict: Dict[str, str | None],
+    target_dict: Dict[str, Optional[str]],
     retarget_key: str,
     all_body_names: List[str],
     slider_range: Tuple[float, float],
@@ -199,25 +136,36 @@ def add_three_axis_editor_callback(
 
     # -- Inner callbacks --
     def update_name(sender, app_data, user_data):
-        target_dict[user_data] = app_data
-        retarget_params[retarget_key][app_data] = [default_value] * 3
+        target_dict[user_data] = strip_prefix(app_data)
+        # 使用 setattr 获取并修改 data class 中的 dict
+        getattr(retarget_params, retarget_key)[strip_prefix(app_data)] = [default_value] * 3
 
     def update_value(sender, app_data, meta):
         body = target_dict[meta["group_id"]]
-        retarget_params[retarget_key][body][meta["axis"]] = app_data
+        if body is not None:
+            getattr(retarget_params, retarget_key)[body][meta["axis"]] = app_data
 
     def remove_component(sender, app_data, tag):
-        dpg.delete_item(tag)
-        del retarget_params[retarget_key][target_dict[tag]]
+        body = target_dict[tag]
+        if body in getattr(retarget_params, retarget_key):
+            del getattr(retarget_params, retarget_key)[body]
         del target_dict[tag]
+        dpg.delete_item(tag)
 
     # -- Build UI --
     with dpg.group(parent=parent_group_tag, tag=group_id):
         with dpg.group(horizontal=True):
             dpg.add_combo(items=all_body_names, callback=update_name, user_data=group_id)
             dpg.add_button(label="Remove", callback=remove_component, user_data=group_id)
-        create_three_slider(prefix=slider_prefix, callback=update_value, user_data=group_id,
-                            min_value=slider_range[0], max_value=slider_range[1], default_value=default_value)
+        create_three_slider(
+            prefix=slider_prefix,
+            callback=update_value,
+            user_data=group_id,
+            min_value=slider_range[0],
+            max_value=slider_range[1],
+            default_value=default_value,
+        )
+
 
 # Convenience wrappers ---------------------------------------------------------
 add_body_ratio_callback = lambda s, a, names: add_three_axis_editor_callback(
@@ -238,45 +186,45 @@ def add_tracker_callback(sender, app_data, input_tag):
     if not part_name:
         print("[Warning] Part name is empty.")
         return
-    if part_name in retarget_params["tracker_dict"]:
+    if part_name in retarget_params.tracker_dict:
         print(f"[Warning] Part '{part_name}' already exists.")
         return
 
-    retarget_params["tracker_dict"][part_name] = {
-        "human": [],
-        "robot": [],
-        "position_cost": 100,
-        "orientation_cost": 50
-    }
+    retarget_params.tracker_dict[part_name] = TrackerConfig(
+        human=[],
+        robot=[],
+        position_cost=100,
+        orientation_cost=50
+    )
 
     group_id = f"tracker_part_{part_name}"
     tracker_ui_groups.append(group_id)
 
     def update_body(sender, app_data, meta):
-        body_list = retarget_params["tracker_dict"][part_name][meta["kind"]]
+        body_list = getattr(retarget_params.tracker_dict[part_name], meta["kind"])
         if meta["idx"] < len(body_list):
-            body_list[meta["idx"]] = app_data
+            body_list[meta["idx"]] = strip_prefix(app_data)
         else:
-            body_list.append(app_data)
+            body_list.append(strip_prefix(app_data))
 
     def update_cost(sender, app_data, kind):
-        retarget_params["tracker_dict"][part_name][kind] = app_data
+        setattr(retarget_params.tracker_dict[part_name], kind, app_data)
 
     def remove_tracker(sender, app_data, user_data):
         dpg.configure_item(user_data, show=False)
         dpg.set_frame_callback(dpg.get_frame_count() + 1, lambda: dpg.delete_item(user_data))
-        del retarget_params["tracker_dict"][part_name]
+        del retarget_params.tracker_dict[part_name]
         tracker_ui_groups.remove(user_data)
 
     def add_body_selector(kind, parent_group):
-        idx = len(retarget_params["tracker_dict"][part_name][kind])
+        idx = len(getattr(retarget_params.tracker_dict[part_name], kind))
         dpg.add_combo(
             items=(aligner.human_generator.all_body_names if kind == "human" else aligner.robot_generator.all_body_names),
             callback=update_body,
             user_data={"kind": kind, "idx": idx},
             parent=parent_group
         )
-        retarget_params["tracker_dict"][part_name][kind].append(None)
+        getattr(retarget_params.tracker_dict[part_name], kind).append(None)
 
     with dpg.group(parent="tracker_dict_group", tag=group_id):
         with dpg.group(horizontal=True):
@@ -304,6 +252,22 @@ def add_tracker_callback(sender, app_data, input_tag):
 
     print(f"[INFO] Added tracker part: {part_name}")
 
+# Export json file callback 
+
+def export_json_callback(sender, app_data, user_data):
+    global json_path, json_name
+    json_path = dpg.get_value("file_path_input").strip()
+    if json_path:
+        json_filename = os.path.basename(json_path)     # e.g. 'params.json'
+        json_name = os.path.splitext(json_filename)[0]
+    else:
+        dpg.set_value(user_data, "[Error] Path is empty!")
+        return
+    try:
+        retarget_params.to_json(json_path)
+        dpg.set_value(user_data, f"[OK] Saved to {json_path}")
+    except Exception as e:
+        dpg.set_value(user_data, f"[Error] {e}")
 
 # -----------------------------------------------------------------------------
 # 7. GUI Construction (static layout)
@@ -311,6 +275,7 @@ def add_tracker_callback(sender, app_data, input_tag):
 
 def create_gui():
     """Instantiate DearPyGui widgets and enter its main loop."""
+    global json_name
     robot_names = aligner.robot_generator.all_body_names
     human_names = aligner.human_generator.all_body_names
 
@@ -364,8 +329,6 @@ def create_gui():
                 dpg.add_text("Human body ratio")
                 dpg.add_button(label="Refresh MuJoCo", callback=refresh_human_model_callback)
                 dpg.add_button(label="Add Component", callback=add_body_ratio_callback, user_data=human_names)
-            dpg.add_text("Whole body")
-            create_three_slider(prefix="", callback=update_body_ratio_callback, min_value=0.5, max_value=1.5, default_value=1.0)
         dpg.add_separator()
 
         # ---- Body rotation -----------------------------------------------------
@@ -383,7 +346,14 @@ def create_gui():
                 dpg.add_input_text(label="Part name", tag=text_id, hint="Enter part name")
                 dpg.add_button(label="Add Part", callback=add_tracker_callback, user_data=text_id)
         dpg.add_separator()
-
+        
+        # ---- Export json file --------------------------------------------------
+        with dpg.group(tag="export_json"):
+            dpg.add_text("click 'Export' to export retarget_params into .json file")
+            dpg.add_input_text(label="File path", tag="file_path_input", hint="e.g. params", width=300)
+            status_id = dpg.add_text("")  
+            dpg.add_button(label="Export", callback=export_json_callback, user_data=status_id)
+        dpg.add_separator()
     # ---- Launch DearPyGui ------------------------------------------------------
     dpg.create_viewport(title="MuJoCo Control", width=800, height=600)
     dpg.setup_dearpygui()
@@ -401,10 +371,12 @@ def create_gui():
 @click.option("--motion_path", prompt="Path to motion file")
 def main(robot_name: str, motion_type: str, motion_path: str):
     """CLI wrapper - sets up *Aligner*, starts sim thread, launches GUI."""
-    global aligner
-
+    global aligner, json_path, json_name
+    json_path = os.path.join(PARAMETERS_PATH, robot_name, motion_type, f"{json_name}.json")
+    
     aligner = Aligner(source_file_path=motion_path, robot_name=robot_name, generator_type=motion_type)
     aligner.set_base_rotation()
+    retarget_params.base_rotation = [90, 0, 90] if motion_type == "bvh" else [0, 0, 0]
 
     threading.Thread(target=simulation_loop, daemon=True).start()
 
