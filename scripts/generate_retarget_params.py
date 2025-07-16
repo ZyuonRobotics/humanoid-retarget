@@ -24,6 +24,8 @@ lock = threading.Lock()
 # Containers used only for GUI
 body_ratio_dict: Dict[str, str | None] = {}
 body_rotate_dict: Dict[str, str | None] = {}
+body_ratio_count: int = 0
+body_rotate_count: int = 0
 tracker_ui_groups: List[str] = []
 
 json_name = "params_test"
@@ -129,9 +131,10 @@ def add_three_axis_editor_callback(
     default_value: float,
     slider_prefix: str,
     parent_group_tag: str,
+    counter: int
 ):
     """Factory that creates either a *ratio* or *rotation* editor section."""
-    group_id = f"{group_prefix}_{len(target_dict)}"
+    group_id = f"{group_prefix}_{counter}"
     target_dict[group_id] = None  # placeholder until body chosen
 
     # -- Inner callbacks --
@@ -146,10 +149,11 @@ def add_three_axis_editor_callback(
             getattr(retarget_params, retarget_key)[body][meta["axis"]] = app_data
 
     def remove_component(sender, app_data, tag):
-        body = target_dict[tag]
-        if body in getattr(retarget_params, retarget_key):
-            del getattr(retarget_params, retarget_key)[body]
-        del target_dict[tag]
+        if tag in target_dict:
+            name = target_dict[tag]
+            if name in getattr(retarget_params, retarget_key):
+                del getattr(retarget_params, retarget_key)[name]
+            del target_dict[tag]
         dpg.delete_item(tag)
 
     # -- Build UI --
@@ -168,14 +172,23 @@ def add_three_axis_editor_callback(
 
 
 # Convenience wrappers ---------------------------------------------------------
-add_body_ratio_callback = lambda s, a, names: add_three_axis_editor_callback(
-    group_prefix="body_ratio", target_dict=body_ratio_dict, retarget_key="relative_body_ratio_dict",
-    all_body_names=names, slider_range=(0.5, 1.5), default_value=1.0, slider_prefix="", parent_group_tag="body_ratio_group"
-)
-add_body_rotate_callback = lambda s, a, names: add_three_axis_editor_callback(
-    group_prefix="body_rotate", target_dict=body_rotate_dict, retarget_key="body_rotate_dict",
-    all_body_names=names, slider_range=(-180, 180), default_value=0.0, slider_prefix="rot_", parent_group_tag="body_rotate_group"
-)
+def add_body_ratio_callback(sender, app_data, names):
+    global body_ratio_count
+    add_three_axis_editor_callback(
+        group_prefix="body_ratio", target_dict=body_ratio_dict, retarget_key="relative_body_ratio_dict",
+        all_body_names=names, slider_range=(0.5, 2.5), default_value=1.0, slider_prefix="", parent_group_tag="body_ratio_group",
+        counter=body_ratio_count
+    )
+    body_ratio_count += 1
+    
+def add_body_rotate_callback(sender, app_data, names):
+    global body_rotate_count
+    add_three_axis_editor_callback(
+        group_prefix="body_rotate", target_dict=body_rotate_dict, retarget_key="body_rotate_dict",
+        all_body_names=names, slider_range=(-180, 180), default_value=0.0, slider_prefix="rot_", parent_group_tag="body_rotate_group",
+        counter=body_rotate_count
+    )
+    body_rotate_count += 1
 
 # -----------------------------------------------------------------------------
 # 6. Tracker GUI – bespoke because of complex structure
