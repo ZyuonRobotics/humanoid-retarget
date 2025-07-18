@@ -30,8 +30,7 @@ class SMPLPlayer(HumanoidMotionPlayerBase):
         elif "mocap_framerate" in self.motion_data:
             frame_rate = self.motion_data["mocap_framerate"]
         else:
-            # raise ValueError("Invalid npz file")
-            return 30
+            raise ValueError(f"mocap_frame_rate not found in {self.source_file_path}")
         return int(frame_rate)
 
     @staticmethod
