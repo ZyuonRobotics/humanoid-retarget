@@ -60,15 +60,16 @@ class RetargetParams:
     def from_json(cls, file_path: str) -> 'RetargetParams':
         with open(file_path, 'r') as f:
             data = json.load(f)
+        return cls.from_dict(data)
 
-        if 'robot_foot' in data:
-            data['robot_foot'] = FootParams(**data['robot_foot'])
-        if 'human_foot' in data:
-            data['human_foot'] = FootParams(**data['human_foot'])
-        if 'human_hip' in data:
-            data['human_hip'] = HipParams(**data['human_hip'])
-        if 'robot_hip' in data:
-            data['robot_hip'] = HipParams(**data['robot_hip'])
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'RetargetParams':
+        for key in ("robot_foot", "human_foot"):
+            if key in data:
+                data[key] = FootParams(**data[key])
+        for key in ("robot_hip", "human_hip"):
+            if key in data:
+                data[key] = HipParams(**data[key])
         if 'tracker_dict' in data:
             for key, tracker_data in data['tracker_dict'].items():
                 data['tracker_dict'][key] = TrackerConfig(**tracker_data)
