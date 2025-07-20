@@ -1,39 +1,22 @@
 import os
 import threading
-from typing import Optional
+from typing import Dict, List, Tuple, Optional
 
 import click
 import dearpygui.dearpygui as dpg
 import mujoco
 import mujoco.viewer
-from hurodes import ROBOTS_PATH
-from hurodes.mjcf_generator.generator_base import MJCFGeneratorComposite
-from hurodes.mjcf_generator.unified_generator import UnifiedMJCFGenerator
 
-from humanoid_retargeting.mjcf_generator import RetargetingMJCFGeneratorBase, BVH2MJCFGenerator, SMPL2MJCFGenerator
+from humanoid_retargeting import PARAMETERS_PATH
+from humanoid_retargeting.aligner import Aligner
+from humanoid_retargeting.utils.retarget_params import RetargetParams, FootParams, HipParams, TrackerConfig
 
-retarget_params = {
-    "robot": {
-        "left_foot": None,
-        "right_foot": None,
-        "foot_height": 0.05,
-    },
-    "human": {
-        "left_foot": None,
-        "right_foot": None,
-        "foot_height": 0,
-    },
-    "whole_body_ratio": [1., 1., 1.],
-    "body_ratio_dict": {},
-    "body_rotate_dict": {}
-}
-model: Optional[mujoco.MjModel] = None
-data: Optional[mujoco.MjData] = None
-viewer: Optional[mujoco.viewer.Handle] = None
-human_generator: Optional[RetargetingMJCFGeneratorBase] = None
-robot_generator: Optional[UnifiedMJCFGenerator] = None
-generator: Optional[MJCFGeneratorComposite] = None
+# -----------------------------------------------------------------------------
+# Global mutable state – mirrors GUI widgets
+# -----------------------------------------------------------------------------
+retarget_params = RetargetParams()
 
+aligner: Aligner | None = None
 lock = threading.Lock()
 
 # Containers used only for GUI
@@ -69,55 +52,65 @@ def strip_prefix(value, prefixes: Tuple[str, ...] = ("human_", "robot_")):
 # -----------------------------------------------------------------------------
 
 def simulation_loop():
-    global retarget_params, data, model, viewer
-    assert None not in [data, model, viewer]
-    while viewer.is_running():
+    """Continuously push *retarget_params* into MuJoCo viewer while it is open."""
+    assert aligner and all([aligner.data, aligner.model, aligner.viewer])
+    while aligner.viewer.is_running():
         with lock:
-            check_and_update_base_pose("robot")
-            check_and_update_base_pose("human")
-            mujoco.mj_forward(model, data)
-            viewer.sync()
+            aligner.retarget_params = retarget_params
+            aligner.set_base_pose()
+            aligner.set_dof_pos()
+            mujoco.mj_forward(aligner.model, aligner.data)
+            aligner.viewer.sync()
 
+
+# -----------------------------------------------------------------------------
+# Generic GUI‑building primitives & callbacks
+# -----------------------------------------------------------------------------
+# These mutate *retarget_params* in response to widget events.
+
+# Simple scalar updates
 
 def update_height_callback(sender, app_data, user_data):
-    global retarget_params
-    retarget_params[user_data]["foot_height"] = app_data
+    """Slider callback for foot / hip height."""
+    target = getattr(retarget_params, user_data)
+    target.offset = app_data
 
 
 def update_foot_name_callback(sender, app_data, user_data):
-    global retarget_params
     robot_or_human, left_or_right = user_data.split("_")
-    retarget_params[robot_or_human][f"{left_or_right}_foot"] = app_data
+    foot_params : FootParams = getattr(retarget_params, f"{robot_or_human}_foot")
+    setattr(foot_params, f"{left_or_right}_name", strip_prefix(app_data))
 
 
-def update_body_ratio_callback(sender, app_data, user_data):
-    global retarget_params
-    retarget_params["whole_body_ratio"][user_data["idx"]] = app_data
+def update_hip_name_callback(sender, app_data, user_data):
+    robot_or_human, left_or_right = user_data.split("_")
+    hip_params: HipParams = getattr(retarget_params, f"{robot_or_human}_hip")
+    setattr(hip_params, f"{left_or_right}_name", strip_prefix(app_data))
 
+
+def update_base_shift_callback(sender, app_data, user_data):
+    setattr(retarget_params, user_data, app_data)
+
+# Model refresh (not finished) 
 
 def refresh_human_model_callback(sender, app_data, user_data):
-    global retarget_params, data, model, human_generator, robot_generator, generator, viewer
-    human_generator.whole_body_ratio = retarget_params["whole_body_ratio"]
-    generator.build()
+    """Re-build MJCF after body ratio scaling changes, preserving viewer window."""
+    global retarget_params
     with lock:
-        model = mujoco.MjModel.from_xml_string(generator.mjcf_str)
-        data = mujoco.MjData(model)
-        viewer.close()
-        viewer = mujoco.viewer.launch_passive(model, data)
+        aligner.viewer.close()
+        aligner.reload(retarget_params=retarget_params)
+        aligner.set_base_rotation()
+        aligner.viewer.sync()
 
+# Popup tree viewer
 
-def show_body_tree_callback(sender, app_data, user_data):
-    global human_generator, robot_generator
-    if user_data == "human":
-        text = human_generator.body_tree_str
-    elif user_data == "robot":
-        text = robot_generator.body_tree_str
-    else:
-        raise ValueError("Invalid user_data")
+def show_body_tree_callback(sender, app_data, kind):
+    """Display a scrollable window with the body tree (robot or human)."""
+    tree_str = aligner.human_generator.body_tree_str if kind == "human" else aligner.robot_generator.body_tree_str
+    with dpg.window(height=300, width=300, horizontal_scrollbar=True, label=f"{kind} body tree"):
+        dpg.add_text(tree_str)
 
-    with dpg.window(height=300, width=300, horizontal_scrollbar=True, label=f"{user_data} body tree"):
-        dpg.add_text(text)
-
+# Common slider factory
 
 def create_three_slider(*, prefix: str = "", labels: Tuple[str, str, str] = ("x", "y", "z"), user_data=None, **kwargs):
     """Add three aligned sliders (x, y, z)."""
@@ -144,11 +137,14 @@ def add_three_axis_editor_callback(
 
     # -- Inner callbacks --
     def update_name(sender, app_data, user_data):
-        retarget_params["body_ratio_dict"][user_data]["name"] = app_data
+        target_dict[user_data] = strip_prefix(app_data)
+        # 使用 setattr 获取并修改 data class 中的 dict
+        getattr(retarget_params, retarget_key)[strip_prefix(app_data)] = [default_value] * 3
 
-    def update_value(sender, app_data, user_data):
-        g_id, idx = user_data["user_data"], user_data["idx"]
-        retarget_params["body_ratio_dict"][g_id]["values"][idx] = app_data
+    def update_value(sender, app_data, meta):
+        body = target_dict[meta["group_id"]]
+        if body is not None:
+            getattr(retarget_params, retarget_key)[body][meta["axis"]] = app_data
 
     def remove_component(sender, app_data, tag):
         if tag in target_dict:
@@ -289,82 +285,116 @@ def export_json_callback(sender, app_data, user_data):
 # -----------------------------------------------------------------------------
 
 def create_gui():
-    global retarget_params, data, model, viewer, human_generator, robot_generator
-    robot_all_body_names = robot_generator.all_body_names
-    human_all_body_names = human_generator.all_body_names
+    """Instantiate DearPyGui widgets and enter its main loop."""
+    global json_name
+    robot_names = aligner.robot_generator.all_body_names
+    human_names = aligner.human_generator.all_body_names
 
     dpg.create_context()
     with dpg.window(label="main", width=500, height=400):
+        # ---- Robot info --------------------------------------------------------
         with dpg.group():
             with dpg.group(horizontal=True):
-                dpg.add_text("Retargeting Parameters")
-                dpg.add_button(label="show robot body tree", callback=show_body_tree_callback, user_data="robot")
-            dpg.add_combo(label="left foot name", items=robot_all_body_names, callback=update_foot_name_callback,
-                          user_data="robot_left")
-            dpg.add_combo(label="right foot name", items=robot_all_body_names, callback=update_foot_name_callback,
-                          user_data="robot_right")
-            dpg.add_slider_float(label="foot height", callback=update_height_callback, user_data="robot", min_value=0,
-                                 max_value=0.2, default_value=0.)
-        dpg.add_separator()
-        with dpg.group():
-            with dpg.group(horizontal=True):
-                dpg.add_text("Human info")
-                dpg.add_button(label="show robot body tree", callback=show_body_tree_callback, user_data="human")
-            dpg.add_combo(label="left foot name", items=human_all_body_names, callback=update_foot_name_callback,
-                          user_data="human_left")
-            dpg.add_combo(label="right foot name", items=human_all_body_names, callback=update_foot_name_callback,
-                          user_data="human_right")
-            dpg.add_slider_float(label="foot height", callback=update_height_callback, user_data="human", min_value=0,
-                                 max_value=0.2, default_value=0.)
-        dpg.add_separator()
-        with dpg.group(tag="body_ratio_group"):
-            with dpg.group(horizontal=True):
-                dpg.add_text("human body ratio")
-                dpg.add_button(label="refresh mujoco", callback=refresh_human_model_callback)
-                dpg.add_button(label="Add Component", callback=add_body_ratio_callback, user_data=human_all_body_names)
-            dpg.add_text("whole body")
-            create_three_slider(callback=update_body_ratio_callback, min_value=0.5, max_value=1.5, default_value=1.)
+                dpg.add_text("Robot Info")
+                dpg.add_button(label="Show robot body tree", callback=show_body_tree_callback, user_data="robot")
+            for side in ("left", "right"):
+                dpg.add_combo(label=f"{side} foot name", items=robot_names, callback=update_foot_name_callback,
+                              user_data=f"robot_{side}")
+            for side in ("left", "right"):
+                dpg.add_combo(label=f"{side} hip name", items=robot_names, callback=update_hip_name_callback,
+                              user_data=f"robot_{side}")
+            dpg.add_slider_float(label="foot height", min_value=-0.2, max_value=0.2, default_value=0.0,
+                                 callback=update_height_callback, user_data="robot_foot")
+            dpg.add_slider_float(label="hip height", min_value=-0.2, max_value=0.2, default_value=0.0,
+                                 callback=update_height_callback, user_data="robot_hip")
         dpg.add_separator()
 
-    dpg.create_viewport(title='MuJoCo Control', width=800, height=600)
+        # ---- Human info --------------------------------------------------------
+        with dpg.group():
+            with dpg.group(horizontal=True):
+                dpg.add_text("Human Info")
+                dpg.add_button(label="Show human body tree", callback=show_body_tree_callback, user_data="human")
+            for side in ("left", "right"):
+                dpg.add_combo(label=f"{side} foot name", items=human_names, callback=update_foot_name_callback,
+                              user_data=f"human_{side}")
+            for side in ("left", "right"):
+                dpg.add_combo(label=f"{side} hip name", items=human_names, callback=update_hip_name_callback,
+                              user_data=f"human_{side}")
+            dpg.add_slider_float(label="foot height", min_value=-0.2, max_value=0.2, default_value=0.0,
+                                 callback=update_height_callback, user_data="human_foot")
+            dpg.add_slider_float(label="hip height", min_value=-0.2, max_value=0.2, default_value=0.0,
+                                 callback=update_height_callback, user_data="human_hip")
+        dpg.add_separator()
+
+        # ---- Base shift --------------------------------------------------------
+        with dpg.group():
+            dpg.add_slider_float(label="base x shift", min_value=-0.2, max_value=0.2, default_value=0.0,
+                                 callback=update_base_shift_callback, user_data="base_x_shift")
+            dpg.add_slider_float(label="base y shift", min_value=-0.2, max_value=0.2, default_value=0.0,
+                                 callback=update_base_shift_callback, user_data="base_y_shift")
+        dpg.add_separator()
+
+        # ---- Body ratio --------------------------------------------------------
+        with dpg.group(tag="body_ratio_group"):
+            with dpg.group(horizontal=True):
+                dpg.add_text("Human body ratio")
+                dpg.add_button(label="Refresh MuJoCo", callback=refresh_human_model_callback)
+                dpg.add_button(label="Add Component", callback=add_body_ratio_callback, user_data=human_names)
+        dpg.add_separator()
+
+        # ---- Body rotation -----------------------------------------------------
+        with dpg.group(tag="body_rotate_group"):
+            with dpg.group(horizontal=True):
+                dpg.add_text("Human body rotation")
+                dpg.add_button(label="Add Rotation Component", callback=add_body_rotate_callback, user_data=human_names)
+        dpg.add_separator()
+
+        # ---- Tracker dict ------------------------------------------------------
+        with dpg.group(tag="tracker_dict_group"):
+            dpg.add_text("Build tracker_dict")
+            with dpg.group(horizontal=True):
+                text_id = dpg.generate_uuid()
+                dpg.add_input_text(label="Part name", tag=text_id, hint="Enter part name")
+                dpg.add_button(label="Add Part", callback=add_tracker_callback, user_data=text_id)
+        dpg.add_separator()
+        
+        # ---- Export json file --------------------------------------------------
+        with dpg.group(tag="export_json"):
+            dpg.add_text("click 'Export' to export retarget_params into .json file")
+            dpg.add_input_text(label="File path", tag="file_path_input", hint="e.g. params", width=300)
+            status_id = dpg.add_text("")  
+            dpg.add_button(label="Export", callback=export_json_callback, user_data=status_id)
+        dpg.add_separator()
+    # ---- Launch DearPyGui ------------------------------------------------------
+    dpg.create_viewport(title="MuJoCo Control", width=800, height=600)
     dpg.setup_dearpygui()
     dpg.show_viewport()
     dpg.start_dearpygui()
     dpg.destroy_context()
 
+# -----------------------------------------------------------------------------
+# CLI entry point (Click)
+# -----------------------------------------------------------------------------
 
 @click.command()
-@click.option("--robot_name", prompt="Enter the robot name")
-@click.option("--motion_type", prompt="Enter the motion type")
-@click.option("--motion_path", prompt="Enter the motion path")
-def main(robot_name, motion_type, motion_path):
-    global retarget_params, data, model, viewer, human_generator, robot_generator, generator
+@click.option("--robot_name", prompt="Robot name")
+@click.option("--motion_type", prompt="Motion type")
+@click.option("--motion_path", prompt="Path to motion file")
+def main(robot_name: str, motion_type: str, motion_path: str):
+    """CLI wrapper - sets up *Aligner*, starts sim thread, launches GUI."""
+    global aligner, json_path, json_name
+    json_path = os.path.join(PARAMETERS_PATH, robot_name, motion_type, f"{json_name}.json")
+    
+    aligner = Aligner(source_file_path=motion_path, robot_name=robot_name, generator_type=motion_type)
+    aligner.set_base_rotation()
+    retarget_params.base_rotation = [90, 0, 90] if motion_type == "bvh" else [0, 0, 0]
 
-    if motion_type.lower() == "bvh":
-        human_generator_class = BVH2MJCFGenerator
-    elif motion_type.lower() == "smpl":
-        human_generator_class = SMPL2MJCFGenerator
-    else:
-        raise ValueError("Invalid motion type")
+    threading.Thread(target=simulation_loop, daemon=True).start()
 
-    human_generator = human_generator_class(motion_path)
-    robot_generator = UnifiedMJCFGenerator(os.path.join(ROBOTS_PATH, robot_name))
-
-    generator = MJCFGeneratorComposite([human_generator, robot_generator])
-    generator.build()
-
-    model = mujoco.MjModel.from_xml_string(generator.mjcf_str)
-    data = mujoco.MjData(model)
-    viewer = mujoco.viewer.launch_passive(model, data)
-
-    # simulation_loop()
-    sim_thread = threading.Thread(target=simulation_loop, daemon=True)
-    sim_thread.start()
-    #
     create_gui()
 
-    viewer.close()
-
-
-if __name__ == '__main__':
+    aligner.viewer.close()
+    print(retarget_params)
+    
+if __name__ == "__main__":
     main()

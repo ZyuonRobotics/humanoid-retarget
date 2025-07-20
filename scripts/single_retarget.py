@@ -12,7 +12,7 @@ SOURCE_FILE_PATH = os.path.join(BVH_DATA_PATH, "Reallusion", "Folk Artistry - Ba
 @click.option('--params-name', default='default', help='Name of parameters.', prompt="Name of parameters")
 @click.option('--view/--no-view', default=True, help='Enable or disable viewing.')
 @click.option('--speed', default=1.0, help='Playback speed.')
-@click.option('--offset', nargs=3, type=float, default=[0.0, 0, 0.0], help='Offset for playback.')
+@click.option('--offset', nargs=3, type=float, default=[0.0, 1.0, 0.0], help='Offset for playback.')
 
 def main(source_file_path, robot_name, generator_type, params_name, view, speed, offset):
     retargeter = Retargeter(
