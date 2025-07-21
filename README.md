@@ -11,7 +11,6 @@ It is recommended to use `conda` or `mamba` to manage the Python environment:
 ```bash
 conda create -n humanoid-retargeting python=3.10
 conda activate humanoid-retargeting
-pip install git+https://github.com/ZyuonRobotics/humanoid-robot-description
 pip install -e .
 ```
 
@@ -19,6 +18,11 @@ pip install -e .
 If you need to use the GUI-based alignment tool, run:
 ```bash
 pip install -e .[gui]
+```
+
+If you want to use the newest hurodes, run:
+```bash
+pip install git+https://github.com/ZyuonRobotics/humanoid-robot-description
 ```
 
 

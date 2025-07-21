@@ -8,13 +8,16 @@ setup(
         "hurodes>=0.0.1",
         "tqdm",
         "matplotlib",
-        "pytest-cov",
         "scipy",
         "mink",
+        "click",
     ],
     extras_require={
         'gui': [
             'dearpygui',
+        ],
+        'dev': [
+            "pytest-cov",
         ]
     },
     python_requires=">=3.8",
