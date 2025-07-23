@@ -156,10 +156,10 @@ class Retargeter:
                 self.frame_tasks.append(task)
 
 
-    def run_ik(self):
+    def run_ik(self, progress_bar=True):
         assert self.posture_task is not None and self.frame_tasks is not None
         
-        for frame_idx in tqdm(range(self.frame_num), disable=self.player is None):
+        for frame_idx in tqdm(range(self.frame_num), disable=not progress_bar):
             self.player.sync_data(frame_idx)
 
             self.posture_task.set_target_from_configuration(self.mink_config)

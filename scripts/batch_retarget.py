@@ -1,14 +1,17 @@
-import click
 from pathlib import Path
 from multiprocessing import Pool, cpu_count
 from functools import partial
 
-from humanoid_retargeting.retargeter import Retargeter
+from tqdm import tqdm
+import click
+
+from humanoid_retargeting import GENERATOR_TYPES, GENERATOR_TYPE_TO_DATA_PATH, GENERATOR_TYPE_TO_RETARGETING_PATH
 from humanoid_retargeting.motion_player import PLAYER_FILE_SUFFIXES
+from humanoid_retargeting.retargeter import Retargeter
 
 
-def process_file(source_file_path, target_file_path, robot_name, generator_type, params_name, target_fps):
-    click.echo(f"Processing {source_file_path}")
+def process_file(args):
+    source_file_path, target_file_path, robot_name, generator_type, params_name, target_fps = args
     retargeter = Retargeter(
         source_file_path=str(source_file_path),
         robot_name=robot_name,
@@ -16,20 +19,21 @@ def process_file(source_file_path, target_file_path, robot_name, generator_type,
         params_name=params_name,
         view=False
     )
-    retargeter.run_ik()
+    retargeter.run_ik(progress_bar=False)
     target_file_path.parent.mkdir(parents=True, exist_ok=True)
     retargeter.save_as_npz(str(target_file_path), target_framerate=target_fps)
 
 
 @click.command()
 @click.option('--source-path', type=click.Path(exists=True), required=True,
-              help='Path to the folder containing motion files.')
-@click.option('--target-path', type=click.Path(), required=True,
-              help='Path to save the retargeted .npy files, preserving folder structure.')
-@click.option('--robot-name', type=str, required=True, help='Name of the robot.')
-@click.option('--generator-type', type=str, required=True, help='Type of generator (e.g., "smpl").')
+              help='Path to the folder containing motion files.', prompt="Motion files path")
+@click.option('--robot-name', type=str, required=True, help='Name of the robot.', prompt="Name of the robot")
+@click.option('--generator-type', type=str, required=True, 
+              help='Type of generator (e.g., "smpl").', prompt="Type of generator")
 @click.option('--params-name', type=str, default='default',
-              help='Name of the retargeting parameters. Default is "default".')
+              help='Name of the retargeting parameters. Default is "default".', prompt="Name of the retargeting parameters")
+@click.option('--target-path', type=click.Path(), required=False,
+              help='Path to save the retargeted .npy files')
 @click.option('--target-fps', type=int, default=100, help='Target framerate for output files. Default is 100.')
 @click.option('--overwrite/--no-overwrite', default=False,
               help='Whether to overwrite existing .npy files. Default is False.')
@@ -39,26 +43,31 @@ def process_file(source_file_path, target_file_path, robot_name, generator_type,
               help='Skip files whose names contain any of these keywords. Can be used multiple times.')
 @click.option('--num-processes', type=int, default=1,
               help='Number of processes to use. Set to 1 to disable multiprocessing.')
-def main(source_path, target_path, robot_name, generator_type, params_name, target_fps, overwrite,
+def main(source_path, robot_name, generator_type, params_name, target_path, target_fps, overwrite,
          pos_filter, neg_filter, num_processes):
     """
     Batch process motion files in the specified folder using Retargeter,
     convert to .npy format and save in a separate target folder with preserved directory structure.
     Uses multiprocessing when num_processes > 1.
     """
-
-    if generator_type not in PLAYER_FILE_SUFFIXES:
-        click.echo(f"Unsupported generator_type: {generator_type}")
-        click.echo(f"Supported types: {list(PLAYER_FILE_SUFFIXES.keys())}")
-        return
-
-    suffix = PLAYER_FILE_SUFFIXES[generator_type]
+    # check if generator_type is supported
+    if generator_type not in GENERATOR_TYPES:
+        raise ValueError(f"Unsupported generator_type: {generator_type}")
 
     source_path = Path(source_path)
-    source_motion_files = list(source_path.rglob(f"*{suffix}"))
+    # check if target_path is valid
+    if target_path is None:
+        post_path = source_path.relative_to(GENERATOR_TYPE_TO_DATA_PATH[generator_type])
+        if post_path is not None:
+            target_path = GENERATOR_TYPE_TO_RETARGETING_PATH[generator_type] / post_path / robot_name / "retargeted"
+        else:
+            raise ValueError(f"Without target_path, source_path must start with {GENERATOR_TYPE_TO_DATA_PATH[generator_type]}")
+
+    file_suffix = PLAYER_FILE_SUFFIXES[generator_type]
+    source_motion_files = list(source_path.rglob(f"*{file_suffix}"))
 
     if not source_motion_files:
-        click.echo(f"No motion files found with suffix '{suffix}' in {source_path}.")
+        click.echo(f"No motion files found with suffix '{file_suffix}' in {source_path}.")
         return
 
     # Ensure target path exists
@@ -83,19 +92,23 @@ def main(source_path, target_path, robot_name, generator_type, params_name, targ
         click.echo("No files matched the filters.")
         return
 
-    func = partial(
-        process_file,
-        robot_name=robot_name, generator_type=generator_type,params_name=params_name,target_fps=target_fps
-    )
-
     # Use multiprocessing only if num_processes > 1
     if num_processes > 1:
         with Pool(processes=num_processes) as pool:
-            pool.starmap(func, zip(filtered_motion_files, target_motion_files))
+            list(tqdm(
+                pool.imap(process_file, zip(
+                    filtered_motion_files, 
+                    target_motion_files, 
+                    [robot_name] * len(filtered_motion_files), 
+                    [generator_type] * len(filtered_motion_files), 
+                    [params_name] * len(filtered_motion_files), 
+                    [target_fps] * len(filtered_motion_files))),
+                total=len(filtered_motion_files),
+            ))
     else:
         # Single process mode
-        for source_path, target_path in zip(filtered_motion_files, target_motion_files):
-            func(source_path, target_path)
+        for source_path, target_path in tqdm(zip(filtered_motion_files, target_motion_files), total=len(filtered_motion_files)):
+            process_file((source_path, target_path, robot_name, generator_type, params_name, target_fps))
 
 
 if __name__ == '__main__':
