@@ -20,6 +20,7 @@ lock = threading.Lock()
 
 SAVE_DIR = None
 ROBOT = None
+Generator_Type = None
 
 # Containers used only for GUI
 body_ratio_dict: Dict[str, str | None] = {}
@@ -396,8 +397,15 @@ def sync_gui_with_params():
 
     sync_trackers_from_params()
 
+def get_json_candidates(robot_name, generator_type):
+    folder = os.path.join(PARAMETERS_PATH, robot_name, generator_type)
+    if not os.path.exists(folder):
+        return []
+    return [f for f in os.listdir(folder) if f.endswith(".json")]
+
 def import_json_callback(sender, app_data, user_data):
-    path = dpg.get_value("import_file_input").strip()
+    name = dpg.get_value("import_file_dropdown").strip()
+    path = os.path.join(SAVE_DIR, name)
     if not path or not os.path.isfile(path):
         dpg.set_value(user_data, f"[Error] Invalid path: {path}")
         return
@@ -426,6 +434,18 @@ def create_gui():
 
     dpg.create_context()
     with dpg.window(label="main", width=600, height=500):
+        # Import json file
+        with dpg.group(tag="import_json"):
+            dpg.add_text("Import retarget_params from .json file")
+
+            json_files = get_json_candidates(ROBOT, Generator_Type)
+            dpg.add_combo(label="Select JSON", items=json_files, tag="import_file_dropdown", width=300)
+
+            import_status_id = dpg.add_text("")
+            dpg.add_button(label="Import", callback=import_json_callback, user_data=import_status_id)
+
+        dpg.add_separator()
+        
         # Show body tree
         with dpg.group():
             dpg.add_text("Show Body Tree")
@@ -489,15 +509,6 @@ def create_gui():
             status_id = dpg.add_text("")  
             dpg.add_button(label="Export", callback=export_json_callback, user_data=status_id)
         dpg.add_separator()
-
-        
-        # Import json file
-        with dpg.group(tag="import_json"):
-            dpg.add_text("Import retarget_params from .json file")
-            dpg.add_input_text(label="File path", tag="import_file_input", hint="e.g. params.json", width=300)
-            import_status_id = dpg.add_text("")
-            dpg.add_button(label="Import", callback=import_json_callback, user_data=import_status_id)
-        dpg.add_separator()
         
     # Launch DearPyGui
     dpg.create_viewport(title="MuJoCo Control", width=800, height=600)
@@ -510,15 +521,14 @@ def create_gui():
 @click.option('--source-file-path', default=SOURCE_FILE_PATH, help='Path to the BVH file.', prompt="Path to the Motion Capture File")
 @click.option('--robot-name', default='zhaplin_v0', help='Name of the robot.', prompt="Name of the robot")
 @click.option('--generator-type', default='bvh', help='Type of generator.', prompt="Type of generator")
-@click.option('--params-name', default=None, help='Name of parameters.')
-def main(source_file_path: str, robot_name: str, generator_type: str, params_name: str):
+def main(source_file_path: str, robot_name: str, generator_type: str):
     """CLI wrapper - sets up *Aligner*, starts sim thread, launches GUI."""
-    global aligner, json_path, SAVE_DIR, ROBOT
+    global aligner, SAVE_DIR, ROBOT, Generator_Type
     ROBOT = robot_name
+    Generator_Type = generator_type
     SAVE_DIR = os.path.join(PARAMETERS_PATH, ROBOT, generator_type)
-    json_path = os.path.join(PARAMETERS_PATH, robot_name, generator_type, f"{params_name}.json")
     
-    aligner = Aligner(source_file_path=source_file_path, robot_name=robot_name, generator_type=generator_type)
+    aligner = Aligner(source_file_path=source_file_path, robot_name=ROBOT, generator_type=Generator_Type)
     # aligner.set_base_rotation()
 
     threading.Thread(target=simulation_loop, daemon=True).start()
