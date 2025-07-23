@@ -507,9 +507,9 @@ def create_gui():
     dpg.destroy_context()
 
 @click.command()
-@click.option('--source-file-path', default=SOURCE_FILE_PATH, help='Path to the BVH file.')
-@click.option('--robot-name', default='zhaplin_v0', help='Name of the robot.')
-@click.option('--generator-type', default='bvh', help='Type of generator.')
+@click.option('--source-file-path', default=SOURCE_FILE_PATH, help='Path to the BVH file.', prompt="Path to the Motion Capture File")
+@click.option('--robot-name', default='zhaplin_v0', help='Name of the robot.', prompt="Name of the robot")
+@click.option('--generator-type', default='bvh', help='Type of generator.', prompt="Type of generator")
 @click.option('--params-name', default=None, help='Name of parameters.')
 def main(source_file_path: str, robot_name: str, generator_type: str, params_name: str):
     """CLI wrapper - sets up *Aligner*, starts sim thread, launches GUI."""
