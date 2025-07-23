@@ -342,10 +342,10 @@ def create_gui():
     dpg.destroy_context()
 
 @click.command()
-@click.option('--source-file-path', default=SOURCE_FILE_PATH, help='Path to the BVH file.')
-@click.option('--robot-name', default='unitree_g1', help='Name of the robot.')
-@click.option('--generator-type', default='bvh', help='Type of generator.')
-@click.option('--params-name', default=None, help='Name of parameters.')
+@click.option('--source-file-path', default=SOURCE_FILE_PATH, help='Path to the BVH file.', prompt="Path to the BVH file")
+@click.option('--robot-name', default='unitree_g1', help='Name of the robot.', prompt="Name of the robot")
+@click.option('--generator-type', default='bvh', help='Type of generator.', prompt="Type of generator")
+@click.option('--params-name', default=None, help='Name of parameters.', prompt="Name of parameters")
 def main(source_file_path: str, robot_name: str, generator_type: str, params_name: str):
     """CLI wrapper - sets up *Aligner*, starts sim thread, launches GUI."""
     global aligner, json_path
