@@ -1,12 +1,9 @@
 import os
 import threading
 from typing import Dict, List, Tuple, Optional, Callable
-from itertools import product
 
 import click
 import dearpygui.dearpygui as dpg
-import mujoco
-import mujoco.viewer
 
 from humanoid_retargeting import PARAMETERS_PATH
 from humanoid_retargeting.aligner import Aligner
@@ -20,6 +17,9 @@ retarget_params = RetargetParams()
 
 aligner: Aligner | None = None
 lock = threading.Lock()
+
+SAVE_DIR = None
+ROBOT = None
 
 # Containers used only for GUI
 body_ratio_dict: Dict[str, str | None] = {}
@@ -58,7 +58,7 @@ def simulation_loop():
 def update_height_callback(sender, app_data, user_data):
     """Slider callback for foot / hip height."""
     target = getattr(retarget_params, user_data)
-    target.offset = app_data
+    target.offset = round(app_data, 4)
 
 
 def update_foot_name_callback(sender, app_data, user_data):
@@ -74,7 +74,7 @@ def update_hip_name_callback(sender, app_data, user_data):
 
 
 def update_base_shift_callback(sender, app_data, user_data):
-    setattr(retarget_params, user_data, app_data)
+    setattr(retarget_params, user_data, round(app_data, 4))
 
 
 def refresh_human_model_callback(sender, app_data, user_data):
@@ -128,7 +128,7 @@ def add_three_axis_editor_callback(
     def update_value(sender, app_data, meta):
         body = target_dict[meta["group_id"]]
         if body is not None:
-            getattr(retarget_params, retarget_key)[body][meta["axis"]] = app_data
+            getattr(retarget_params, retarget_key)[body][meta["axis"]] = round(app_data, 4)
 
     def remove_component(sender, app_data, tag):
         if tag in target_dict:
@@ -202,7 +202,7 @@ def add_tracker_callback(sender, app_data, part):
             body_list.append(strip_prefix(app_data))
 
     def update_cost(sender, app_data, kind):
-        setattr(retarget_params.tracker_dict[part_name], kind, app_data)
+        setattr(retarget_params.tracker_dict[part_name], kind, round(app_data, 4))
 
     def remove_tracker(sender, app_data, user_data):
         dpg.configure_item(user_data, show=False)
@@ -256,14 +256,20 @@ def add_tracker_callback(sender, app_data, part):
 # Export json file callback 
 
 def export_json_callback(sender, app_data, user_data):
-    global json_path, params_name
-    json_path = dpg.get_value("file_path_input").strip()
-    if json_path:
-        json_filename = os.path.basename(json_path)     # e.g. 'params.json'
-        params_name = os.path.splitext(json_filename)[0]
-    else:
-        dpg.set_value(user_data, "[Error] Path is empty!")
+    filename = dpg.get_value("file_name_input").strip()
+
+    if not filename:
+        dpg.set_value(user_data, "[Error] Filename is empty!")
         return
+
+    # Make sure there is a .json suffix
+    if not filename.endswith(".json"):
+        filename += ".json"
+
+    # Concatenate the full path
+    os.makedirs(SAVE_DIR, exist_ok=True)  # Make sure the directory exists
+    json_path = os.path.join(SAVE_DIR, filename)
+
     try:
         retarget_params.to_json(json_path)
         dpg.set_value(user_data, f"[OK] Saved to {json_path}")
@@ -478,11 +484,12 @@ def create_gui():
         
         # Export json file
         with dpg.group(tag="export_json"):
-            dpg.add_text("Click 'Export' to export retarget_params into .json file")
-            dpg.add_input_text(label="File path", tag="file_path_input", hint="e.g. params", width=300)
+            dpg.add_text("Click 'Export' to save retarget_params in .json file")
+            dpg.add_input_text(label="File name", tag="file_name_input", hint="e.g. params", width=300)
             status_id = dpg.add_text("")  
             dpg.add_button(label="Export", callback=export_json_callback, user_data=status_id)
         dpg.add_separator()
+
         
         # Import json file
         with dpg.group(tag="import_json"):
@@ -506,7 +513,9 @@ def create_gui():
 @click.option('--params-name', default=None, help='Name of parameters.')
 def main(source_file_path: str, robot_name: str, generator_type: str, params_name: str):
     """CLI wrapper - sets up *Aligner*, starts sim thread, launches GUI."""
-    global aligner, json_path
+    global aligner, json_path, SAVE_DIR, ROBOT
+    ROBOT = robot_name
+    SAVE_DIR = os.path.join(PARAMETERS_PATH, ROBOT, generator_type)
     json_path = os.path.join(PARAMETERS_PATH, robot_name, generator_type, f"{params_name}.json")
     
     aligner = Aligner(source_file_path=source_file_path, robot_name=robot_name, generator_type=generator_type)
