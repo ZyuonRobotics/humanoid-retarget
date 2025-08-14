@@ -57,7 +57,7 @@ class SMPLPlayer(HumanoidMotionPlayerBase):
 
         return ref_qpos
 
-    def load_motion_file(self):
+    def load_original_motion_file(self):
         self.motion_data = np.load(self.source_file_path)
         assert "poses" in self.motion_data
 

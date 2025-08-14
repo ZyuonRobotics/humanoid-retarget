@@ -23,13 +23,14 @@ class HumanoidMotionPlayerBase(MotionPlayerBase, ABC):
             relative_body_ratio_dict=self.relative_body_ratio_dict
         )
 
-    @property
-    def ref_qpos(self) -> np.ndarray:
-        if self._ref_qpos is None:
-            self.load_motion_file()
-            assert self._ref_qpos is not None, "Reference qpos is not loaded"
-            self._ref_qpos[:, :3] *= self.global_body_ratio
-        return self._ref_qpos
+    def load_motion_file(self):
+        self.load_original_motion_file()
+        assert self._ref_qpos is not None, "Reference qpos is not loaded"
+        self._ref_qpos[:, :3] *= self.global_body_ratio
+
+    @abstractmethod
+    def load_original_motion_file(self):
+        pass
 
     def lowpass_all_qpos(self, cutoff=20, order=2):
         assert isinstance(self._ref_qpos, np.ndarray) and self._ref_qpos.ndim == 2, "Reference qpos is not loaded"

@@ -80,7 +80,7 @@ class BVHPlayer(HumanoidMotionPlayerBase):
 
         return pos_array, quat_array
 
-    def load_motion_file(self):
+    def load_original_motion_file(self):
         self._frame_rate, self.motion_data = self.parse_bvh_file()
 
         qpos = []

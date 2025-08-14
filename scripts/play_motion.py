@@ -7,7 +7,7 @@ SOURCE_FILE_PATH = os.path.join(BVH_DATA_PATH, "Reallusion", "Folk Artistry - Ba
 
 @click.command()
 @click.option('--source-file-path', default=SOURCE_FILE_PATH, help='Path to the motion file.', prompt="Path to the motion file.")
-@click.option('--generator-type', type=click.Choice(list(PLAYERS_CLASS.keys())), default='bvh',
+@click.option('--generator-type', type=str, default='bvh',
               help='Type of generator (e.g., bvh, smpl, robot).', prompt="Type of generator")
 @click.option('--robot-name', default=None, help='Name of the robot.')
 def main(source_file_path, generator_type, robot_name):
@@ -23,6 +23,8 @@ def main(source_file_path, generator_type, robot_name):
         player = player_class(source_file_path=source_file_path, robot_name=robot_name)
     else:
         player = player_class(source_file_path=source_file_path)
+
+    player.adjust_root_height()
 
     player.render()
     player.close()
