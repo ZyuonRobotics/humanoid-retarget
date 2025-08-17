@@ -28,11 +28,11 @@ class SMPL2MJCFGenerator(RetargetingMJCFGeneratorBase):
         self.using_dmpl = using_dmpl
         self.smpl_type = None
 
-        self._vertices: np.ndarray | None = None
-        self._kintree_table: np.ndarray | None = None
-        self._bones: np.ndarray | None = None
-        self._weights: np.ndarray | None = None
-        self._faces: np.ndarray | None = None
+        self._vertices: np.ndarray = None
+        self._kintree_table: np.ndarray = None
+        self._bones: np.ndarray = None
+        self._weights: np.ndarray = None
+        self._faces: np.ndarray = None
 
     @staticmethod
     def create_body_element(name, pos, joint_type="ball", geom=True):
@@ -79,7 +79,7 @@ class SMPL2MJCFGenerator(RetargetingMJCFGeneratorBase):
         assert self._faces is not None, "faces not loaded, call load() first"
         return self._faces
 
-    def generate(self, prefix: str | None = None):
+    def generate(self, prefix: str = None):
         relative_jacob = self.bones.copy()
         relative_jacob[1:] -= self.bones[self.kintree_table[0, 1:]]
 

@@ -82,8 +82,8 @@ class Retargeter:
 
         self._viewer = None
 
-        self.posture_task: mink.PostureTask | None = None
-        self.frame_tasks: list[mink.FrameTask] | None = None
+        self.posture_task: mink.PostureTask = None
+        self.frame_tasks: list[mink.FrameTask] = None
         self.build_mink_tasks()
 
         self.collision_avoidance_limit = None

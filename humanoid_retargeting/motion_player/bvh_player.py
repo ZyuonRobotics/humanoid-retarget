@@ -49,7 +49,7 @@ class BVHPlayer(HumanoidMotionPlayerBase):
             motion_data = np.concatenate(motion_data, axis=0)
         return int(frame_rate), motion_data
 
-    def parse_channel(self, joint_idx: int, array: np.ndarray, channel: list[str]) -> tuple[np.ndarray | None, np.ndarray]:
+    def parse_channel(self, joint_idx: int, array: np.ndarray, channel: list[str]) -> tuple[np.ndarray, np.ndarray]:
         pos, euler, pos_order, euler_order = [], [], "", ""
 
         for i, c in enumerate(channel):

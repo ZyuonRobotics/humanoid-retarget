@@ -18,12 +18,12 @@ SOURCE_FILE_PATH = os.path.join(BVH_DATA_PATH, "Reallusion", "Folk Artistry - Ba
 # Global mutable state – mirrors GUI widgets
 retarget_params = RetargetParams()
 
-aligner: Aligner | None = None
+aligner: Aligner = None
 lock = threading.Lock()
 
 # Containers used only for GUI
-body_ratio_dict: Dict[str, str | None] = {}
-body_rotate_dict: Dict[str, str | None] = {}
+body_ratio_dict: Dict[str, str] = {}
+body_rotate_dict: Dict[str, str] = {}
 body_ratio_count: int = 0
 body_rotate_count: int = 0
 tracker_ui_groups: List[str] = []

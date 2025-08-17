@@ -20,10 +20,10 @@ class MotionPlayerBase(ABC):
         self.source_file_path = source_file_path
         self.view = view
 
-        self._generator: MJCFGeneratorBase | None = None
+        self._generator: MJCFGeneratorBase = None
         self._viewer = None
-        self._frame_rate: int | None = None
-        self._ref_qpos: np.ndarray | None = None
+        self._frame_rate: int = None
+        self._ref_qpos: np.ndarray = None
         self.motion_data = None
 
         self.generator.build()

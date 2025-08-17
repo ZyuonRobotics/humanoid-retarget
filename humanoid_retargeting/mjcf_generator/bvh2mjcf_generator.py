@@ -119,7 +119,7 @@ class BVH2MJCFGenerator(RetargetingMJCFGeneratorBase):
 
         self.body_element_list.append(body)
 
-    def generate(self, prefix: str | None = None):
+    def generate(self, prefix: str = None):
         baselink_elem = ET.SubElement(self.get_elem("worldbody"), "body", attrib={
             "name": get_prefix_name(prefix, self._joint_names[0]),
             "pos": " ".join(map(str, self.joint_offsets[0] * self.get_body_ratio(self._joint_names[0], prefix=prefix)))
