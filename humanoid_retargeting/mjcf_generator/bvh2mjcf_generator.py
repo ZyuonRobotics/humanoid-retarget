@@ -2,32 +2,31 @@ import xml.etree.ElementTree as ET
 
 import numpy as np
 
-from humanoid_retargeting.mjcf_generator.retargeting_generator_base import RetargetingMJCFGeneratorBase
-
-def get_prefix_name(prefix, name):
-    return f"{prefix}_{name}" if prefix else name
+from humanoid_retargeting.mjcf_generator.retargeting_generator_base import (
+    RetargetingMJCFGeneratorBase, get_prefix_name, array_to_string
+)
 
 
 class BVH2MJCFGenerator(RetargetingMJCFGeneratorBase):
     generator_type = "bvh"
 
-    def __init__(self, source_file_path, global_body_ratio=1.0, relative_body_ratio_dict=None, parsing_end=False):
+    def __init__(self, source_file_path=None, global_body_ratio=1.0, relative_body_ratio_dict=None, parsing_end=False, **kwargs):
         super().__init__(
-            source_file_path=source_file_path,
             global_body_ratio=global_body_ratio,
-            relative_body_ratio_dict=relative_body_ratio_dict
+            relative_body_ratio_dict=relative_body_ratio_dict,
+            **kwargs
         )
         self.parsing_end = parsing_end
 
+        # BVH-specific parsing state
         self.lines: list[str] = []
         self.line_number: int = 0
-
-        self.joint_parents: list[int] = []
-        self._joint_names: list[str] = []
         self.joint_offsets: list[list[float]] = []
         self.channels: list[list[str]] = []
 
-        self.body_element_list = []
+        # Load file if provided
+        if source_file_path is not None:
+            self.load(source_file_path)
 
     def parse_startswith(self, token):
         assert self.lines[self.line_number].startswith(token)
@@ -86,48 +85,57 @@ class BVH2MJCFGenerator(RetargetingMJCFGeneratorBase):
 
         self.parse_startswith("}")
 
-    def load(self):
+    def _load(self, source_file_path):
+        # Parse BVH file
         self.lines = []
-        for line in open(self.source_file_path, 'r'):
+        for line in open(source_file_path, 'r'):
             line = line.strip()
             if line.startswith('MOTION'):
                 break
             else:
                 self.lines.append(line)
 
+        # Reset parsing state
         self.line_number = 0
         self.joint_parents, self._joint_names, self.joint_offsets, self.channels = [], [], [], []
 
         self.parse_startswith("HIERARCHY")
         self.parse_joint(-1)
 
+        # Set up joint_positions for base class (convert offsets to numpy arrays)
+        self.joint_positions = [np.array(offset) for offset in self.joint_offsets]
+
     def create_body(self, parent, joint_name, offset, prefix=None):
-        default_geom_attr = {"contype": "0", "conaffinity": "0", "rgba": "0.8 0.8 0.8 1", "size": "0.005",
-                             "type": "sphere"}
-        if np.linalg.norm(offset) > 0.01:
-            ET.SubElement(parent, "geom", attrib=default_geom_attr | {
-                "type": "capsule",
-                "fromto": "0 0 0 " + " ".join(map(str, offset))
-            })
-        body = ET.SubElement(parent, "body", attrib={"name": get_prefix_name(prefix, joint_name), "pos": " ".join(map(str, offset))})
+        """Legacy method for creating body with BVH-specific behavior"""
+        # Scale offset by body ratio
+        scaled_offset = offset * self.get_body_ratio(joint_name, prefix=prefix)
+        
+        # Use base class method for standard body creation
+        body = self.create_body_with_joint(parent, joint_name, scaled_offset, prefix=prefix)
 
+        # Handle BVH-specific end joint behavior
         if self.parsing_end and joint_name.endswith("_bvhend"):
-            ET.SubElement(body, "geom", attrib=default_geom_attr)
-        else:
-            ET.SubElement(body, "joint", attrib={"name": get_prefix_name(prefix, joint_name), "type": "ball"})
-            ET.SubElement(body, "geom", attrib=default_geom_attr)
+            # Remove the joint for end effectors and keep only geometry
+            joints = body.findall('joint')
+            for joint in joints:
+                body.remove(joint)
 
-        self.body_element_list.append(body)
+        return body
 
-    def generate(self, prefix: str = None):
-        baselink_elem = ET.SubElement(self.get_elem("worldbody"), "body", attrib={
-            "name": get_prefix_name(prefix, self._joint_names[0]),
-            "pos": " ".join(map(str, self.joint_offsets[0] * self.get_body_ratio(self._joint_names[0], prefix=prefix)))
-        })
-        self.body_element_list.append(baselink_elem)
-        ET.SubElement(baselink_elem, "joint", name=self._joint_names[0], type="free")
-        ET.SubElement(baselink_elem, "geom", type="sphere", size="0.02", contype="0", conaffinity="0")
+    def _generate(self, prefix: str = None):
+        # Create root body using base class method
+        scaled_root_offset = self.joint_positions[0] * self.get_body_ratio(self._joint_names[0], prefix=prefix)
+        root_body = self.create_body_with_joint(
+            self.get_elem("worldbody"), 
+            self._joint_names[0], 
+            scaled_root_offset, 
+            prefix=prefix, 
+            is_root=True
+        )
 
+        # Create child bodies
         for i, joint_name in enumerate(self._joint_names[1:], start=1):
             parent_body = self.body_element_list[self.joint_parents[i]]
-            self.create_body(parent_body, joint_name, self.joint_offsets[i] * self.get_body_ratio(joint_name), prefix=prefix)
+            self.create_body(parent_body, joint_name, self.joint_positions[i], prefix=prefix)
+        
+        self.add_scene()

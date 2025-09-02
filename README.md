@@ -116,7 +116,7 @@ Since repeated parameter tuning may be required for perfect alignment, you can r
 
 **Usage Example:**
 ```bash
-python scripts/align.py \
+python scripts/check_align.py \
   --bvh-file-path /path/to/file.bvh \
   --robot-name unitree_g1 \
   --generator-type bvh \

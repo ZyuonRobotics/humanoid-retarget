@@ -1,4 +1,4 @@
-from humanoid_retargeting.motion_player import PLAYERS_CLASS
+from humanoid_retargeting.motion_player import PLAYERS_CLASS, RobotMotionPlayer, HumanoidMotionPlayerBase
 import click
 import os
 from humanoid_retargeting import BVH_DATA_PATH
@@ -20,10 +20,11 @@ def main(source_file_path, generator_type, robot_name):
     player_class = PLAYERS_CLASS[generator_type]
 
     if generator_type == "robot":
-        player = player_class(source_file_path=source_file_path, robot_name=robot_name)
+        player: RobotMotionPlayer = player_class(robot_name=robot_name)
     else:
-        player = player_class(source_file_path=source_file_path)
+        player: HumanoidMotionPlayerBase = player_class()
 
+    player.load(source_file_path=source_file_path)
     player.adjust_root_height()
 
     player.render()

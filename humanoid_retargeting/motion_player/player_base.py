@@ -1,12 +1,11 @@
 import time
 from abc import ABC, abstractmethod
-from turtle import pd
 
 import numpy as np
 import mujoco
 import mujoco.viewer
 from scipy.spatial.transform import Rotation
-from hurodes.mjcf_generator.generator_base import MJCFGeneratorBase
+from hurodes.generators import MJCFGeneratorBase
 import matplotlib.pyplot as plt
 
 from humanoid_retargeting.utils.plot import plot2d
@@ -16,28 +15,48 @@ class MotionPlayerBase(ABC):
     generator_class = MJCFGeneratorBase
     file_suffix = ""
 
-    def __init__(self, source_file_path, view=True):
-        self.source_file_path = source_file_path
+    def __init__(self, view=True):
         self.view = view
 
-        self._generator: MJCFGeneratorBase = None
+        self.generator: MJCFGeneratorBase = None
+        self.create_generator()
+        assert isinstance(self.generator, self.generator_class), "Generator is not of the correct type"
+
         self._viewer = None
         self._frame_rate: int = None
         self._ref_qpos: np.ndarray = None
+
+        self._model = None
+        self._data = None
+
         self.motion_data = None
 
-        self.generator.build()
-        self.model = mujoco.MjModel.from_xml_string(self.generator.mjcf_str) # type: ignore
-        self.data = mujoco.MjData(self.model) # type: ignore
+        self._loaded = False
 
+
+    def load(self, **kwargs):
+        self._load(**kwargs)
+        self.generator.load(**kwargs)
+        self._loaded = True
 
     @property
-    def generator(self) -> MJCFGeneratorBase:
-        if self._generator is None:
-            self.create_generator()
-        assert self._generator is not None, "Generator is not created"
-        assert isinstance(self._generator, self.generator_class), "Generator is not of the correct type"
-        return self._generator
+    def model(self):
+        assert self.generator is not None and self.generator.loaded, "Generator is not loaded"
+        if self._model is None:
+            self.generator.generate() # call generate() lazily, because it should not be called in load()
+            self._model = mujoco.MjModel.from_xml_string(self.generator.xml_str) # type: ignore
+        return self._model
+    
+    @property
+    def data(self):
+        assert self.generator is not None and self.generator.loaded, "Generator is not loaded"
+        if self._data is None:
+            self._data = mujoco.MjData(self.model) # type: ignore
+        return self._data
+
+    @abstractmethod
+    def _load(self, **kwargs):
+        raise NotImplementedError()
 
     @abstractmethod
     def create_generator(self):
@@ -45,19 +64,23 @@ class MotionPlayerBase(ABC):
 
     @property
     def viewer(self):
+        assert self._loaded, "Motion player is not loaded"
+        assert self.view, "Viewer is not enabled"
         if self._viewer is None:
             self._viewer = mujoco.viewer.launch_passive(self.model, self.data)
         return self._viewer
 
     @property
     def ref_qpos(self) -> np.ndarray:
+        assert self._loaded, "Motion player is not loaded"
         if self._ref_qpos is None:
-            self.load_motion_file()
+            self.load()
         assert isinstance(self._ref_qpos, np.ndarray), "Reference qpos is not loaded"
         return self._ref_qpos
 
     @property
     def frame_rate(self) -> int:
+        assert self._loaded, "Motion player is not loaded"
         if self._frame_rate is None:
             self.load_motion_file()
             assert isinstance(self._frame_rate, int), "Frame rate is not loaded"
@@ -65,11 +88,8 @@ class MotionPlayerBase(ABC):
 
     @property
     def frame_num(self):
+        assert self._loaded, "Motion player is not loaded"
         return self.ref_qpos.shape[0]
-
-    @abstractmethod
-    def load_motion_file(self):
-        raise NotImplemented
 
     def sync_data(self, frame_idx):
         self.data.qpos[:] = self.ref_qpos[frame_idx]
@@ -77,9 +97,8 @@ class MotionPlayerBase(ABC):
         mujoco.mj_forward(self.model, self.data) # type: ignore
 
     def render(self):
+        assert self._loaded, "Motion player is not loaded"
         assert self.view, "Viewer is not enabled"
-        if self.ref_qpos is None:
-            self.load_motion_file()
 
         for frame_idx in range(self.frame_num):
             step_start = time.time()

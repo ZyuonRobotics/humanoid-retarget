@@ -4,12 +4,12 @@ from hurodes import ROBOTS_PATH
 import numpy as np
 import matplotlib.pyplot as plt
 
-from hurodes.mjcf_generator.unified_generator import UnifiedMJCFGenerator
+from hurodes.generators import MJCFHumanoidGenerator
 from humanoid_retargeting.motion_player.player_base import MotionPlayerBase
 
 
 class RobotMotionPlayer(MotionPlayerBase):
-    generator_class = UnifiedMJCFGenerator
+    generator_class = MJCFHumanoidGenerator
     file_suffix = "npz"
 
     def __init__(self, source_file_path, robot_name, view=True):

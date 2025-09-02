@@ -6,8 +6,8 @@ import mujoco
 import mujoco.viewer
 import numpy as np
 from hurodes import ROBOTS_PATH
-from hurodes.mjcf_generator.generator_composite import MJCFGeneratorComposite
-from hurodes.mjcf_generator.unified_generator import UnifiedMJCFGenerator
+from hurodes.generators import MJCFGeneratorComposite
+from hurodes.generators import MJCFHumanoidGenerator
 
 from humanoid_retargeting import PARAMETERS_PATH
 from humanoid_retargeting.mjcf_generator import generator_class
@@ -61,15 +61,15 @@ class Aligner:
             global_body_ratio=self.global_body_ratio * np.array(self.retarget_params.extra_body_ratio),
             relative_body_ratio_dict=self.retarget_params.relative_body_ratio_dict
         )
-        self.robot_generator = UnifiedMJCFGenerator(os.path.join(ROBOTS_PATH, self.robot_name))
+        self.robot_generator = MJCFHumanoidGenerator.from_robot_name(self.robot_name)
         self.generator = MJCFGeneratorComposite(dict(human=self.human_generator, robot=self.robot_generator))
         self.generator.build()
 
         try:
-            self.model = mujoco.MjModel.from_xml_string(self.generator.mjcf_str) # type: ignore
+            self.model = mujoco.MjModel.from_xml_string(self.generator.xml_str) # type: ignore
         except ValueError:
             with open("tmp.xml", "w") as f:
-                f.write(self.generator.mjcf_str)
+                f.write(self.generator.xml_str)
             print("wrong xml")
             exit()
         self.data = mujoco.MjData(self.model)
@@ -87,7 +87,7 @@ class Aligner:
             body_rotate_dict=self.retarget_params.body_rotate_dict
         )
         robot_length = get_leg_length(
-            generator=UnifiedMJCFGenerator(os.path.join(ROBOTS_PATH, self.robot_name)),
+            generator=MJCFHumanoidGenerator.from_robot_name(self.robot_name),
             foot_params=self.retarget_params.robot_foot,
             hip_params=self.retarget_params.robot_hip,
         )
