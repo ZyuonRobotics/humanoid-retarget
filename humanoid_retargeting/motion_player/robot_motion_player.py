@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 
 from hurodes import ROBOTS_PATH
 import numpy as np
@@ -19,7 +19,7 @@ class RobotMotionPlayer(MotionPlayerBase):
 
 
     def create_generator(self):
-        self._generator = self.generator_class(os.path.join(ROBOTS_PATH, self.robot_name), disable_gravity=True)
+        self._generator = self.generator_class(Path(ROBOTS_PATH) / self.robot_name, disable_gravity=True)
 
     def load_motion_file(self):
         motion_dict = np.load(self.source_file_path)
