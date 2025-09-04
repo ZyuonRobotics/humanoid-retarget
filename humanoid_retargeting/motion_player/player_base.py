@@ -39,6 +39,12 @@ class MotionPlayerBase(ABC):
         self.generator.load(**kwargs)
         self._loaded = True
 
+    @classmethod
+    def from_source_file_path(cls, source_file_path, **kwargs):
+        player = cls(**kwargs)
+        player.load(source_file_path=source_file_path)
+        return player
+
     @property
     def model(self):
         assert self.generator is not None and self.generator.loaded, "Generator is not loaded"

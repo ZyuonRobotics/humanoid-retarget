@@ -18,8 +18,8 @@ from humanoid_retargeting.utils.rot import euler2quat
 def get_leg_length(generator, foot_params, hip_params, body_rotate_dict=None):
     if not (foot_params.is_valid() and hip_params.is_valid()):
         return None
-    generator.build()
-    model = mujoco.MjModel.from_xml_string(generator.mjcf_str) # type: ignore
+    generator.generate()
+    model = mujoco.MjModel.from_xml_string(generator.xml_str) # type: ignore
     data = mujoco.MjData(model) # type: ignore
     mujoco.mj_forward(model, data) # type: ignore
 
@@ -56,14 +56,14 @@ class Aligner:
             self.retarget_params = retarget_params
 
         self.global_body_ratio = self.get_global_body_ratio()
-        self.human_generator = generator_class[self.generator_type](
+        self.human_generator = generator_class[self.generator_type].from_source_file_path(
             source_file_path=self.source_file_path,
             global_body_ratio=self.global_body_ratio * np.array(self.retarget_params.extra_body_ratio),
             relative_body_ratio_dict=self.retarget_params.relative_body_ratio_dict
         )
         self.robot_generator = MJCFHumanoidGenerator.from_robot_name(self.robot_name)
         self.generator = MJCFGeneratorComposite(dict(human=self.human_generator, robot=self.robot_generator))
-        self.generator.build()
+        self.generator.generate()
 
         try:
             self.model = mujoco.MjModel.from_xml_string(self.generator.xml_str) # type: ignore
@@ -81,7 +81,7 @@ class Aligner:
 
     def get_global_body_ratio(self):
         human_length = get_leg_length(
-            generator=generator_class[self.generator_type](source_file_path=self.source_file_path),
+            generator=generator_class[self.generator_type].from_source_file_path(source_file_path=self.source_file_path),
             foot_params=self.retarget_params.human_foot,
             hip_params=self.retarget_params.human_hip,
             body_rotate_dict=self.retarget_params.body_rotate_dict

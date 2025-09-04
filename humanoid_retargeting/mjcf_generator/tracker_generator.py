@@ -30,4 +30,3 @@ class TrackerMJCFGenerator(MJCFHumanoidGenerator):
                         "quat": " ".join(map(str, offset[3:].tolist()))
                     })
         return body_elem
-

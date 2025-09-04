@@ -25,9 +25,8 @@ def process_file(args):
 
 
 @click.command()
-@click.option('--source-path', type=click.Path(exists=True), required=True,
-              help='Path to the folder containing motion files.', prompt="Motion files path")
-@click.option('--robot-name', type=str, required=True, help='Name of the robot.', prompt="Name of the robot")
+@click.argument('source-path', type=click.Path(exists=True))
+@click.argument('robot-name', type=str, required=True)
 @click.option('--generator-type', type=str, required=True, 
               help='Type of generator (e.g., "smpl").', prompt="Type of generator")
 @click.option('--params-name', type=str, default='default',

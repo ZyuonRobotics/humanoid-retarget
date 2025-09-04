@@ -52,32 +52,32 @@ class Retargeter:
         self.global_body_ratio = self.aligner.get_global_body_ratio()
         self.retarget_params = self.aligner.retarget_params
 
-        self.player = PLAYERS_CLASS[generator_type](
+        self.player = PLAYERS_CLASS[generator_type].from_source_file_path(
             source_file_path=source_file_path,
             global_body_ratio=self.global_body_ratio * np.array(self.retarget_params.extra_body_ratio),
             relative_body_ratio_dict=self.retarget_params.relative_body_ratio_dict,
         )
 
-        self.human_generator = generator_class[self.generator_type](
+        self.human_generator = generator_class[self.generator_type].from_source_file_path(
             source_file_path=source_file_path,
             global_body_ratio=self.global_body_ratio * np.array(self.retarget_params.extra_body_ratio),
             relative_body_ratio_dict=self.retarget_params.relative_body_ratio_dict,
         )
-        self.robot_generator = TrackerMJCFGenerator(
-            hrdf_path=Path(ROBOTS_PATH) / robot_name,
+        self.robot_generator = TrackerMJCFGenerator.from_robot_name(
+            robot_name,
             tracker_dict=self.retarget_params.tracker_dict,
             tracker_offset=self.tracker_offset
         )
         self.generator = MJCFGeneratorComposite(dict(human=self.human_generator, robot=self.robot_generator))
-        self.generator.build()
 
-        # TODO: optimize generator build logics
-        self.robot_generator.build()
-        self.robot_model = mujoco.MjModel.from_xml_string(self.robot_generator.mjcf_str) # type: ignore
+        self.robot_generator.generate()
+        self.robot_model = mujoco.MjModel.from_xml_string(self.robot_generator.xml_str) # type: ignore
         self.robot_data = mujoco.MjData(self.robot_model) # type: ignore
         self.mink_config = mink.Configuration(self.robot_model)
+        self.robot_generator.destroy()
 
-        self.model = mujoco.MjModel.from_xml_string(self.generator.mjcf_str) # type: ignore
+        self.generator.generate()
+        self.model = mujoco.MjModel.from_xml_string(self.generator.xml_str) # type: ignore
         self.data = mujoco.MjData(self.model) # type: ignore
 
         self._viewer = None
@@ -159,7 +159,7 @@ class Retargeter:
     def run_ik(self, progress_bar=True, draw_height_adjustment_plot=False):
         assert self.posture_task is not None and self.frame_tasks is not None
 
-        self.player.load_motion_file()
+        self.player.load(source_file_path=self.source_file_path)
         self.player.adjust_root_height(
             left_foot_name=self.retarget_params.human_foot.left_name,
             right_foot_name=self.retarget_params.human_foot.right_name,
@@ -232,7 +232,6 @@ class Retargeter:
             frame_rate=target_framerate,
             frame=frame_num
         )
-
 
     def save_as_csv(self, res_path, target_framerate=100):
         res_qpos, res_qvel, frame_num = self.interpolate(target_framerate=target_framerate)

@@ -39,6 +39,12 @@ class RetargetingMJCFGeneratorBase(MJCFGeneratorBase):
     def _destroy(self):
         pass
 
+    @classmethod
+    def from_source_file_path(cls, source_file_path, **kwargs):
+        generator = cls(**kwargs)
+        generator.load(source_file_path)
+        return generator
+
     def get_body_ratio(self, body_name, prefix=None):
         ratio = self.global_body_ratio.copy()
         # TODO: check if every body_name in self.relative_body_ratio_dict is in self.joint_names
@@ -106,9 +112,10 @@ class RetargetingMJCFGeneratorBase(MJCFGeneratorBase):
         self._load(source_file_path)
         self._loaded = True
 
-    def _generate(self, prefix: str = None):
+    def _generate(self, prefix: str = None, add_scene=True):
         self.build_skeleton(self.get_elem("worldbody"), joint_idx=0, prefix=prefix)
-        self.add_scene()
+        if add_scene:
+            self.add_scene()
 
 
     @staticmethod
