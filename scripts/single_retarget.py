@@ -1,9 +1,9 @@
 from humanoid_retargeting.retargeter import Retargeter
 import click
-import os
+from pathlib import Path
 from humanoid_retargeting import BVH_DATA_PATH
 
-SOURCE_FILE_PATH = os.path.join(BVH_DATA_PATH, "Reallusion", "Folk Artistry - Ba Jia Jiang", '1_BJJ_General_03.bvh')
+SOURCE_FILE_PATH = Path(BVH_DATA_PATH) / "Reallusion" / "Folk Artistry - Ba Jia Jiang" / '1_BJJ_General_03.bvh'
 
 @click.command()
 @click.option('--source-file-path', default=SOURCE_FILE_PATH, help='Path to the BVH file.', prompt="Path to the BVH file")
@@ -15,6 +15,7 @@ SOURCE_FILE_PATH = os.path.join(BVH_DATA_PATH, "Reallusion", "Folk Artistry - Ba
 @click.option('--offset', nargs=3, type=float, default=[0.0, 1.0, 0.0], help='Offset for playback.')
 
 def main(source_file_path, robot_name, generator_type, params_name, view, speed, offset):
+    
     retargeter = Retargeter(
         source_file_path=source_file_path,
         robot_name=robot_name,

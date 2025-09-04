@@ -1,5 +1,5 @@
 import time
-import os
+from pathlib import Path
 
 import mink
 import mujoco
@@ -9,7 +9,7 @@ import pandas as pd
 from scipy.interpolate import interp1d
 from tqdm import tqdm
 from hurodes import ROBOTS_PATH
-from hurodes.mjcf_generator.generator_composite import MJCFGeneratorComposite
+from hurodes.generators import MJCFGeneratorComposite
 
 from humanoid_retargeting.motion_player import PLAYERS_CLASS
 from humanoid_retargeting.mjcf_generator import generator_class
@@ -64,7 +64,7 @@ class Retargeter:
             relative_body_ratio_dict=self.retarget_params.relative_body_ratio_dict,
         )
         self.robot_generator = TrackerMJCFGenerator(
-            hrdf_path=os.path.join(ROBOTS_PATH, robot_name),
+            hrdf_path=Path(ROBOTS_PATH) / robot_name,
             tracker_dict=self.retarget_params.tracker_dict,
             tracker_offset=self.tracker_offset
         )

@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 
 import mujoco
 import mujoco.viewer
@@ -10,8 +10,8 @@ from humanoid_retargeting import SMPL_DATA_PATH
 from humanoid_retargeting.mjcf_generator.constants import SMPLH_JOINT_NAMES
 from humanoid_retargeting.mjcf_generator.smpl2mjcf_generator import SMPL2MJCFGenerator
 
-SMPL_FILE_PATH = os.path.join(SMPL_DATA_PATH, "ACCAD", 'Female1Walking_c3d', "B1_-_stand_to_walk_stageii.npz")
-ROBOT_EHDF_PATH = os.path.join(ROBOTS_PATH, "kuavo_s45")
+SMPL_FILE_PATH = Path(SMPL_DATA_PATH) / "ACCAD" / 'Female1Walking_c3d' / "B1_-_stand_to_walk_stageii.npz"
+ROBOT_EHDF_PATH = Path(ROBOTS_PATH) / "kuavo_s45"
 
 
 def test_smpl2mjcf():

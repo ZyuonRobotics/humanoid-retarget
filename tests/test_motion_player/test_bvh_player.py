@@ -1,9 +1,9 @@
-import os
+from pathlib import Path
 
 from humanoid_retargeting import BVH_DATA_PATH
 from humanoid_retargeting.motion_player import BVHPlayer
 
-BVH_FILE_PATH = os.path.join(BVH_DATA_PATH, "Reallusion", "Martial Arts - Taichi", '1_Skill.bvh')
+BVH_FILE_PATH = Path(BVH_DATA_PATH) / "Reallusion" / "Martial Arts - Taichi" / '1_Skill.bvh'
 
 
 def test_plot():

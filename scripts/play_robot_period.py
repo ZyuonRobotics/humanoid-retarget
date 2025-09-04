@@ -1,8 +1,8 @@
 from humanoid_retargeting.motion_player.robot_peroid_player import RobotPeriodPlayer
 import click
-import os
+from pathlib import Path
 
-DEFAULT_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "humanoid_retargeting", "motion_player", "robot_sine_config_example.json")
+DEFAULT_CONFIG_PATH = Path(__file__).parent / ".." / "humanoid_retargeting" / "motion_player" / "robot_sine_config_example.json"
 
 @click.command()
 @click.option('--config-file-path', default=DEFAULT_CONFIG_PATH, help='Path to the robot period configuration JSON file.', prompt="Path to the configuration file")
@@ -21,7 +21,7 @@ def main(config_file_path, robot_name, frame_rate, max_steps):
         config_file_path = config_file_path[1:-1]
     
     # Check if config file exists
-    if not os.path.exists(config_file_path):
+    if not Path(config_file_path).exists():
         click.echo(f"Error: Configuration file '{config_file_path}' not found.", err=True)
         return
     

@@ -1,6 +1,6 @@
 from collections import defaultdict
 from copy import deepcopy
-import os
+from pathlib import Path
 
 import mujoco
 import mujoco.viewer
@@ -50,7 +50,7 @@ class Aligner:
                 self.retarget_params = RetargetParams()
             else:
                 self.retarget_params = RetargetParams.from_json(
-                    os.path.join(self.params_dir, f"{self.params_name}.json")
+                    Path(self.params_dir) / f"{self.params_name}.json"
                 )
         else:
             self.retarget_params = retarget_params
@@ -98,8 +98,8 @@ class Aligner:
 
     @property
     def params_dir(self) -> str:
-        res = os.path.join(PARAMETERS_PATH, self.robot_name, self.generator_type)
-        os.makedirs(res, exist_ok=True)
+        res = Path(PARAMETERS_PATH) / self.robot_name / self.generator_type
+        res.mkdir(parents=True, exist_ok=True)
         return str(res)
 
     @property
@@ -185,7 +185,7 @@ class Aligner:
             save_params_name = self.params_name
 
         self.retarget_params.to_json(
-            os.path.join(self.params_dir, f"{save_params_name}.json")
+            Path(self.params_dir) / f"{save_params_name}.json"
         )
 
     def get_tracker_offset(self):

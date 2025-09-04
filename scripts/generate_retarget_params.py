@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 import threading
 from typing import Dict, List, Tuple, Optional
 from itertools import product
@@ -13,7 +13,7 @@ from humanoid_retargeting.aligner import Aligner
 from humanoid_retargeting.utils.retarget_params import RetargetParams, FootParams, HipParams, TrackerConfig
 from humanoid_retargeting import BVH_DATA_PATH
 
-SOURCE_FILE_PATH = os.path.join(BVH_DATA_PATH, "Reallusion", "Folk Artistry - Ba Jia Jiang", '1_BJJ_General_03.bvh')
+SOURCE_FILE_PATH = Path(BVH_DATA_PATH) / "Reallusion" / "Folk Artistry - Ba Jia Jiang" / '1_BJJ_General_03.bvh'
 
 # Global mutable state – mirrors GUI widgets
 retarget_params = RetargetParams()
@@ -245,8 +245,8 @@ def export_json_callback(sender, app_data, user_data):
     global json_path, params_name
     json_path = dpg.get_value("file_path_input").strip()
     if json_path:
-        json_filename = os.path.basename(json_path)     # e.g. 'params.json'
-        params_name = os.path.splitext(json_filename)[0]
+        json_filename = Path(json_path).name     # e.g. 'params.json'
+        params_name = Path(json_path).stem
     else:
         dpg.set_value(user_data, "[Error] Path is empty!")
         return
@@ -349,7 +349,7 @@ def create_gui():
 def main(source_file_path: str, robot_name: str, generator_type: str, params_name: str):
     """CLI wrapper - sets up *Aligner*, starts sim thread, launches GUI."""
     global aligner, json_path
-    json_path = os.path.join(PARAMETERS_PATH, robot_name, generator_type, f"{params_name}.json")
+    json_path = Path(PARAMETERS_PATH) / robot_name / generator_type / f"{params_name}.json"
     
     aligner = Aligner(source_file_path=source_file_path, robot_name=robot_name, generator_type=generator_type)
     # aligner.set_base_rotation()
