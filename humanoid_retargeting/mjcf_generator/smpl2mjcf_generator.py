@@ -38,8 +38,8 @@ class SMPL2MJCFGenerator(RetargetingMJCFGeneratorBase):
         super()._clean()
         self.skin_params = None
     
-    def _generate(self, prefix: str = None, add_scene=True):
-        super()._generate(prefix, add_scene)
+    def _generate(self, prefix: str = None, add_scene=True, **kwargs):
+        super()._generate(prefix, add_scene, **kwargs)
 
         if self.generate_skin:
             deformable = ET.SubElement(self.xml_root, 'deformable')

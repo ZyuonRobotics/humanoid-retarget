@@ -1,7 +1,7 @@
 from pathlib import Path
 import threading
 from typing import Dict, List, Tuple, Optional, Callable
-
+import os
 import click
 import dearpygui.dearpygui as dpg
 
@@ -257,13 +257,10 @@ def add_tracker_callback(sender, app_data, part):
 # Export json file callback 
 
 def export_json_callback(sender, app_data, user_data):
-    global json_path, params_name
-    json_path = dpg.get_value("file_path_input").strip()
-    if json_path:
-        json_filename = Path(json_path).name     # e.g. 'params.json'
-        params_name = Path(json_path).stem
-    else:
-        dpg.set_value(user_data, "[Error] Path is empty!")
+    filename = dpg.get_value("file_name_input").strip()
+
+    if not filename:
+        dpg.set_value(user_data, "[Error] Filename is empty!")
         return
 
     # Make sure there is a .json suffix
@@ -521,14 +518,18 @@ def create_gui():
     dpg.destroy_context()
 
 @click.command()
-@click.option('--source-file-path', default=SOURCE_FILE_PATH, help='Path to the BVH file.')
-@click.option('--robot-name', default='unitree_g1', help='Name of the robot.')
-@click.option('--generator-type', default='bvh', help='Type of generator.')
-@click.option('--params-name', default=None, help='Name of parameters.')
+@click.option('--source-file-path', default=SOURCE_FILE_PATH, help='Path to the BVH file.', prompt="Path to the BVH file.")
+@click.option('--robot-name', default='unitree_g1', help='Name of the robot.', prompt="Name of the robot.")
+@click.option('--generator-type', default='bvh', help='Type of generator.', prompt="Type of generator.")
+@click.option('--params-name', default=None, help='Name of parameters.', prompt="Name of parameters.")
 def main(source_file_path: str, robot_name: str, generator_type: str, params_name: str):
     """CLI wrapper - sets up *Aligner*, starts sim thread, launches GUI."""
     global aligner, json_path
-    json_path = os.path.join(PARAMETERS_PATH, robot_name, generator_type, f"{params_name}.json")
+    global aligner, SAVE_DIR, ROBOT, Generator_Type
+    ROBOT = robot_name
+    Generator_Type = generator_type
+    SAVE_DIR = os.path.join(PARAMETERS_PATH, ROBOT, Generator_Type)
+    json_path = os.path.join(PARAMETERS_PATH, ROBOT, Generator_Type, f"{params_name}.json")
     
     aligner = Aligner(source_file_path=source_file_path, robot_name=ROBOT, generator_type=Generator_Type)
     # aligner.set_base_rotation()
