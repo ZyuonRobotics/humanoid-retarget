@@ -1,15 +1,13 @@
-from typing import List, Union, Optional
-
-import numpy as np
 import xml.etree.ElementTree as ET
-from hurodes.mjcf_generator.unified_generator import UnifiedMJCFGenerator
+
+from hurodes.generators import MJCFHumanoidGenerator
 
 def get_prefix_name(prefix, name):
     return f"{prefix}_{name}" if prefix else name
 
-class TrackerMJCFGenerator(UnifiedMJCFGenerator):
-    def __init__(self, hrdf_path, tracker_dict, tracker_offset):
-        super().__init__(hrdf_path=hrdf_path)
+class TrackerMJCFGenerator(MJCFHumanoidGenerator):
+    def __init__(self, tracker_dict, tracker_offset):
+        super().__init__()
 
         assert len(tracker_offset) > 0, "tracker_offset should not be empty"
 
@@ -32,4 +30,3 @@ class TrackerMJCFGenerator(UnifiedMJCFGenerator):
                         "quat": " ".join(map(str, offset[3:].tolist()))
                     })
         return body_elem
-

@@ -12,28 +12,20 @@ class BVHPlayer(HumanoidMotionPlayerBase):
 
     def __init__(
             self,
-            source_file_path,
             view=True,
             rotating_baselink=True,
             global_body_ratio=1.0,
             relative_body_ratio_dict=None
     ):
         super().__init__(
-            source_file_path=source_file_path,
             view=view,
             global_body_ratio=global_body_ratio,
             relative_body_ratio_dict=relative_body_ratio_dict
         )
         self.rotating_baselink = rotating_baselink
 
-    @property
-    def generator(self) -> BVH2MJCFGenerator:
-        generator = super().generator
-        assert isinstance(generator, self.generator_class), "Generator is not a subclass of BVH2MJCFGenerator"
-        return generator
-
-    def parse_bvh_file(self) -> tuple[int, np.ndarray]:
-        with open(self.source_file_path, 'r') as f:
+    def parse_bvh_file(self, source_file_path) -> tuple[int, np.ndarray]:
+        with open(source_file_path, 'r') as f:
             lines = f.readlines()
             for i in range(len(lines)):
                 if lines[i].startswith('Frame Time'):
@@ -49,7 +41,7 @@ class BVHPlayer(HumanoidMotionPlayerBase):
             motion_data = np.concatenate(motion_data, axis=0)
         return int(frame_rate), motion_data
 
-    def parse_channel(self, joint_idx: int, array: np.ndarray, channel: list[str]) -> tuple[np.ndarray | None, np.ndarray]:
+    def parse_channel(self, joint_idx: int, array: np.ndarray, channel: list[str]) -> tuple[np.ndarray, np.ndarray]:
         pos, euler, pos_order, euler_order = [], [], "", ""
 
         for i, c in enumerate(channel):
@@ -80,8 +72,8 @@ class BVHPlayer(HumanoidMotionPlayerBase):
 
         return pos_array, quat_array
 
-    def load_motion_file(self):
-        self._frame_rate, self.motion_data = self.parse_bvh_file()
+    def _load(self, source_file_path):
+        self._frame_rate, self.motion_data = self.parse_bvh_file(source_file_path)
 
         qpos = []
         begin_idx = 0

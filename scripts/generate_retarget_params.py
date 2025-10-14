@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 import threading
 from typing import Dict, List, Tuple, Optional, Callable
 
@@ -10,12 +10,12 @@ from humanoid_retargeting.aligner import Aligner
 from humanoid_retargeting.utils.retarget_params import RetargetParams, FootParams, HipParams, TrackerConfig
 from humanoid_retargeting import BVH_DATA_PATH
 
-SOURCE_FILE_PATH = os.path.join(BVH_DATA_PATH, "Reallusion", "Folk Artistry - Ba Jia Jiang", '1_BJJ_General_03.bvh')
+SOURCE_FILE_PATH = Path(BVH_DATA_PATH) / "Reallusion" / "Folk Artistry - Ba Jia Jiang" / '1_BJJ_General_03.bvh'
 
 # Global mutable state – mirrors GUI widgets
 retarget_params = RetargetParams()
 
-aligner: Aligner | None = None
+aligner: Aligner = None
 lock = threading.Lock()
 
 SAVE_DIR = None
@@ -23,8 +23,8 @@ ROBOT = None
 Generator_Type = None
 
 # Containers used only for GUI
-body_ratio_dict: Dict[str, str | None] = {}
-body_rotate_dict: Dict[str, str | None] = {}
+body_ratio_dict: Dict[str, str] = {}
+body_rotate_dict: Dict[str, str] = {}
 body_ratio_count: int = 0
 body_rotate_count: int = 0
 tracker_ui_groups: List[str] = []
@@ -257,10 +257,13 @@ def add_tracker_callback(sender, app_data, part):
 # Export json file callback 
 
 def export_json_callback(sender, app_data, user_data):
-    filename = dpg.get_value("file_name_input").strip()
-
-    if not filename:
-        dpg.set_value(user_data, "[Error] Filename is empty!")
+    global json_path, params_name
+    json_path = dpg.get_value("file_path_input").strip()
+    if json_path:
+        json_filename = Path(json_path).name     # e.g. 'params.json'
+        params_name = Path(json_path).stem
+    else:
+        dpg.set_value(user_data, "[Error] Path is empty!")
         return
 
     # Make sure there is a .json suffix
@@ -518,15 +521,14 @@ def create_gui():
     dpg.destroy_context()
 
 @click.command()
-@click.option('--source-file-path', default=SOURCE_FILE_PATH, help='Path to the BVH file.', prompt="Path to the Motion Capture File")
-@click.option('--robot-name', default='zhaplin_v0', help='Name of the robot.', prompt="Name of the robot")
-@click.option('--generator-type', default='bvh', help='Type of generator.', prompt="Type of generator")
-def main(source_file_path: str, robot_name: str, generator_type: str):
+@click.option('--source-file-path', default=SOURCE_FILE_PATH, help='Path to the BVH file.')
+@click.option('--robot-name', default='unitree_g1', help='Name of the robot.')
+@click.option('--generator-type', default='bvh', help='Type of generator.')
+@click.option('--params-name', default=None, help='Name of parameters.')
+def main(source_file_path: str, robot_name: str, generator_type: str, params_name: str):
     """CLI wrapper - sets up *Aligner*, starts sim thread, launches GUI."""
-    global aligner, SAVE_DIR, ROBOT, Generator_Type
-    ROBOT = robot_name
-    Generator_Type = generator_type
-    SAVE_DIR = os.path.join(PARAMETERS_PATH, ROBOT, generator_type)
+    global aligner, json_path
+    json_path = os.path.join(PARAMETERS_PATH, robot_name, generator_type, f"{params_name}.json")
     
     aligner = Aligner(source_file_path=source_file_path, robot_name=ROBOT, generator_type=Generator_Type)
     # aligner.set_base_rotation()

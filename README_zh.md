@@ -102,7 +102,7 @@ humanoid-retargeting算法库通过读取位于`~/.humanoid_retargeting/paramete
 
 **使用示例：**
 ```bash
-python scripts/align.py \
+python scripts/check_align.py \
   --bvh-file-path /path/to/file.bvh \
   --robot-name unitree_g1 \
   --generator-type bvh \

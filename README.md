@@ -9,7 +9,7 @@
 It is recommended to use `conda` or `mamba` to manage the Python environment:
 
 ```bash
-conda create -n humanoid-retargeting python=3.10
+conda create -n humanoid-retargeting python=3.9
 conda activate humanoid-retargeting
 pip install -e .
 ```
@@ -28,7 +28,7 @@ pip install git+https://github.com/ZyuonRobotics/humanoid-robot-description
 
 ### Main Dependencies
 
-- Python >= 3.10
+- Python >= 3.9
 - `click`: Command-line interface
 - `mujoco`: Physics simulation and visualization
 - `dearpygui`: GUI-based alignment tool
@@ -116,7 +116,7 @@ Since repeated parameter tuning may be required for perfect alignment, you can r
 
 **Usage Example:**
 ```bash
-python scripts/align.py \
+python scripts/check_align.py \
   --bvh-file-path /path/to/file.bvh \
   --robot-name unitree_g1 \
   --generator-type bvh \

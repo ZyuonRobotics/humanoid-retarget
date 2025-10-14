@@ -1,13 +1,13 @@
 from collections import defaultdict
 from copy import deepcopy
-import os
+from pathlib import Path
 
 import mujoco
 import mujoco.viewer
 import numpy as np
 from hurodes import ROBOTS_PATH
-from hurodes.mjcf_generator.generator_composite import MJCFGeneratorComposite
-from hurodes.mjcf_generator.unified_generator import UnifiedMJCFGenerator
+from hurodes.generators import MJCFGeneratorComposite
+from hurodes.generators import MJCFHumanoidGenerator
 
 from humanoid_retargeting import PARAMETERS_PATH
 from humanoid_retargeting.mjcf_generator import generator_class
@@ -18,8 +18,8 @@ from humanoid_retargeting.utils.rot import euler2quat
 def get_leg_length(generator, foot_params, hip_params, body_rotate_dict=None):
     if not (foot_params.is_valid() and hip_params.is_valid()):
         return None
-    generator.build()
-    model = mujoco.MjModel.from_xml_string(generator.mjcf_str) # type: ignore
+    generator.generate()
+    model = mujoco.MjModel.from_xml_string(generator.xml_str) # type: ignore
     data = mujoco.MjData(model) # type: ignore
     mujoco.mj_forward(model, data) # type: ignore
 
@@ -50,26 +50,26 @@ class Aligner:
                 self.retarget_params = RetargetParams()
             else:
                 self.retarget_params = RetargetParams.from_json(
-                    os.path.join(self.params_dir, f"{self.params_name}.json")
+                    Path(self.params_dir) / f"{self.params_name}.json"
                 )
         else:
             self.retarget_params = retarget_params
 
         self.global_body_ratio = self.get_global_body_ratio()
-        self.human_generator = generator_class[self.generator_type](
+        self.human_generator = generator_class[self.generator_type].from_source_file_path(
             source_file_path=self.source_file_path,
             global_body_ratio=self.global_body_ratio * np.array(self.retarget_params.extra_body_ratio),
             relative_body_ratio_dict=self.retarget_params.relative_body_ratio_dict
         )
-        self.robot_generator = UnifiedMJCFGenerator(os.path.join(ROBOTS_PATH, self.robot_name))
+        self.robot_generator = MJCFHumanoidGenerator.from_robot_name(self.robot_name)
         self.generator = MJCFGeneratorComposite(dict(human=self.human_generator, robot=self.robot_generator))
-        self.generator.build()
+        self.generator.generate()
 
         try:
-            self.model = mujoco.MjModel.from_xml_string(self.generator.mjcf_str) # type: ignore
+            self.model = mujoco.MjModel.from_xml_string(self.generator.xml_str) # type: ignore
         except ValueError:
             with open("tmp.xml", "w") as f:
-                f.write(self.generator.mjcf_str)
+                f.write(self.generator.xml_str)
             print("wrong xml")
             exit()
         self.data = mujoco.MjData(self.model)
@@ -81,13 +81,13 @@ class Aligner:
 
     def get_global_body_ratio(self):
         human_length = get_leg_length(
-            generator=generator_class[self.generator_type](source_file_path=self.source_file_path),
+            generator=generator_class[self.generator_type].from_source_file_path(source_file_path=self.source_file_path),
             foot_params=self.retarget_params.human_foot,
             hip_params=self.retarget_params.human_hip,
             body_rotate_dict=self.retarget_params.body_rotate_dict
         )
         robot_length = get_leg_length(
-            generator=UnifiedMJCFGenerator(os.path.join(ROBOTS_PATH, self.robot_name)),
+            generator=MJCFHumanoidGenerator.from_robot_name(self.robot_name),
             foot_params=self.retarget_params.robot_foot,
             hip_params=self.retarget_params.robot_hip,
         )
@@ -98,8 +98,8 @@ class Aligner:
 
     @property
     def params_dir(self) -> str:
-        res = os.path.join(PARAMETERS_PATH, self.robot_name, self.generator_type)
-        os.makedirs(res, exist_ok=True)
+        res = Path(PARAMETERS_PATH) / self.robot_name / self.generator_type
+        res.mkdir(parents=True, exist_ok=True)
         return str(res)
 
     @property
@@ -185,7 +185,7 @@ class Aligner:
             save_params_name = self.params_name
 
         self.retarget_params.to_json(
-            os.path.join(self.params_dir, f"{save_params_name}.json")
+            Path(self.params_dir) / f"{save_params_name}.json"
         )
 
     def get_tracker_offset(self):

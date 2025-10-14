@@ -9,20 +9,10 @@ class SMPLPlayer(HumanoidMotionPlayerBase):
     generator_class = SMPL2MJCFGenerator
     file_suffix = "npz"
 
-    def __init__(self, source_file_path, view=True, global_body_ratio=1.0, relative_body_ratio_dict=None):
-        super().__init__(
-            source_file_path=source_file_path,
-            view=view,
-            global_body_ratio=global_body_ratio,
-            relative_body_ratio_dict=relative_body_ratio_dict
-        )
+    def __init__(self, view=True, global_body_ratio=1.0, relative_body_ratio_dict=None):
+        super().__init__(view=view, global_body_ratio=global_body_ratio, relative_body_ratio_dict=relative_body_ratio_dict)
         self.smpl_type = "smpl"
 
-    @property
-    def generator(self) -> SMPL2MJCFGenerator:
-        generator = super().generator
-        assert isinstance(generator, self.generator_class), "Generator is not a subclass of BVH2MJCFGenerator"
-        return generator
 
     def get_frame_rate(self) -> int:
         if "mocap_frame_rate" in self.motion_data:
@@ -57,8 +47,8 @@ class SMPLPlayer(HumanoidMotionPlayerBase):
 
         return ref_qpos
 
-    def load_motion_file(self):
-        self.motion_data = np.load(self.source_file_path)
+    def _load(self, source_file_path):
+        self.motion_data = np.load(source_file_path)
         assert "poses" in self.motion_data
 
         self._frame_rate = self.get_frame_rate()

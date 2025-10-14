@@ -1,9 +1,9 @@
-import os
+from pathlib import Path
 
 from humanoid_retargeting import SMPL_DATA_PATH
 from humanoid_retargeting.aligner import Aligner
 
-SMPL_FILE_PATH = os.path.join(SMPL_DATA_PATH, "ACCAD", 'Female1Walking_c3d', "B1_-_stand_to_walk_stageii.npz")
+SMPL_FILE_PATH = Path(SMPL_DATA_PATH) / "ACCAD" / 'Female1Walking_c3d' / "B1_-_stand_to_walk_stageii.npz"
 
 
 def test_aligner_default_params(tmp_path):
