@@ -112,7 +112,7 @@ class RetargetingMJCFGeneratorBase(MJCFGeneratorBase):
         self._load(source_file_path)
         self._loaded = True
 
-    def _generate(self, prefix: str = None, add_scene=True):
+    def _generate(self, prefix: str = None, add_scene=True, **kwargs):
         self.build_skeleton(self.get_elem("worldbody"), joint_idx=0, prefix=prefix)
         if add_scene:
             self.add_scene()

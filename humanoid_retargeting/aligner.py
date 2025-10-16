@@ -18,7 +18,7 @@ from humanoid_retargeting.utils.rot import euler2quat
 def get_leg_length(generator, foot_params, hip_params, body_rotate_dict=None):
     if not (foot_params.is_valid() and hip_params.is_valid()):
         return None
-    generator.generate()
+    generator.generate(relative_mesh_path=False)
     model = mujoco.MjModel.from_xml_string(generator.xml_str) # type: ignore
     data = mujoco.MjData(model) # type: ignore
     mujoco.mj_forward(model, data) # type: ignore
@@ -63,7 +63,7 @@ class Aligner:
         )
         self.robot_generator = MJCFHumanoidGenerator.from_robot_name(self.robot_name)
         self.generator = MJCFGeneratorComposite(dict(human=self.human_generator, robot=self.robot_generator))
-        self.generator.generate()
+        self.generator.generate(relative_mesh_path=False)
 
         try:
             self.model = mujoco.MjModel.from_xml_string(self.generator.xml_str) # type: ignore

@@ -6,7 +6,7 @@ from humanoid_retargeting.aligner import Aligner
 @click.argument('source-file-path')
 @click.argument('robot-name')
 @click.option('--generator-type', default='bvh', help='Type of generator.', prompt="Type of generator")
-@click.option('--params-name', default=None, help='Name of parameters.')
+@click.option('--params-name', default=None, help='Name of parameters.', prompt="Name of parameters")
 
 def main(source_file_path, robot_name, generator_type, params_name):
     aligner = Aligner(
@@ -19,10 +19,6 @@ def main(source_file_path, robot_name, generator_type, params_name):
     aligner.load_cali_qpos()
     aligner.get_tracker_offset()
     aligner.render()
-    if params_name is not None:
-        aligner.save_retarget_params(params_name)
-    else:
-        aligner.save_retarget_params("default")
 
 
 if __name__ == '__main__':

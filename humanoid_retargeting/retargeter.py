@@ -70,13 +70,13 @@ class Retargeter:
         )
         self.generator = MJCFGeneratorComposite(dict(human=self.human_generator, robot=self.robot_generator))
 
-        self.robot_generator.generate()
+        self.robot_generator.generate(relative_mesh_path=False)
         self.robot_model = mujoco.MjModel.from_xml_string(self.robot_generator.xml_str) # type: ignore
         self.robot_data = mujoco.MjData(self.robot_model) # type: ignore
         self.mink_config = mink.Configuration(self.robot_model)
         self.robot_generator.destroy()
 
-        self.generator.generate()
+        self.generator.generate(relative_mesh_path=False)
         self.model = mujoco.MjModel.from_xml_string(self.generator.xml_str) # type: ignore
         self.data = mujoco.MjData(self.model) # type: ignore
 
@@ -158,8 +158,7 @@ class Retargeter:
 
     def run_ik(self, progress_bar=True, draw_height_adjustment_plot=False):
         assert self.posture_task is not None and self.frame_tasks is not None
-
-        self.player.load(source_file_path=self.source_file_path)
+        #self.player.load(source_file_path=self.source_file_path)
         self.player.adjust_root_height(
             left_foot_name=self.retarget_params.human_foot.left_name,
             right_foot_name=self.retarget_params.human_foot.right_name,
