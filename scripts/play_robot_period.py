@@ -6,7 +6,7 @@ DEFAULT_CONFIG_PATH = Path(__file__).parent / ".." / "humanoid_retargeting" / "m
 
 @click.command()
 @click.option('--config-file-path', default=DEFAULT_CONFIG_PATH, help='Path to the robot period configuration JSON file.', prompt="Path to the configuration file")
-@click.option('--robot-name', default='unitree_g1', help='Name of the robot.', prompt="Name of the robot")
+@click.option('--robot-name', default='zhaplin-v0.1.3', help='Name of the robot.', prompt="Name of the robot")
 @click.option('--frame-rate', default=100, help='Frame rate for motion generation.')
 @click.option('--max-steps', default=300000, help='Maximum number of steps to generate.')
 def main(config_file_path, robot_name, frame_rate, max_steps):

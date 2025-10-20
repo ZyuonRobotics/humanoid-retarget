@@ -10,7 +10,7 @@ from humanoid_retargeting.aligner import Aligner
 from humanoid_retargeting.utils.retarget_params import RetargetParams, FootParams, HipParams, TrackerConfig
 from humanoid_retargeting import BVH_DATA_PATH
 
-SOURCE_FILE_PATH = Path(BVH_DATA_PATH) / "Reallusion" / "Folk Artistry - Ba Jia Jiang" / '1_BJJ_General_03.bvh'
+SOURCE_FILE_PATH = f"{BVH_DATA_PATH}/Reallusion/Folk Artistry - Ba Jia Jiang/1_BJJ_General_03.bvh"
 
 # Global mutable state – mirrors GUI widgets
 retarget_params = RetargetParams()
@@ -519,9 +519,9 @@ def create_gui():
 
 @click.command()
 @click.option('--source-file-path', default=SOURCE_FILE_PATH, help='Path to the BVH file.', prompt="Path to the BVH file.")
-@click.option('--robot-name', default='unitree_g1', help='Name of the robot.', prompt="Name of the robot.")
+@click.option('--robot-name', default='zhaplin-v0.1.3', help='Name of the robot.', prompt="Name of the robot.")
 @click.option('--generator-type', default='bvh', help='Type of generator.', prompt="Type of generator.")
-@click.option('--params-name', default=None, help='Name of parameters.', prompt="Name of parameters.")
+@click.option('--params-name', default=None, help='Name of parameters.')
 def main(source_file_path: str, robot_name: str, generator_type: str, params_name: str):
     """CLI wrapper - sets up *Aligner*, starts sim thread, launches GUI."""
     global aligner, json_path
@@ -530,6 +530,7 @@ def main(source_file_path: str, robot_name: str, generator_type: str, params_nam
     Generator_Type = generator_type
     SAVE_DIR = os.path.join(PARAMETERS_PATH, ROBOT, Generator_Type)
     json_path = os.path.join(PARAMETERS_PATH, ROBOT, Generator_Type, f"{params_name}.json")
+    source_file_path = Path(source_file_path.strip("'\"'"))
     
     aligner = Aligner(source_file_path=source_file_path, robot_name=ROBOT, generator_type=Generator_Type)
     # aligner.set_base_rotation()

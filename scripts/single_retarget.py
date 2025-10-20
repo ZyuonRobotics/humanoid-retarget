@@ -23,6 +23,7 @@ def main(source_file_path, robot_name, generator_type, params_name, view, speed,
     retargeter.run_ik()
     retargeter.play(speed=speed, offset=offset)
     retargeter.close()
+    #retargeter.save_as_npz('/home/zym/.humanoid_retargeting/retargeted/smpl/ldwalk.npz')
 
 
 if __name__ == '__main__':

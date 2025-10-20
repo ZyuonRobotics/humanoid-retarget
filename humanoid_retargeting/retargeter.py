@@ -223,7 +223,7 @@ class Retargeter:
         np.savez_compressed(
             res_path,
             root_trans=res_qpos[:, :3],
-            root_quat=res_qpos[:, [4, 5, 6, 3]],  # from w,x,y,z to x,y,z,w
+            root_quat=res_qpos[:, 3:7],   # from w,x,y,z to x,y,z,w
             joint_pos=res_qpos[:, 7:],
             root_lin_vel=res_qvel[:, :3],
             root_ang_vel=res_qvel[:, 3:6],

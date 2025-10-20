@@ -151,6 +151,7 @@ class Aligner:
         """Apply user-defined base Euler rotation to the human root."""
         if self.params_name is None:
             base_rot = [90, 0, 90] if self.generator_type == "bvh" else [0, 0, 0]
+            self.retarget_params.base_rotation = base_rot
         else:
             base_rot = getattr(self.retarget_params, "base_rotation")
         
