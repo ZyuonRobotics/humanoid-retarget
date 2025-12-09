@@ -14,7 +14,6 @@ conda activate humanoid-retargeting
 pip install -e .
 ```
 
-
 If you need to use the GUI-based alignment tool, run:
 ```bash
 pip install -e .[gui]
@@ -24,7 +23,6 @@ If you want to use the newest hurodes, run:
 ```bash
 pip install git+https://github.com/ZyuonRobotics/humanoid-robot-description
 ```
-
 
 ### Main Dependencies
 
@@ -56,26 +54,80 @@ The default path for storing data is:
     └── ...           # Other retargeting configuration parameters
 ```
 
-
 ---
 
 ## Workflow Overview
 
-### Play Motion (Optional)
+The scripts are organized into three main categories based on their functionality:
 
-Allows playing motion sequences using selected player classes (e.g., `BVHPlayer`, `SMPLPlayer`) for visualization or debugging before retargeting. Uses MuJoCo renderer to play action files.
+```
+scripts/
+├── mocap_processing/          # Motion capture data preprocessing
+├── mocap_retargeting/          # Motion retargeting to robots
+└── retargeted_data_processing/ # Post-retargeting data processing
+```
+
+### 1. Motion Capture Data Processing
+
+Scripts in `scripts/mocap_processing/` handle preprocessing of raw motion capture data before retargeting.
+
+#### Check BVH Body Type
+
+Scan BVH files in a folder and analyze their skeleton structures.
+
+**Usage Example:**
+```bash
+python scripts/mocap_processing/check_bvh_bodytype_in_folder.py \
+  --root-folder /path/to/bvh/folder
+```
+
+#### Fix SMPL Files
+
+Check and fix SMPL format files (`.npz`), ensuring required fields like `mocap_framerate` are present.
+
+**Usage Example:**
+```bash
+python scripts/mocap_processing/fix_smpl_file.py \
+  --folder-path /path/to/smpl/files \
+  --mocap-framerate 120
+```
+
+#### Process SMPL Files
+
+Convert SMPL format files from `.pkl` to `.npz` format with standardized structure.
+
+**Usage Example:**
+```bash
+python scripts/mocap_processing/process_smpl.py \
+  --folder-path /path/to/pkl/files \
+  --mocap-framerate 120
+```
+
+#### Play Mocap Motion
+
+Play raw motion capture data (BVH or SMPL format) for visualization or debugging. Uses MuJoCo renderer to play action files.
 
 You should use the appropriate player according to the `generator-type`. For example, set `generator-type` to `bvh` or `smpl` to play BVH format or SMPL format data respectively.
 
-**Example Usage (Play BVH motion data):**
+**Usage Example (Play BVH motion capture data):**
 ```bash
-python scripts/play_motion.py \
-  --source-file-path /path/to/file.bvh \
+python scripts/mocap_processing/play_mocap_motion.py \
+  /path/to/file.bvh \
   --generator-type bvh
 ```
 
+**Usage Example (Play SMPL motion capture data):**
+```bash
+python scripts/mocap_processing/play_mocap_motion.py \
+  /path/to/file.npz \
+  --generator-type smpl
+```
 
-### Alignment
+### 2. Motion Retargeting
+
+Scripts in `scripts/mocap_retargeting/` handle the core retargeting process, including alignment and motion transfer.
+
+#### Alignment
 
 Before retargeting, it's necessary to ensure that the robot and human model are aligned.
 
@@ -95,40 +147,51 @@ The **humanoid-retargeting** algorithm reads configuration files located in `~/.
   - `extra_body_ratio`: Additional global scaling factor for the human model, can be a single float or a 3D list for fine-tuning (e.g., making the human model wider)
   - `relative_body_ratio_dict`: Relative scale factors for each body part
 
-#### Alignment Process
+##### Alignment Process
 
 - **Compute Base Global Scale Factor**
   - Calculate leg lengths based on `foot` and `hip` positions for both robot and human model, then take their ratio as the global scale factor
   - Note: This factor will be used during retargeting to scale the motion capture data, preventing foot sliding
 - Apply base global scale, extra scale, and relative body ratios to scale the human model
-  - Each body part’s final scale is determined by: `global_body_ratio * extra_body_ratio * relative_body_ratio_dict[body_name]`
+  - Each body part's final scale is determined by: `global_body_ratio * extra_body_ratio * relative_body_ratio_dict[body_name]`
 - Translate the robot
-  - Adjust the baselink vertically based on `robot_foot` so that the robot’s feet are exactly on the ground
+  - Adjust the baselink vertically based on `robot_foot` so that the robot's feet are exactly on the ground
   - Only Z-axis changes; other adjustments are made via the human model
 - Translate and rotate the human model
-  - Move the human model’s baselink so its feet are on the ground
+  - Move the human model's baselink so its feet are on the ground
   - Rotate the human model to match the robot's orientation
 - Rotate human joints to match the robot's posture
 
-#### Manual Alignment
+##### Manual Alignment
 
-Since repeated parameter tuning may be required for perfect alignment, you can repeatedly execute the script [scripts/check_align.py](file:///Users/frank/Projects/humanoid-retargeting/scripts/check_align.py) and modify the parameter file accordingly.
+Since repeated parameter tuning may be required for perfect alignment, you can repeatedly execute the alignment check script and modify the parameter file accordingly.
 
 **Usage Example:**
 ```bash
-python scripts/check_align.py \
-  --bvh-file-path /path/to/file.bvh \
-  --robot-name unitree_g1 \
+python scripts/mocap_retargeting/check_align.py \
+  /path/to/file.bvh \
+  unitree_g1 \
   --generator-type bvh \
   --params-name default
 ```
 
+##### Generate Retargeting Parameters
 
-#### Automatic Alignment (WIP)
+Generate retargeting parameters for a specific robot and motion capture data type.
+
+**Usage Example:**
+```bash
+python scripts/mocap_retargeting/generate_retarget_params.py \
+  /path/to/file.bvh \
+  unitree_g1 \
+  --generator-type bvh
+```
+
+##### Automatic Alignment (WIP)
 
 Run a GUI-based auto-alignment tool that automatically saves retargeting parameters to the configuration file.
 
-### Retargeting
+#### Retargeting
 
 Retargeting is implemented using the **mink** library. The main steps are:
 
@@ -140,44 +203,70 @@ Retargeting is implemented using the **mink** library. The main steps are:
   - Combine static tracker offsets to compute desired robot tracker positions
   - Use mink library to solve inverse kinematics and obtain robot generalized coordinates
 
-#### Single Motion Retargeting
+##### Single Motion Retargeting
 
 Retarget a single motion file onto a specified robot. You can choose to open a viewer window to visualize the motion (rendered by MuJoCo), and loop playback.
 
 **Usage Example:**
 ```bash
-python scripts/single_retarget.py \
-  --source-file-path /path/to/file.bvh \
-  --robot-name unitree_g1 \
+python scripts/mocap_retargeting/single_retarget.py \
+  /path/to/file.bvh \
+  unitree_g1 \
   --generator-type bvh \
   --params-name default \
   --view \
   --speed 1.0 \
-  --offset 0.0 0.0 0.0
+  --offset 0.0 1.0 0.0
 ```
 
+##### Batch Retargeting
 
-#### Batch Retargeting
-
-Process multiple motion files in bulk and save them as `.npy` files. Supports multiprocessing for acceleration.
+Process multiple motion files in bulk and save them as `.npz` files. Supports multiprocessing for acceleration.
 
 **Usage Example:**
 ```bash
-python scripts/batch_retarget.py \
-  --source-path /path/to/motions \
-  --target-path /path/to/output \
-  --robot-name unitree_g1 \
+python scripts/mocap_retargeting/batch_retarget.py \
+  /path/to/motions \
+  unitree_g1 \
   --generator-type bvh \
   --params-name default \
+  --target-path /path/to/output \
   --target-fps 100 \
   --num-processes 4
 ```
 
-
 Options:
-- `--overwrite/--no-overwrite`: Whether to overwrite existing `.npy` files (default: no)
+- `--overwrite/--no-overwrite`: Whether to overwrite existing `.npz` files (default: no)
 - `--pos-filter`, `--neg-filter`: Filter files by filename keywords (can be used multiple times)
 - `--num-processes`: Number of CPU cores to use; set to 1 disables multiprocessing
+
+### 3. Retargeted Data Processing
+
+Scripts in `scripts/retargeted_data_processing/` handle visualization and playback of retargeted motion data.
+
+#### Play Robot Motion
+
+Play retargeted robot motion data (`.npz` format) for visualization or debugging. Uses MuJoCo renderer to play action files.
+
+**Usage Example:**
+```bash
+python scripts/retargeted_data_processing/play_robot_motion.py \
+  /path/to/retargeted.npz \
+  unitree_g1
+```
+
+#### Play Robot Period Motion
+
+Generate and play periodic robot motion based on JSON configuration. This script generates sinusoidal motion patterns for robot joints based on stepping periods and joint configurations.
+
+**Usage Example:**
+```bash
+python scripts/retargeted_data_processing/play_robot_period.py \
+  --config-file-path /path/to/config.json \
+  --robot-name unitree_g1 \
+  --frame-rate 100 \
+  --max-steps 300000
+```
 
 ---
 
