@@ -35,7 +35,7 @@ class RobotMotionPlayer(MotionPlayerBase):
         self._frame_rate = motion_dict["frame_rate"]
         self._ref_qpos = np.concatenate([
             motion_dict["root_trans"],
-            motion_dict["root_quat"][:],
+            motion_dict["root_quat"],
             motion_dict["joint_pos"]
         ], axis=1)
     

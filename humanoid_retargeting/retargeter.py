@@ -1,5 +1,4 @@
 import time
-from pathlib import Path
 
 import mink
 import mujoco
@@ -8,8 +7,8 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
 from tqdm import tqdm
-from hurodes import ROBOTS_PATH
 from hurodes.generators import MJCFGeneratorComposite
+from scipy.spatial.transform import Rotation
 
 from humanoid_retargeting.motion_player import PLAYERS_CLASS
 from humanoid_retargeting.mjcf_generator import generator_class
@@ -220,13 +219,15 @@ class Retargeter:
     def save_as_npz(self, res_path, target_framerate=100):
         res_qpos, res_qvel, frame_num = self.interpolate(target_framerate=target_framerate)
 
+        root_rotation = Rotation.from_quat(res_qpos[:, [4, 5, 6, 3]])
+        root_lin_vel = root_rotation.apply(res_qvel[:, :3], inverse=True)
         np.savez_compressed(
             res_path,
             root_trans=res_qpos[:, :3],
-            root_quat=res_qpos[:, 3:7],   # from w,x,y,z to x,y,z,w
+            root_quat=res_qpos[:, 3:7],   # quat order: w,x,y,z
             joint_pos=res_qpos[:, 7:],
-            root_lin_vel=res_qvel[:, :3],
-            root_ang_vel=res_qvel[:, 3:6],
+            root_lin_vel=root_lin_vel, # lin vel in body frame
+            root_ang_vel=res_qvel[:, 3:6], # ang vel in body frame
             joint_vel=res_qvel[:, 6:],
             frame_rate=target_framerate,
             frame=frame_num
