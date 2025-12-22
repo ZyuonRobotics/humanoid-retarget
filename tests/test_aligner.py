@@ -8,20 +8,20 @@ SMPL_FILE_PATH = Path(SMPL_DATA_PATH) / "ACCAD" / 'Female1Walking_c3d' / "B1_-_s
 
 def test_aligner_default_config(tmp_path):
     aligner = Aligner(source_file_path=SMPL_FILE_PATH, generator_type="smpl",
-                      robot_name="kuavo_s45", view=False)
+                      robot_name="zhaplin-21dof", view=False)
     aligner.load_cali_qpos()
     aligner.save_retarget_config(str(tmp_path / "test"))
 
 
 def test_aligner_load_config(tmp_path):
     aligner = Aligner(source_file_path=SMPL_FILE_PATH, generator_type="smpl",
-                      robot_name="kuavo_s45", view=False, config_name="default")
+                      robot_name="zhaplin-21dof", view=False, config_name="default")
     aligner.load_cali_qpos()
     aligner.save_retarget_config(str(tmp_path / "default"))
 
 
 def test_aligner_offset_qpos():
     aligner = Aligner(source_file_path=SMPL_FILE_PATH, generator_type="smpl",
-                      robot_name="kuavo_s45", view=False, config_name="default")
+                      robot_name="zhaplin-21dof", view=False, config_name="default")
     aligner.load_cali_qpos()
     aligner.get_tracker_offset()

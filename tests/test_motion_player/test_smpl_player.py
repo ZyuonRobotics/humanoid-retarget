@@ -7,7 +7,8 @@ SMPL_FILE_PATH = Path(SMPL_DATA_PATH) / "ACCAD" / 'Female1Walking_c3d' / "B1_-_s
 
 
 def test_plot():
-    player = SMPLPlayer(source_file_path=SMPL_FILE_PATH, view=False)
+    player = SMPLPlayer(view=False)
+    player.load(source_file_path=SMPL_FILE_PATH)
     player.plot_ref_baselink_cartesian()
     player.plot_ref_baselink_quaternion()
     player.plot_ref_baselink_euler()
@@ -15,10 +16,11 @@ def test_plot():
 
 
 def test_lowpass_filter():
-    player = SMPLPlayer(source_file_path=SMPL_FILE_PATH, view=False)
-    player.load_motion_file()
+    player = SMPLPlayer(view=False)
+    player.load(source_file_path=SMPL_FILE_PATH)
     player.lowpass_all_qpos()
 
 def test_frame_rate():
-    player = SMPLPlayer(source_file_path=SMPL_FILE_PATH, view=False)
+    player = SMPLPlayer(view=False)
+    player.load(source_file_path=SMPL_FILE_PATH)
     assert isinstance(player.frame_rate, int)

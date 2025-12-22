@@ -2,38 +2,39 @@ from pathlib import Path
 
 import mujoco
 import mujoco.viewer
-from hurodes import ROBOTS_PATH
-from hurodes.mjcf_generator.generator_composite import MJCFGeneratorComposite
-from hurodes.mjcf_generator.unified_generator import UnifiedMJCFGenerator
+from hurodes.generators.mjcf_generator.mjcf_generator_composite import MJCFGeneratorComposite
+from hurodes.generators.mjcf_generator.mjcf_humanoid_generator import MJCFHumanoidGenerator
 
 from humanoid_retargeting import BVH_DATA_PATH
 from humanoid_retargeting.mjcf_generator.bvh2mjcf_generator import BVH2MJCFGenerator
 
 BVH_FILE_PATH = Path(BVH_DATA_PATH) / "Reallusion" / "Martial Arts - Taichi" / '1_Skill.bvh'
-ROBOT_EHDF_PATH = Path(ROBOTS_PATH) / "kuavo_s45"
 
 
 def test_bvh2mjcf():
-    generator = BVH2MJCFGenerator(BVH_FILE_PATH)
-    generator.build()
+    generator = BVH2MJCFGenerator()
+    generator.load(BVH_FILE_PATH)
+    generator.generate()
 
-    m = mujoco.MjModel.from_xml_string(generator.mjcf_str) # type: ignore
+    m = mujoco.MjModel.from_xml_string(generator.xml_str) # type: ignore
     d = mujoco.MjData(m) # type: ignore
 
 
 def test_bvh2mjcf_parsing_end():
-    generator = BVH2MJCFGenerator(BVH_FILE_PATH, parsing_end=True)
-    generator.build()
+    generator = BVH2MJCFGenerator(parsing_end=True)
+    generator.load(BVH_FILE_PATH)
+    generator.generate()
 
-    m = mujoco.MjModel.from_xml_string(generator.mjcf_str) # type: ignore
+    m = mujoco.MjModel.from_xml_string(generator.xml_str) # type: ignore
     d = mujoco.MjData(m) # type: ignore
-
 
 def test_bvh2mjcf_composite():
-    smpl_generator = BVH2MJCFGenerator(BVH_FILE_PATH)
-    robot_generator = UnifiedMJCFGenerator(ROBOT_EHDF_PATH)
+    smpl_generator = BVH2MJCFGenerator()
+    smpl_generator.load(BVH_FILE_PATH)
+    robot_generator = MJCFHumanoidGenerator.from_robot_name("zhaplin-21dof")
     generator = MJCFGeneratorComposite([smpl_generator, robot_generator])
-    generator.build()
+    generator.generate(relative_mesh_path=False)
 
-    m = mujoco.MjModel.from_xml_string(generator.mjcf_str) # type: ignore
+    m = mujoco.MjModel.from_xml_string(generator.xml_str) # type: ignore
     d = mujoco.MjData(m) # type: ignore
+

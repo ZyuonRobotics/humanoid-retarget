@@ -7,7 +7,8 @@ BVH_FILE_PATH = Path(BVH_DATA_PATH) / "Reallusion" / "Martial Arts - Taichi" / '
 
 
 def test_plot():
-    player = BVHPlayer(source_file_path=BVH_FILE_PATH, view=False)
+    player = BVHPlayer(view=False)
+    player.load(source_file_path=BVH_FILE_PATH)
     player.plot_ref_baselink_cartesian()
     player.plot_ref_baselink_quaternion()
     player.plot_ref_baselink_euler()
@@ -15,10 +16,11 @@ def test_plot():
 
 
 def test_lowpass_filter():
-    player = BVHPlayer(source_file_path=BVH_FILE_PATH, view=False)
-    player.load_motion_file()
+    player = BVHPlayer(view=False)
+    player.load(source_file_path=BVH_FILE_PATH)
     player.lowpass_all_qpos()
 
 def test_frame_rate():
-    player = BVHPlayer(source_file_path=BVH_FILE_PATH, view=False)
+    player = BVHPlayer(view=False)
+    player.load(source_file_path=BVH_FILE_PATH)
     assert isinstance(player.frame_rate, int)

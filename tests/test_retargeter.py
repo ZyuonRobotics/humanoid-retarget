@@ -9,7 +9,7 @@ def test_retargeter(tmp_path):
 
     retargeter = Retargeter(
         source_file_path=SMPL_FILE_PATH,
-        robot_name="kuavo_s45",
+        robot_name="zhaplin-21dof",
         generator_type="smpl",
         config_name="default",
         view=False
