@@ -7,7 +7,7 @@ import dearpygui.dearpygui as dpg
 
 from humanoid_retargeting import PARAMETERS_PATH
 from humanoid_retargeting.aligner import Aligner
-from humanoid_retargeting.utils.retarget_params import RetargetParams, FootParams, HipParams, TrackerConfig
+from humanoid_retargeting.utils.retarget_params import RetargetParams, TrackerConfig
 from humanoid_retargeting import BVH_DATA_PATH
 
 
@@ -55,22 +55,8 @@ def simulation_loop():
 
 # Generic GUI‑building primitives & callbacks
 
-def update_height_callback(sender, app_data, user_data):
-    """Slider callback for foot / hip height."""
-    target = getattr(retarget_params, user_data)
-    target.offset = round(app_data, 4)
-
-
-def update_foot_name_callback(sender, app_data, user_data):
-    robot_or_human, left_or_right = user_data.split("_")
-    foot_params : FootParams = getattr(retarget_params, f"{robot_or_human}_foot")
-    setattr(foot_params, f"{left_or_right}_name", strip_prefix(app_data))
-
-
-def update_hip_name_callback(sender, app_data, user_data):
-    robot_or_human, left_or_right = user_data.split("_")
-    hip_params: HipParams = getattr(retarget_params, f"{robot_or_human}_hip")
-    setattr(hip_params, f"{left_or_right}_name", strip_prefix(app_data))
+# Note: Foot and hip parameters are now automatically retrieved from hrdf (for robot) 
+# and player (for human), so these callbacks are no longer needed.
 
 
 def update_base_shift_callback(sender, app_data, user_data):
@@ -368,17 +354,8 @@ def sync_trackers_from_params():
 def sync_gui_with_params():
     """Sync GUI widgets to match values from retarget_params."""
 
-    # Update foot/hip name and height
-    for entity in ["robot", "human"]:
-        for side in ["left", "right"]:
-            foot: FootParams = getattr(retarget_params, f"{entity}_foot")
-            dpg.set_value(f"{entity}_{side}_foot_combo", foot.__dict__[f"{side}_name"])
-        dpg.set_value(f"{entity}_foot_height_slider", foot.offset)
-
-        hip: HipParams = getattr(retarget_params, f"{entity}_hip")
-        for side in ["left", "right"]:
-            dpg.set_value(f"{entity}_{side}_hip_combo", hip.__dict__[f"{side}_name"])
-        dpg.set_value(f"{entity}_hip_height_slider", hip.offset)
+    # Note: Foot and hip parameters are now automatically retrieved from hrdf (for robot) 
+    # and player (for human), so they are no longer synced here.
 
     # Update base shift
     dpg.set_value("base_x_shift_slider", retarget_params.base_x_shift)
@@ -452,15 +429,8 @@ def create_gui():
             dpg.add_button(label="Show Human Body Tree", callback=show_body_tree_callback, user_data="human")
         dpg.add_separator()
 
-        # Foot and hip info
-        with dpg.group():
-            for entity in ["robot", "human"]:
-                dpg.add_text(f"{entity.capitalize()} Feet Name and Height")
-                for side in ("left", "right"):
-                    dpg.add_combo(label=f"{side} foot name", items=names[entity], callback=update_foot_name_callback,
-                                user_data=f"{entity}_{side}", tag=f"{entity}_{side}_foot_combo")
-                dpg.add_slider_float(label="foot height", min_value=-0.2, max_value=0.2, default_value=0.0,
-                                    callback=update_height_callback, user_data=f"{entity}_foot", tag=f"{entity}_foot_height_slider")
+        # Note: Foot and hip parameters are now automatically retrieved from hrdf (for robot) 
+        # and player (for human), so they are no longer configurable in the GUI.
         dpg.add_separator()
 
         # Human base shift
@@ -476,13 +446,8 @@ def create_gui():
         with dpg.group(tag="body_ratio_group"):
             dpg.add_text("Human Body Ratio")
             dpg.add_button(label="Refresh MuJoCo", callback=refresh_human_model_callback)
-            for entity in ["robot", "human"]:
-                dpg.add_text(f"{entity.capitalize()} Hip Name and Height")
-                for side in ("left", "right"):
-                    dpg.add_combo(label=f"{side} hip name", items=names[entity], callback=update_hip_name_callback,
-                                user_data=f"{entity}_{side}", tag=f"{entity}_{side}_hip_combo")
-                dpg.add_slider_float(label="hip height", min_value=-0.2, max_value=0.2, default_value=0.0, 
-                                        callback=update_height_callback, user_data=f"{entity}_hip", tag=f"{entity}_hip_height_slider")
+            # Note: Hip parameters are now automatically retrieved from hrdf (for robot) 
+            # and player (for human), so they are no longer configurable in the GUI.
             dpg.add_button(label="Add Relative Body Ratio Component", callback=add_body_ratio_callback, user_data=names["human"])
         dpg.add_separator()
 

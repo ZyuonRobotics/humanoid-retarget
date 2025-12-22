@@ -2,27 +2,6 @@ import json
 from dataclasses import dataclass, field, asdict
 from typing import Dict, List, Optional, Union
 
-
-@dataclass
-class FootParams:
-    left_name: Optional[str] = None
-    right_name: Optional[str] = None
-    offset: float = 0.0
-
-    def is_valid(self) -> bool:
-        return self.left_name is not None and self.right_name is not None
-
-
-@dataclass
-class HipParams:
-    left_name: Optional[str] = None
-    right_name: Optional[str] = None
-    offset: float = 0.0
-
-    def is_valid(self) -> bool:
-        return self.left_name is not None and self.right_name is not None
-
-
 @dataclass
 class TrackerConfig:
     human: List[str]
@@ -36,16 +15,12 @@ class TrackerConfig:
 
 @dataclass
 class RetargetParams:
-    robot_foot: FootParams = field(default_factory=FootParams)
-    human_foot: FootParams = field(default_factory=FootParams)
     base_x_shift: float = 0.0
     base_y_shift: float = 0.0
 
     base_rotation: List[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
     body_rotate_dict: Dict[str, list] = field(default_factory=dict)
 
-    robot_hip: HipParams = field(default_factory=HipParams)
-    human_hip: HipParams = field(default_factory=HipParams)
     extra_body_ratio: Union[float, List[float]] = field(default_factory=lambda: [1.0, 1.0, 1.0]) 
     relative_body_ratio_dict: Dict[str, Union[float, List[float]]] = field(default_factory=dict)
 
@@ -64,12 +39,6 @@ class RetargetParams:
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'RetargetParams':
-        for key in ("robot_foot", "human_foot"):
-            if key in data:
-                data[key] = FootParams(**data[key])
-        for key in ("robot_hip", "human_hip"):
-            if key in data:
-                data[key] = HipParams(**data[key])
         if 'tracker_dict' in data:
             for key, tracker_data in data['tracker_dict'].items():
                 data['tracker_dict'][key] = TrackerConfig(**tracker_data)

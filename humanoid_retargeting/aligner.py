@@ -5,19 +5,25 @@ from pathlib import Path
 import mujoco
 import mujoco.viewer
 import numpy as np
-from hurodes import ROBOTS_PATH
+from hurodes import HumanoidRobot
 from hurodes.generators import MJCFGeneratorComposite
 from hurodes.generators import MJCFHumanoidGenerator
 
 from humanoid_retargeting import PARAMETERS_PATH
 from humanoid_retargeting.mjcf_generator import generator_class
-from humanoid_retargeting.utils.retarget_params import RetargetParams, FootParams
+from humanoid_retargeting.utils.retarget_params import RetargetParams
 from humanoid_retargeting.utils.rot import euler2quat
+from humanoid_retargeting.utils.human_parmas import HumanParams
 
 
-def get_leg_length(generator, foot_params, hip_params, body_rotate_dict=None):
-    if not (foot_params.is_valid() and hip_params.is_valid()):
-        return None
+def get_leg_length(
+    generator, 
+    foot_names, 
+    hip_names, 
+    foot_offset, 
+    hip_offset, 
+    body_rotate_dict=None
+):
     generator.generate(relative_mesh_path=False)
     model = mujoco.MjModel.from_xml_string(generator.xml_str) # type: ignore
     data = mujoco.MjData(model) # type: ignore
@@ -27,9 +33,9 @@ def get_leg_length(generator, foot_params, hip_params, body_rotate_dict=None):
         for key, value in body_rotate_dict.items():
             data.joint(model.body(key).jntadr[0]).qpos[0:4] = euler2quat(*value)
 
-    foot_pos = (data.body(foot_params.left_name).xpos + data.body(foot_params.right_name).xpos) / 2
-    hip_pos = (data.body(hip_params.left_name).xpos + data.body(hip_params.right_name).xpos) / 2
-    length = np.linalg.norm(hip_pos - foot_pos) + hip_params.offset - foot_params.offset
+    foot_pos = (data.body(foot_names[0]).xpos + data.body(foot_names[1]).xpos) / 2
+    hip_pos = (data.body(hip_names[0]).xpos + data.body(hip_names[1]).xpos) / 2
+    length = np.linalg.norm(hip_pos - foot_pos) + hip_offset - foot_offset
     return length
 
 
@@ -41,7 +47,35 @@ class Aligner:
         self.params_name = params_name
         self.view = view
 
+        self.robot_hip_names = None
+        self.robot_foot_names = None
+        self.robot_hip_offset = None
+        self.robot_foot_offset = None
+        self.human_hip_names = None
+        self.human_foot_names = None
+        self.human_hip_offset = None
+        self.human_foot_offset = None
+
+        self.load_robot_parmas()
+        self.load_human_parmas()
         self.load_mujoco()
+
+    def load_robot_parmas(self):
+        self.robot = HumanoidRobot.from_name(self.robot_name)
+        self.robot_hip_names = self.robot.hrdf.hip_names
+        self.robot_foot_names = self.robot.hrdf.foot_names
+        self.robot_hip_offset = 0.0
+        self.robot_foot_offset = -0.045
+
+    def load_human_parmas(self):
+        human_config_path = Path(self.source_file_path).with_suffix('.json')
+        assert human_config_path.exists(), "Human config file not found"
+        human_params = HumanParams.from_json(str(human_config_path))
+        assert human_params.is_valid(), "Human play params are not valid"
+        self.human_hip_names = human_params.hip_names
+        self.human_foot_names = human_params.foot_names
+        self.human_hip_offset = human_params.hip_offset
+        self.human_foot_offset = human_params.foot_offset
 
 
     def load_mujoco(self, retarget_params=None):
@@ -82,14 +116,18 @@ class Aligner:
     def get_global_body_ratio(self):
         human_length = get_leg_length(
             generator=generator_class[self.generator_type].from_source_file_path(source_file_path=self.source_file_path),
-            foot_params=self.retarget_params.human_foot,
-            hip_params=self.retarget_params.human_hip,
+            foot_names=self.human_foot_names,
+            hip_names=self.human_hip_names,
+            foot_offset=self.human_foot_offset,
+            hip_offset=self.human_hip_offset,
             body_rotate_dict=self.retarget_params.body_rotate_dict
         )
         robot_length = get_leg_length(
             generator=MJCFHumanoidGenerator.from_robot_name(self.robot_name),
-            foot_params=self.retarget_params.robot_foot,
-            hip_params=self.retarget_params.robot_hip,
+            foot_names=self.robot_foot_names,
+            hip_names=self.robot_hip_names,
+            foot_offset=self.robot_foot_offset,
+            hip_offset=self.robot_hip_offset,
         )
         if human_length is not None and robot_length is not None:
             return float(robot_length / human_length)
@@ -140,12 +178,14 @@ class Aligner:
             mujoco.mj_forward(self.model, self.data)
 
             # Align feet on Z axis
-            foot_params: FootParams = getattr(self.retarget_params, f"{target}_foot")
-            if foot_params.is_valid():
-                left_foot_pos = self.data.body(f"{target}_{foot_params.left_name}").xpos
-                right_foot_pos = self.data.body(f"{target}_{foot_params.right_name}").xpos
-                foot_pos_z = (left_foot_pos[2] + right_foot_pos[2]) / 2 + foot_params.offset
-                joint.qpos[2] -= foot_pos_z
+            assert getattr(self, f"{target}_foot_names") is not None, "Foot names are not set"
+            foot_names = [f"{target}_{name}" for name in getattr(self, f"{target}_foot_names")]
+            assert getattr(self, f"{target}_foot_offset") is not None, "Foot offset is not set"
+            foot_offset = getattr(self, f"{target}_foot_offset")
+
+            foot_pos = (self.data.body(foot_names[0]).xpos + self.data.body(foot_names[1]).xpos) / 2
+            foot_pos_z = foot_pos[2] + foot_offset
+            joint.qpos[2] -= foot_pos_z
 
     def set_base_rotation(self):
         """Apply user-defined base Euler rotation to the human root."""

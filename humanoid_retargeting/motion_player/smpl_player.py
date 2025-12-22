@@ -53,3 +53,13 @@ class SMPLPlayer(HumanoidMotionPlayerBase):
 
         self._frame_rate = self.get_frame_rate()
         self._ref_qpos = self.get_qpos()
+
+    @property
+    def foot_names(self):
+        """Return default foot names for SMPL model"""
+        return ["left_foot", "right_foot"]
+
+    @property
+    def hip_names(self):
+        """Return default hip names for SMPL model"""
+        return ["left_hip", "right_hip"]

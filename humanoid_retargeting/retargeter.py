@@ -155,15 +155,11 @@ class Retargeter:
                 self.frame_tasks.append(task)
 
 
-    def run_ik(self, progress_bar=True, draw_height_adjustment_plot=False):
+    def run_ik(self, progress_bar=True):
         assert self.posture_task is not None and self.frame_tasks is not None
         #self.player.load(source_file_path=self.source_file_path)
-        self.player.adjust_root_height(
-            left_foot_name=self.retarget_params.human_foot.left_name,
-            right_foot_name=self.retarget_params.human_foot.right_name,
-            foot_offset=self.retarget_params.human_foot.offset,
-            draw_plot=draw_height_adjustment_plot
-        )
+        
+        self.player.adjust_height_adjustment()
         
         for frame_idx in tqdm(range(self.frame_num), disable=not progress_bar):
             self.player.sync_data(frame_idx)
