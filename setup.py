@@ -11,6 +11,8 @@ setup(
         "scipy",
         "mink",
         "click",
+        "pyyaml",
+        "pydantic",
     ],
     extras_require={
         'gui': [

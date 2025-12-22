@@ -6,14 +6,14 @@ from humanoid_retargeting.aligner import Aligner
 @click.argument('source-file-path')
 @click.argument('robot-name')
 @click.option('--generator-type', default='bvh', help='Type of generator.', prompt="Type of generator")
-@click.option('--params-name', default=None, help='Name of parameters.', prompt="Name of parameters")
+@click.option('--config-name', default=None, help='Name of configs.', prompt="Name of configs")
 
-def main(source_file_path, robot_name, generator_type, params_name):
+def main(source_file_path, robot_name, generator_type, config_name):
     aligner = Aligner(
         source_file_path=source_file_path,
         robot_name=robot_name,
         generator_type=generator_type,
-        params_name=params_name
+        config_name=config_name
     )
 
     aligner.load_cali_qpos()

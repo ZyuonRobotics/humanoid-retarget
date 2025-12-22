@@ -47,11 +47,11 @@ The default path for storing data is:
 ├── models
 │   ├── dmpls         # DMP pose library for SMPL-X model (optional)
 │   └── smplh         # SMPL+H body model files
-└── parameters
+└── configs
     ├── unitree_g1     
-    │   ├── smpl      # Retargeting parameters for Unitree G1 robot using SMPL dataset
-    │   └── bvh       # Retargeting parameters for Unitree G1 robot using BVH dataset
-    └── ...           # Other retargeting configuration parameters
+    │   ├── smpl      # Retargeting configs for Unitree G1 robot using SMPL dataset
+    │   └── bvh       # Retargeting configs for Unitree G1 robot using BVH dataset
+    └── ...           # Other retargeting configuration configs
 ```
 
 ---
@@ -131,7 +131,7 @@ Scripts in `scripts/mocap_retargeting/` handle the core retargeting process, inc
 
 Before retargeting, it's necessary to ensure that the robot and human model are aligned.
 
-The **humanoid-retargeting** algorithm reads configuration files located in `~/.humanoid_retargeting/parameters` for alignment. The fields used include:
+The **humanoid-retargeting** algorithm reads configuration files located in `~/.humanoid_retargeting/configs` for alignment. The fields used include:
 
 - **Translation-related information**
   - `robot_foot`: Robot foot information, including left and right foot body names and offsets, ensuring the **robot's soles are exactly on the ground**
@@ -164,7 +164,7 @@ The **humanoid-retargeting** algorithm reads configuration files located in `~/.
 
 ##### Manual Alignment
 
-Since repeated parameter tuning may be required for perfect alignment, you can repeatedly execute the alignment check script and modify the parameter file accordingly.
+Since repeated config tuning may be required for perfect alignment, you can repeatedly execute the alignment check script and modify the config file accordingly.
 
 **Usage Example:**
 ```bash
@@ -172,16 +172,16 @@ python scripts/mocap_retargeting/check_align.py \
   /path/to/file.bvh \
   unitree_g1 \
   --generator-type bvh \
-  --params-name default
+  --config-name default
 ```
 
-##### Generate Retargeting Parameters
+##### Generate Retargeting Configs
 
-Generate retargeting parameters for a specific robot and motion capture data type.
+Generate retargeting configs for a specific robot and motion capture data type.
 
 **Usage Example:**
 ```bash
-python scripts/mocap_retargeting/generate_retarget_params.py \
+python scripts/mocap_retargeting/generate_retarget_config.py \
   /path/to/file.bvh \
   unitree_g1 \
   --generator-type bvh
@@ -189,7 +189,7 @@ python scripts/mocap_retargeting/generate_retarget_params.py \
 
 ##### Automatic Alignment (WIP)
 
-Run a GUI-based auto-alignment tool that automatically saves retargeting parameters to the configuration file.
+Run a GUI-based auto-alignment tool that automatically saves retargeting configs to the configuration file.
 
 #### Retargeting
 
@@ -197,7 +197,7 @@ Retargeting is implemented using the **mink** library. The main steps are:
 
 - Based on the already aligned robot and human model, get the offset of tracking points
   - Offset includes relative position and rotation between trackers on the human model and the robot
-  - Offset is entirely determined by the retargeting parameters obtained in the previous stage; accuracy here greatly affects retargeting performance
+  - Offset is entirely determined by the retargeting configs obtained in the previous stage; accuracy here greatly affects retargeting performance
 - For each frame in the motion capture data:
   - Get current tracker positions on the human model
   - Combine static tracker offsets to compute desired robot tracker positions
@@ -213,7 +213,7 @@ python scripts/mocap_retargeting/single_retarget.py \
   /path/to/file.bvh \
   unitree_g1 \
   --generator-type bvh \
-  --params-name default \
+  --config-name default \
   --view \
   --speed 1.0 \
   --offset 0.0 1.0 0.0
@@ -229,7 +229,7 @@ python scripts/mocap_retargeting/batch_retarget.py \
   /path/to/motions \
   unitree_g1 \
   --generator-type bvh \
-  --params-name default \
+  --config-name default \
   --target-path /path/to/output \
   --target-fps 100 \
   --num-processes 4

@@ -1,9 +1,7 @@
-from humanoid_retargeting.utils.retarget_params import RetargetParams, FootParams, TrackerConfig
+from humanoid_retargeting.utils.retarget_config import RetargetConfig, TrackerConfig
 
 def build_test_obj():
-    return RetargetParams(
-        robot_foot=FootParams(left_name="l6left", right_name="l6right", offset=0.1),
-        human_foot=FootParams(left_name="l6left", right_name="l6right", offset=0.08),
+    return RetargetConfig(
         base_x_shift=0.0,
         base_y_shift=0.0,
         extra_body_ratio=[1.0, 1.0, 1.0],
@@ -19,14 +17,14 @@ def build_test_obj():
     )
 
 
-def test_retarget_params_to_json(tmp_path):
-    params = build_test_obj()
-    params.to_json(str(tmp_path / "retarget_params.json"))
+def test_retarget_config_to_yaml(tmp_path):
+    config = build_test_obj()
+    config.to_yaml(str(tmp_path / "retarget_config.yaml"))
 
 
-def test_retarget_params_from_json(tmp_path):
-    params = build_test_obj()
-    json_path = tmp_path / "retarget_params.json"
-    params.to_json(str(json_path))
-    loaded_params = RetargetParams.from_json(str(json_path))
-    assert loaded_params == params
+def test_retarget_config_from_yaml(tmp_path):
+    config = build_test_obj()
+    yaml_path = tmp_path / "retarget_config.yaml"
+    config.to_yaml(str(yaml_path))
+    loaded_config = RetargetConfig.from_yaml(str(yaml_path))
+    assert loaded_config == config

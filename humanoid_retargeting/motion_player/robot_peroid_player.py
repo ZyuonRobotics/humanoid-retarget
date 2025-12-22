@@ -1,4 +1,4 @@
-import json
+import yaml
 from itertools import product
 import numpy as np
 
@@ -59,7 +59,7 @@ class RobotPeriodPlayer(RobotMotionPlayer):
 
     def load_motion_file(self):
         with open(self.source_file_path, 'r') as f:
-            config = json.load(f)
+            config = yaml.safe_load(f)
         
         self._validate_config_structure(config)
         self._validate_leg_joints(config['leg_joints'])

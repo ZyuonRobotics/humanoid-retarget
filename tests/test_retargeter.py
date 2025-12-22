@@ -11,7 +11,7 @@ def test_retargeter(tmp_path):
         source_file_path=SMPL_FILE_PATH,
         robot_name="kuavo_s45",
         generator_type="smpl",
-        params_name="default",
+        config_name="default",
         view=False
     )
     retargeter.run_ik()

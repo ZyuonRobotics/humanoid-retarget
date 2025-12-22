@@ -21,7 +21,7 @@ class Retargeter:
             source_file_path,
             robot_name,
             generator_type,
-            params_name,
+            config_name,
             view=True,
             solver="daqp",
             init_frame_loop_num=100,
@@ -32,7 +32,7 @@ class Retargeter:
         self.source_file_path = source_file_path
         self.robot_name = robot_name
         self.generator_type = generator_type
-        self.params_name = params_name
+        self.config_name = config_name
         self.view = view
         self.solver = solver
         self.init_frame_loop_num = init_frame_loop_num
@@ -44,27 +44,27 @@ class Retargeter:
             source_file_path=source_file_path,
             robot_name=robot_name,
             generator_type=generator_type,
-            params_name=params_name,
+            config_name=config_name,
             view=False
         )
         self.tracker_offset = self.aligner.get_tracker_offset()
         self.global_body_ratio = self.aligner.get_global_body_ratio()
-        self.retarget_params = self.aligner.retarget_params
+        self.retarget_config = self.aligner.retarget_config
 
         self.player = PLAYERS_CLASS[generator_type].from_source_file_path(
             source_file_path=source_file_path,
-            global_body_ratio=self.global_body_ratio * np.array(self.retarget_params.extra_body_ratio),
-            relative_body_ratio_dict=self.retarget_params.relative_body_ratio_dict,
+            global_body_ratio=self.global_body_ratio * np.array(self.retarget_config.extra_body_ratio),
+            relative_body_ratio_dict=self.retarget_config.relative_body_ratio_dict,
         )
 
         self.human_generator = generator_class[self.generator_type].from_source_file_path(
             source_file_path=source_file_path,
-            global_body_ratio=self.global_body_ratio * np.array(self.retarget_params.extra_body_ratio),
-            relative_body_ratio_dict=self.retarget_params.relative_body_ratio_dict,
+            global_body_ratio=self.global_body_ratio * np.array(self.retarget_config.extra_body_ratio),
+            relative_body_ratio_dict=self.retarget_config.relative_body_ratio_dict,
         )
         self.robot_generator = TrackerMJCFGenerator.from_robot_name(
             robot_name,
-            tracker_dict=self.retarget_params.tracker_dict,
+            tracker_dict=self.retarget_config.tracker_dict,
             tracker_offset=self.tracker_offset
         )
         self.generator = MJCFGeneratorComposite(dict(human=self.human_generator, robot=self.robot_generator))
@@ -112,7 +112,7 @@ class Retargeter:
 
     @property
     def human_trackers(self):
-        return [s for group_value in self.retarget_params.tracker_dict.values() for s in group_value.human]
+        return [s for group_value in self.retarget_config.tracker_dict.values() for s in group_value.human]
 
     @property
     def frame_num(self):
@@ -144,7 +144,7 @@ class Retargeter:
     def build_mink_tasks(self):
         self.posture_task = mink.PostureTask(self.robot_model, cost=200.0)
         self.frame_tasks = []
-        for group_name, group_value in self.retarget_params.tracker_dict.items():
+        for group_name, group_value in self.retarget_config.tracker_dict.items():
             for human_body_name, robot_body_name in zip(group_value.human, group_value.robot):
                 task = mink.FrameTask(
                     frame_name=f"{robot_body_name}_{human_body_name}_tracker",

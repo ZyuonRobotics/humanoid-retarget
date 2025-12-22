@@ -26,8 +26,8 @@ SMPL_PATH = MODELS_PATH / "smpl"
 SMPLH_PATH = MODELS_PATH / "smplh"
 DMPLS_PATH = MODELS_PATH / "dmpls"
 
-# Parameter path
-PARAMETERS_PATH = PROJECT_PATH / "parameters"
+# Config path
+CONFIGS_PATH = PROJECT_PATH / "configs"
 
 smpl_model_dict = {}
 dmpl_model_dict = {}

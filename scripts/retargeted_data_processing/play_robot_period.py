@@ -2,19 +2,19 @@ from humanoid_retargeting.motion_player.robot_peroid_player import RobotPeriodPl
 import click
 from pathlib import Path
 
-DEFAULT_CONFIG_PATH = Path(__file__).parent / ".." / "humanoid_retargeting" / "motion_player" / "robot_sine_config_example.json"
+DEFAULT_CONFIG_PATH = Path(__file__).parent / ".." / "humanoid_retargeting" / "motion_player" / "robot_sine_config_example.yaml"
 
 @click.command()
-@click.option('--config-file-path', default=DEFAULT_CONFIG_PATH, help='Path to the robot period configuration JSON file.', prompt="Path to the configuration file")
+@click.option('--config-file-path', default=DEFAULT_CONFIG_PATH, help='Path to the robot period configuration YAML file.', prompt="Path to the configuration file")
 @click.option('--robot-name', default='zhaplin-v0.1.3', help='Name of the robot.', prompt="Name of the robot")
 @click.option('--frame-rate', default=100, help='Frame rate for motion generation.')
 @click.option('--max-steps', default=300000, help='Maximum number of steps to generate.')
 def main(config_file_path, robot_name, frame_rate, max_steps):
     """
-    Play periodic robot motion based on JSON configuration.
+    Play periodic robot motion based on YAML configuration.
     
     This script generates and plays sinusoidal motion patterns for robot joints
-    based on stepping periods and joint configurations specified in a JSON file.
+    based on stepping periods and joint configurations specified in a YAML file.
     """
     # Remove quotes if present
     if config_file_path.startswith('"') or config_file_path.startswith("'"):

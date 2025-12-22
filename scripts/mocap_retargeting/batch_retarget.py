@@ -11,12 +11,12 @@ from humanoid_retargeting.retargeter import Retargeter
 
 
 def process_file(args):
-    source_file_path, target_file_path, robot_name, generator_type, params_name, target_fps = args
+    source_file_path, target_file_path, robot_name, generator_type, config_name, target_fps = args
     retargeter = Retargeter(
         source_file_path=str(source_file_path),
         robot_name=robot_name,
         generator_type=generator_type,
-        params_name=params_name,
+        config_name=config_name,
         view=False
     )
     retargeter.run_ik(progress_bar=False)
@@ -29,8 +29,8 @@ def process_file(args):
 @click.argument('robot-name', type=str, required=True)
 @click.option('--generator-type', type=str, required=True, 
               help='Type of generator (e.g., "smpl").', prompt="Type of generator")
-@click.option('--params-name', type=str, default='default',
-              help='Name of the retargeting parameters. Default is "default".', prompt="Name of the retargeting parameters")
+@click.option('--config-name', type=str, default='default',
+              help='Name of the retargeting configs. Default is "default".', prompt="Name of the retargeting configs")
 @click.option('--target-path', type=click.Path(), required=False,
               help='Path to save the retargeted .npy files')
 @click.option('--target-fps', type=int, default=100, help='Target framerate for output files. Default is 100.')
@@ -42,7 +42,7 @@ def process_file(args):
               help='Skip files whose names contain any of these keywords. Can be used multiple times.')
 @click.option('--num-processes', type=int, default=1,
               help='Number of processes to use. Set to 1 to disable multiprocessing.')
-def main(source_path, robot_name, generator_type, params_name, target_path, target_fps, overwrite,
+def main(source_path, robot_name, generator_type, config_name, target_path, target_fps, overwrite,
          pos_filter, neg_filter, num_processes):
     """
     Batch process motion files in the specified folder using Retargeter,
@@ -100,14 +100,14 @@ def main(source_path, robot_name, generator_type, params_name, target_path, targ
                     target_motion_files, 
                     [robot_name] * len(filtered_motion_files), 
                     [generator_type] * len(filtered_motion_files), 
-                    [params_name] * len(filtered_motion_files), 
+                    [config_name] * len(filtered_motion_files), 
                     [target_fps] * len(filtered_motion_files))),
                 total=len(filtered_motion_files),
             ))
     else:
         # Single process mode
         for source_path, target_path in tqdm(zip(filtered_motion_files, target_motion_files), total=len(filtered_motion_files)):
-            process_file((source_path, target_path, robot_name, generator_type, params_name, target_fps))
+            process_file((source_path, target_path, robot_name, generator_type, config_name, target_fps))
 
 
 if __name__ == '__main__':

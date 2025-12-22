@@ -20,10 +20,10 @@ def main(source_file_path, generator_type):
     player: HumanoidMotionPlayerBase = player_class()
     player.load(source_file_path=source_file_path)
     
-    if player.human_params.height_adjustment is None:
+    if player.human_config.height_adjustment is None:
         player.calculate_height_adjustment(draw_plot=True)
 
-    if not source_file_path.with_suffix('.json').exists():
+    if not source_file_path.with_suffix('.yaml').exists():
         player.save_config(source_file_path)
 
     player.adjust_height_adjustment()

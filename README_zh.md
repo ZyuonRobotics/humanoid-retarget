@@ -47,7 +47,7 @@ pip install git+https://github.com/ZyuonRobotics/humanoid-robot-description
 ├── models
 │   ├── dmpls         # SMPL-X模型的DMP姿态库（可选）
 │   └── smplh         # SMPL+H身体模型文件
-└── parameters
+└── configs
     ├── unitree_g1     
     │   ├── smpl      # unitree g1机器人在SMPL数据集中使用的重定向参数
     │   └── bvh       # unitree g1机器人在BVH数据集中的重定向参数
@@ -131,7 +131,7 @@ python scripts/mocap_processing/play_mocap_motion.py \
 
 在进行重定向之前需要保证机器人和人体模型对齐。
 
-**humanoid-retargeting** 算法通过读取位于 `~/.humanoid_retargeting/parameters` 文件夹下的配置文件用于对齐，用于对齐的字段包括：
+**humanoid-retargeting** 算法通过读取位于 `~/.humanoid_retargeting/configs` 文件夹下的配置文件用于对齐，用于对齐的字段包括：
 
 - **平移相关信息**
   - `robot_foot`: 机器人的脚部信息，包含左右脚对应的body名称和脚部偏移值，用于确保机器人的**脚底正好在地面上**
@@ -172,7 +172,7 @@ python scripts/mocap_retargeting/check_align.py \
   /path/to/file.bvh \
   unitree_g1 \
   --generator-type bvh \
-  --params-name default
+  --config-name default
 ```
 
 ##### 生成重定向参数
@@ -181,7 +181,7 @@ python scripts/mocap_retargeting/check_align.py \
 
 **使用示例：**
 ```bash
-python scripts/mocap_retargeting/generate_retarget_params.py \
+python scripts/mocap_retargeting/generate_retarget_config.py \
   /path/to/file.bvh \
   unitree_g1 \
   --generator-type bvh \
@@ -213,7 +213,7 @@ python scripts/mocap_retargeting/single_retarget.py \
   /path/to/file.bvh \
   unitree_g1 \
   --generator-type bvh \
-  --params-name default \
+  --config-name default \
   --view \
   --speed 1.0 \
   --offset 0.0 1.0 0.0
@@ -229,7 +229,7 @@ python scripts/mocap_retargeting/batch_retarget.py \
   /path/to/motions \
   unitree_g1 \
   --generator-type bvh \
-  --params-name default \
+  --config-name default \
   --target-path /path/to/output \
   --target-fps 100 \
   --num-processes 4
@@ -257,7 +257,7 @@ python scripts/retargeted_data_processing/play_robot_motion.py \
 
 #### 播放机器人周期动作
 
-基于 JSON 配置生成并播放周期性机器人动作。该脚本根据步态周期和关节配置生成机器人关节的正弦运动模式。
+基于 YAML 配置生成并播放周期性机器人动作。该脚本根据步态周期和关节配置生成机器人关节的正弦运动模式。
 
 **使用示例：**
 ```bash

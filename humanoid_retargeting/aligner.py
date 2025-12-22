@@ -9,11 +9,11 @@ from hurodes import HumanoidRobot
 from hurodes.generators import MJCFGeneratorComposite
 from hurodes.generators import MJCFHumanoidGenerator
 
-from humanoid_retargeting import PARAMETERS_PATH
+from humanoid_retargeting import CONFIGS_PATH
 from humanoid_retargeting.mjcf_generator import generator_class
-from humanoid_retargeting.utils.retarget_params import RetargetParams
+from humanoid_retargeting.utils.retarget_config import RetargetConfig
 from humanoid_retargeting.utils.rot import euler2quat
-from humanoid_retargeting.utils.human_parmas import HumanParams
+from humanoid_retargeting.utils.human_config import HumanConfig
 
 
 def get_leg_length(
@@ -40,11 +40,11 @@ def get_leg_length(
 
 
 class Aligner:
-    def __init__(self, source_file_path, robot_name, generator_type, params_name=None, view=True):
+    def __init__(self, source_file_path, robot_name, generator_type, config_name=None, view=True):
         self.source_file_path = source_file_path
         self.robot_name = robot_name
         self.generator_type = generator_type
-        self.params_name = params_name
+        self.config_name = config_name
         self.view = view
 
         self.robot_hip_names = None
@@ -68,32 +68,32 @@ class Aligner:
         self.robot_foot_offset = -0.045
 
     def load_human_parmas(self):
-        human_config_path = Path(self.source_file_path).with_suffix('.json')
+        human_config_path = Path(self.source_file_path).with_suffix('.yaml')
         assert human_config_path.exists(), "Human config file not found"
-        human_params = HumanParams.from_json(str(human_config_path))
-        assert human_params.is_valid(), "Human play params are not valid"
-        self.human_hip_names = human_params.hip_names
-        self.human_foot_names = human_params.foot_names
-        self.human_hip_offset = human_params.hip_offset
-        self.human_foot_offset = human_params.foot_offset
+        human_config = HumanConfig.from_yaml(str(human_config_path))
+        assert human_config.is_valid(), "Human play config are not valid"
+        self.human_hip_names = human_config.hip_names
+        self.human_foot_names = human_config.foot_names
+        self.human_hip_offset = human_config.hip_offset
+        self.human_foot_offset = human_config.foot_offset
 
 
-    def load_mujoco(self, retarget_params=None):
-        if retarget_params is None:
-            if self.params_name is None:
-                self.retarget_params = RetargetParams()
+    def load_mujoco(self, retarget_config=None):
+        if retarget_config is None:
+            if self.config_name is None:
+                self.retarget_config = RetargetConfig()
             else:
-                self.retarget_params = RetargetParams.from_json(
-                    Path(self.params_dir) / f"{self.params_name}.json"
+                self.retarget_config = RetargetConfig.from_yaml(
+                    Path(self.config_dir) / f"{self.config_name}.yaml"
                 )
         else:
-            self.retarget_params = retarget_params
+            self.retarget_config = retarget_config
 
         self.global_body_ratio = self.get_global_body_ratio()
         self.human_generator = generator_class[self.generator_type].from_source_file_path(
             source_file_path=self.source_file_path,
-            global_body_ratio=self.global_body_ratio * np.array(self.retarget_params.extra_body_ratio),
-            relative_body_ratio_dict=self.retarget_params.relative_body_ratio_dict
+            global_body_ratio=self.global_body_ratio * np.array(self.retarget_config.extra_body_ratio),
+            relative_body_ratio_dict=self.retarget_config.relative_body_ratio_dict
         )
         self.robot_generator = MJCFHumanoidGenerator.from_robot_name(self.robot_name)
         self.generator = MJCFGeneratorComposite(dict(human=self.human_generator, robot=self.robot_generator))
@@ -120,7 +120,7 @@ class Aligner:
             hip_names=self.human_hip_names,
             foot_offset=self.human_foot_offset,
             hip_offset=self.human_hip_offset,
-            body_rotate_dict=self.retarget_params.body_rotate_dict
+            body_rotate_dict=self.retarget_config.body_rotate_dict
         )
         robot_length = get_leg_length(
             generator=MJCFHumanoidGenerator.from_robot_name(self.robot_name),
@@ -135,8 +135,8 @@ class Aligner:
             return 1
 
     @property
-    def params_dir(self) -> str:
-        res = Path(PARAMETERS_PATH) / self.robot_name / self.generator_type
+    def config_dir(self) -> str:
+        res = Path(CONFIGS_PATH) / self.robot_name / self.generator_type
         res.mkdir(parents=True, exist_ok=True)
         return str(res)
 
@@ -171,7 +171,7 @@ class Aligner:
             assert len(joint.qpos) == 7, "joint must be free"
 
             if target == "human":
-                joint.qpos[:2] = [self.retarget_params.base_x_shift, self.retarget_params.base_y_shift]
+                joint.qpos[:2] = [self.retarget_config.base_x_shift, self.retarget_config.base_y_shift]
             else:
                 joint.qpos[:2] = 0
 
@@ -189,11 +189,11 @@ class Aligner:
 
     def set_base_rotation(self):
         """Apply user-defined base Euler rotation to the human root."""
-        if self.params_name is None:
+        if self.config_name is None:
             base_rot = [90, 0, 90] if self.generator_type == "bvh" else [0, 0, 0]
-            self.retarget_params.base_rotation = base_rot
+            self.retarget_config.base_rotation = base_rot
         else:
-            base_rot = getattr(self.retarget_params, "base_rotation")
+            base_rot = getattr(self.retarget_config, "base_rotation")
         
         base_name = self.human_generator.all_body_names[0]
         joint = self.data.joint(self.model.body(base_name).jntadr[0])
@@ -205,7 +205,7 @@ class Aligner:
         mujoco.mj_forward(self.model, self.data)
 
     def set_dof_pos(self):
-        for key, value in self.retarget_params.body_rotate_dict.items():
+        for key, value in self.retarget_config.body_rotate_dict.items():
             self.data.joint(self.model.body(f"human_{key}").jntadr[0]).qpos[0:4] = euler2quat(*value)
 
     def render(self):
@@ -220,13 +220,13 @@ class Aligner:
         if self.view:
             self.viewer.close()
 
-    def save_retarget_params(self, save_params_name=None):
-        assert not (save_params_name is None and self.params_name is None)
-        if save_params_name is None:
-            save_params_name = self.params_name
+    def save_retarget_config(self, save_config_name=None):
+        assert not (save_config_name is None and self.config_name is None)
+        if save_config_name is None:
+            save_config_name = self.config_name
 
-        self.retarget_params.to_json(
-            Path(self.params_dir) / f"{save_params_name}.json"
+        self.retarget_config.to_yaml(
+            Path(self.config_dir) / f"{save_config_name}.yaml"
         )
 
     def get_tracker_offset(self):
@@ -235,7 +235,7 @@ class Aligner:
 
         qpos_list = defaultdict(list)
 
-        for group_name, group_value in self.retarget_params.tracker_dict.items():
+        for group_name, group_value in self.retarget_config.tracker_dict.items():
             for human_tracker, robot_tracker in zip(group_value.human, group_value.robot):
                 qpos = np.zeros(7)
                 qpos[:3] = self.data.body(f"human_{human_tracker}").xpos - self.data.body(f"robot_{robot_tracker}").xpos

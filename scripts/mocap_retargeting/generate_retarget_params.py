@@ -5,14 +5,14 @@ import os
 import click
 import dearpygui.dearpygui as dpg
 
-from humanoid_retargeting import PARAMETERS_PATH
+from humanoid_retargeting import CONFIGS_PATH
 from humanoid_retargeting.aligner import Aligner
-from humanoid_retargeting.utils.retarget_params import RetargetParams, TrackerConfig
+from humanoid_retargeting.utils.retarget_config import RetargetConfig, TrackerConfig
 from humanoid_retargeting import BVH_DATA_PATH
 
 
 # Global mutable state – mirrors GUI widgets
-retarget_params = RetargetParams()
+retarget_config = RetargetConfig()
 
 aligner: Aligner = None
 lock = threading.Lock()
@@ -44,31 +44,31 @@ def strip_prefix(value, prefixes: Tuple[str, ...] = ("human_", "robot_")):
 
 
 def simulation_loop():
-    """Continuously push retarget_params into MuJoCo viewer while it is open."""
+    """Continuously push retarget_config into MuJoCo viewer while it is open."""
     assert aligner and all([aligner.data, aligner.model, aligner.viewer])
     while aligner.viewer.is_running():
         with lock:
-            aligner.retarget_params = retarget_params
+            aligner.retarget_config = retarget_config
             aligner.load_cali_qpos()
             aligner.viewer.sync()
 
 
 # Generic GUI‑building primitives & callbacks
 
-# Note: Foot and hip parameters are now automatically retrieved from hrdf (for robot) 
+# Note: Foot and hip configs are now automatically retrieved from hrdf (for robot) 
 # and player (for human), so these callbacks are no longer needed.
 
 
 def update_base_shift_callback(sender, app_data, user_data):
-    setattr(retarget_params, user_data, round(app_data, 4))
+    setattr(retarget_config, user_data, round(app_data, 4))
 
 
 def refresh_human_model_callback(sender, app_data, user_data):
     """Re-build MJCF after body ratio scaling changes, preserving viewer window."""
-    global retarget_params
+    global retarget_config
     with lock:
         aligner.viewer.close()
-        aligner.load_mujoco(retarget_params=retarget_params)
+        aligner.load_mujoco(retarget_config=retarget_config)
         aligner.load_cali_qpos()
         aligner.viewer.sync()
 
@@ -109,18 +109,18 @@ def add_three_axis_editor_callback(
 
     def update_name(sender, app_data, user_data):
         target_dict[user_data] = strip_prefix(app_data)
-        getattr(retarget_params, retarget_key)[strip_prefix(app_data)] = [default_value] * 3
+        getattr(retarget_config, retarget_key)[strip_prefix(app_data)] = [default_value] * 3
 
     def update_value(sender, app_data, meta):
         body = target_dict[meta["group_id"]]
         if body is not None:
-            getattr(retarget_params, retarget_key)[body][meta["axis"]] = round(app_data, 4)
+            getattr(retarget_config, retarget_key)[body][meta["axis"]] = round(app_data, 4)
 
     def remove_component(sender, app_data, tag):
         if tag in target_dict:
             name = target_dict[tag]
-            if name in getattr(retarget_params, retarget_key):
-                del getattr(retarget_params, retarget_key)[name]
+            if name in getattr(retarget_config, retarget_key):
+                del getattr(retarget_config, retarget_key)[name]
             del target_dict[tag]
         dpg.delete_item(tag)
 
@@ -166,8 +166,8 @@ def add_tracker_callback(sender, app_data, part):
         return
 
     # Initialization is only performed when the part_name does not exist in tracker_dict
-    if part_name not in retarget_params.tracker_dict:
-        retarget_params.tracker_dict[part_name] = TrackerConfig(
+    if part_name not in retarget_config.tracker_dict:
+        retarget_config.tracker_dict[part_name] = TrackerConfig(
             human=[],
             robot=[],
             position_cost=100,
@@ -181,35 +181,35 @@ def add_tracker_callback(sender, app_data, part):
     tracker_ui_groups.append(group_id)
 
     def update_body(sender, app_data, meta):
-        body_list = getattr(retarget_params.tracker_dict[part_name], meta["kind"])
+        body_list = getattr(retarget_config.tracker_dict[part_name], meta["kind"])
         if meta["idx"] < len(body_list):
             body_list[meta["idx"]] = strip_prefix(app_data)
         else:
             body_list.append(strip_prefix(app_data))
 
     def update_cost(sender, app_data, kind):
-        setattr(retarget_params.tracker_dict[part_name], kind, round(app_data, 4))
+        setattr(retarget_config.tracker_dict[part_name], kind, round(app_data, 4))
 
     def remove_tracker(sender, app_data, user_data):
         dpg.configure_item(user_data, show=False)
         dpg.set_frame_callback(dpg.get_frame_count() + 1, lambda: dpg.delete_item(user_data))
-        del retarget_params.tracker_dict[part_name]
+        del retarget_config.tracker_dict[part_name]
         tracker_ui_groups.remove(user_data)
 
     def add_body_tracker(sender, app_data, user_data):
         for entity in ["human", "robot"]:
-            idx = len(getattr(retarget_params.tracker_dict[part_name], entity))
+            idx = len(getattr(retarget_config.tracker_dict[part_name], entity))
             dpg.add_combo(
                 items=getattr(aligner, f"{entity}_generator").all_body_names,
                 callback=update_body,
                 user_data={"kind": entity, "idx": idx},
                 parent=human_body_group if entity == "human" else robot_body_group
             )
-            getattr(retarget_params.tracker_dict[part_name], entity).append(None)
+            getattr(retarget_config.tracker_dict[part_name], entity).append(None)
     
     def delete_latest_tracker(part_name: str, human_group_tag: str, robot_group_tag: str):
         for kind, group_tag in [("human", human_group_tag), ("robot", robot_group_tag)]:
-            body_list = getattr(retarget_params.tracker_dict[part_name], kind)
+            body_list = getattr(retarget_config.tracker_dict[part_name], kind)
             if not body_list:
                 continue  # nothing to delete
             body_list.pop()  # remove last entry from data
@@ -239,31 +239,31 @@ def add_tracker_callback(sender, app_data, part):
 
     print(f"[INFO] Added tracker part: {part_name}")
 
-# Export json file callback 
+# Export yaml file callback 
 
-def export_json_callback(sender, app_data, user_data):
+def export_yaml_callback(sender, app_data, user_data):
     filename = dpg.get_value("file_name_input").strip()
 
     if not filename:
         dpg.set_value(user_data, "[Error] Filename is empty!")
         return
 
-    # Make sure there is a .json suffix
-    if not filename.endswith(".json"):
-        filename += ".json"
+    # Make sure there is a .yaml suffix
+    if not filename.endswith(".yaml"):
+        filename += ".yaml"
 
     # Concatenate the full path
     os.makedirs(SAVE_DIR, exist_ok=True)  # Make sure the directory exists
-    json_path = os.path.join(SAVE_DIR, filename)
+    yaml_path = os.path.join(SAVE_DIR, filename)
 
     try:
-        retarget_params.to_json(json_path)
-        dpg.set_value(user_data, f"[OK] Saved to {json_path}")
+        retarget_config.to_yaml(yaml_path)
+        dpg.set_value(user_data, f"[OK] Saved to {yaml_path}")
     except Exception as e:
         dpg.set_value(user_data, f"[Error] {e}")
 
 # -----------------------------------------------------------------------------
-# Module for importing json files
+# Module for importing yaml files
 # -----------------------------------------------------------------------------
 
 def sync_body_editors_from_dict(
@@ -274,7 +274,7 @@ def sync_body_editors_from_dict(
         all_body_names: List[str]
     ):
     """
-    Synchronizes the body_ratio_dict or body_rotate_dict GUI with the values in retarget_params.
+    Synchronizes the body_ratio_dict or body_rotate_dict GUI with the values in retarget_config.
     Will clear the existing GUI and rebuild the combo and sliders.
     """
     # Clearing old GUI elements
@@ -290,7 +290,7 @@ def sync_body_editors_from_dict(
         global body_rotate_count
         body_rotate_count = 0
 
-    data_dict = getattr(retarget_params, retarget_key)
+    data_dict = getattr(retarget_config, retarget_key)
 
     # Rebuild GUI item by item
     for body_name, values in data_dict.items():
@@ -307,14 +307,14 @@ def sync_body_editors_from_dict(
             slider_tag = f"{key}_slider_{i}"
             dpg.set_value(slider_tag, values[i])
 
-def sync_trackers_from_params():
-    """Synchronize the GUI with the contents of retarget_params.tracker_dict"""
+def sync_trackers_from_config():
+    """Synchronize the GUI with the contents of retarget_config.tracker_dict"""
     # Clear the existing GUI
     for group in list(tracker_ui_groups):
         dpg.delete_item(group)
     tracker_ui_groups.clear()
 
-    for part_name, tracker_cfg in retarget_params.tracker_dict.items():
+    for part_name, tracker_cfg in retarget_config.tracker_dict.items():
         # Temporarily use UUID to input part_name, trigger add_tracker_callback to create GUI structure
         add_tracker_callback(None, None, part_name)
         
@@ -351,15 +351,15 @@ def sync_trackers_from_params():
             dpg.set_value(sliders[0], tracker_cfg.position_cost)
             dpg.set_value(sliders[1], tracker_cfg.orientation_cost)
 
-def sync_gui_with_params():
-    """Sync GUI widgets to match values from retarget_params."""
+def sync_gui_with_config():
+    """Sync GUI widgets to match values from retarget_config."""
 
-    # Note: Foot and hip parameters are now automatically retrieved from hrdf (for robot) 
+    # Note: Foot and hip configs are now automatically retrieved from hrdf (for robot) 
     # and player (for human), so they are no longer synced here.
 
     # Update base shift
-    dpg.set_value("base_x_shift_slider", retarget_params.base_x_shift)
-    dpg.set_value("base_y_shift_slider", retarget_params.base_y_shift)
+    dpg.set_value("base_x_shift_slider", retarget_config.base_x_shift)
+    dpg.set_value("base_y_shift_slider", retarget_config.base_y_shift)
     
     sync_body_editors_from_dict(
         retarget_key="relative_body_ratio_dict", target_dict=body_ratio_dict, 
@@ -371,15 +371,15 @@ def sync_gui_with_params():
         add_callback=add_body_rotate_callback, all_body_names=aligner.human_generator.all_body_names
     )
 
-    sync_trackers_from_params()
+    sync_trackers_from_config()
 
-def get_json_candidates(robot_name, generator_type):
-    folder = os.path.join(PARAMETERS_PATH, robot_name, generator_type)
+def get_yaml_candidates(robot_name, generator_type):
+    folder = os.path.join(CONFIGS_PATH, robot_name, generator_type)
     if not os.path.exists(folder):
         return []
-    return [f for f in os.listdir(folder) if f.endswith(".json")]
+    return [f for f in os.listdir(folder) if f.endswith(".yaml")]
 
-def import_json_callback(sender, app_data, user_data):
+def import_yaml_callback(sender, app_data, user_data):
     name = dpg.get_value("import_file_dropdown").strip()
     path = os.path.join(SAVE_DIR, name)
     if not path or not os.path.isfile(path):
@@ -387,11 +387,11 @@ def import_json_callback(sender, app_data, user_data):
         return
 
     try:
-        global retarget_params
-        new_params = RetargetParams.from_json(path)
-        print(new_params)
-        retarget_params = new_params
-        sync_gui_with_params()
+        global retarget_config
+        new_config = RetargetConfig.from_yaml(path)
+        print(new_config)
+        retarget_config = new_config
+        sync_gui_with_config()
         dpg.set_value(user_data, f"[OK] Loaded from {path}")
     except Exception as e:
         dpg.set_value(user_data, f"[Error] {e}")
@@ -402,7 +402,7 @@ def import_json_callback(sender, app_data, user_data):
 
 def create_gui():
     """Instantiate DearPyGui widgets and enter its main loop."""
-    global params_name
+    global config_name
     names = {
         "robot": aligner.robot_generator.all_body_names,
         "human": aligner.human_generator.all_body_names
@@ -410,15 +410,15 @@ def create_gui():
 
     dpg.create_context()
     with dpg.window(label="main", width=600, height=500):
-        # Import json file
-        with dpg.group(tag="import_json"):
-            dpg.add_text("Import retarget_params from .json file")
+        # Import yaml file
+        with dpg.group(tag="import_yaml"):
+            dpg.add_text("Import retarget_config from .yaml file")
 
-            json_files = get_json_candidates(ROBOT, Generator_Type)
-            dpg.add_combo(label="Select JSON", items=json_files, tag="import_file_dropdown", width=300)
+            yaml_files = get_yaml_candidates(ROBOT, Generator_Type)
+            dpg.add_combo(label="Select YAML", items=yaml_files, tag="import_file_dropdown", width=300)
 
             import_status_id = dpg.add_text("")
-            dpg.add_button(label="Import", callback=import_json_callback, user_data=import_status_id)
+            dpg.add_button(label="Import", callback=import_yaml_callback, user_data=import_status_id)
 
         dpg.add_separator()
         
@@ -429,7 +429,7 @@ def create_gui():
             dpg.add_button(label="Show Human Body Tree", callback=show_body_tree_callback, user_data="human")
         dpg.add_separator()
 
-        # Note: Foot and hip parameters are now automatically retrieved from hrdf (for robot) 
+        # Note: Foot and hip configs are now automatically retrieved from hrdf (for robot) 
         # and player (for human), so they are no longer configurable in the GUI.
         dpg.add_separator()
 
@@ -446,7 +446,7 @@ def create_gui():
         with dpg.group(tag="body_ratio_group"):
             dpg.add_text("Human Body Ratio")
             dpg.add_button(label="Refresh MuJoCo", callback=refresh_human_model_callback)
-            # Note: Hip parameters are now automatically retrieved from hrdf (for robot) 
+            # Note: Hip configs are now automatically retrieved from hrdf (for robot) 
             # and player (for human), so they are no longer configurable in the GUI.
             dpg.add_button(label="Add Relative Body Ratio Component", callback=add_body_ratio_callback, user_data=names["human"])
         dpg.add_separator()
@@ -466,12 +466,12 @@ def create_gui():
                 dpg.add_button(label="Add Tracker Group", callback=lambda s, a: add_tracker_callback(s, a, dpg.get_value(text_id)))
         dpg.add_separator()
         
-        # Export json file
-        with dpg.group(tag="export_json"):
-            dpg.add_text("Click 'Export' to save retarget_params in .json file")
-            dpg.add_input_text(label="File name", tag="file_name_input", hint="e.g. params", width=300)
+        # Export yaml file
+        with dpg.group(tag="export_yaml"):
+            dpg.add_text("Click 'Export' to save retarget_config in .yaml file")
+            dpg.add_input_text(label="File name", tag="file_name_input", hint="e.g. config", width=300)
             status_id = dpg.add_text("")  
-            dpg.add_button(label="Export", callback=export_json_callback, user_data=status_id)
+            dpg.add_button(label="Export", callback=export_yaml_callback, user_data=status_id)
         dpg.add_separator()
         
     # Launch DearPyGui
@@ -490,7 +490,7 @@ def main(source_file_path: str, robot_name: str, generator_type: str):
     global aligner, SAVE_DIR, ROBOT, Generator_Type
     ROBOT = robot_name
     Generator_Type = generator_type
-    SAVE_DIR = os.path.join(PARAMETERS_PATH, ROBOT, Generator_Type)
+    SAVE_DIR = os.path.join(CONFIGS_PATH, ROBOT, Generator_Type)
     source_file_path = Path(source_file_path.strip("'\"'"))
     
     aligner = Aligner(source_file_path=source_file_path, robot_name=ROBOT, generator_type=Generator_Type)
@@ -501,7 +501,7 @@ def main(source_file_path: str, robot_name: str, generator_type: str):
     create_gui()
 
     aligner.viewer.close()
-    print(retarget_params)
+    print(retarget_config)
     
 if __name__ == "__main__":
     main()

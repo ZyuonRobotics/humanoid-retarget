@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from humanoid_retargeting.motion_player.player_base import MotionPlayerBase
 from humanoid_retargeting.mjcf_generator.retargeting_generator_base import RetargetingMJCFGeneratorBase
 from humanoid_retargeting.utils.lowpass import filter_lowpass2d, filter_lowpass_quaternion
-from humanoid_retargeting.utils.human_parmas import HumanParams
+from humanoid_retargeting.utils.human_config import HumanConfig
 
 class HumanoidMotionPlayerBase(MotionPlayerBase, ABC):
     def __init__(self, global_body_ratio=1.0, relative_body_ratio_dict=None, view=True):
@@ -15,7 +15,7 @@ class HumanoidMotionPlayerBase(MotionPlayerBase, ABC):
         self.relative_body_ratio_dict = relative_body_ratio_dict
 
         super().__init__(view=view)
-        self.human_params: HumanParams = HumanParams()
+        self.human_config: HumanConfig = HumanConfig()
 
     def create_generator(self):
         assert isinstance(self.generator_class, type(RetargetingMJCFGeneratorBase)), "Generator class is not a subclass of RetargetingMJCFGeneratorBase"
@@ -38,22 +38,22 @@ class HumanoidMotionPlayerBase(MotionPlayerBase, ABC):
 
 
     def load_config(self, source_file_path):
-        config_path = Path(source_file_path).with_suffix('.json')
+        config_path = Path(source_file_path).with_suffix('.yaml')
         
         if config_path.exists():
-            self.human_params = HumanParams.from_json(str(config_path))
+            self.human_config = HumanConfig.from_yaml(str(config_path))
         else:
-            # Create default PlayParams if config doesn't exist
-            self.human_params = HumanParams()
+            # Create default HumanConfig if config doesn't exist
+            self.human_config = HumanConfig()
             # Set default foot and hip names from player properties
             if self.foot_names is not None:
-                self.human_params.foot_names = self.foot_names
+                self.human_config.foot_names = self.foot_names
             if self.hip_names is not None:
-                self.human_params.hip_names = self.hip_names
+                self.human_config.hip_names = self.hip_names
 
     def save_config(self, source_file_path):
-        config_path = Path(source_file_path).with_suffix('.json')
-        self.human_params.to_json(str(config_path))
+        config_path = Path(source_file_path).with_suffix('.yaml')
+        self.human_config.to_yaml(str(config_path))
         print(f"Configuration saved to {config_path}")
 
     @property
@@ -88,7 +88,7 @@ class HumanoidMotionPlayerBase(MotionPlayerBase, ABC):
     ):
         """
         Calculate root height adjustment to ensure feet contact ground when meeting multiple criteria.
-        The height adjustment is calculated and saved to human_params.height_adjustment, but not applied to ref_qpos.
+        The height adjustment is calculated and saved to human_config.height_adjustment, but not applied to ref_qpos.
         
         Args:
             velocity_threshold (float): Linear velocity threshold below which feet are considered stationary, default 0.1
@@ -97,14 +97,14 @@ class HumanoidMotionPlayerBase(MotionPlayerBase, ABC):
             draw_plot (bool): Whether to draw analysis plots, default True
             
         Returns:
-            float: Height adjustment value that was calculated, or None if human_params.human_foot is not valid
+            float: Height adjustment value that was calculated, or None if human_config.human_foot is not valid
         """
-        # Check if human_params has valid human_foot
-        if not self.human_params.foot_names is not None:
-            print("human_params.foot_names is not valid. Cannot calculate height adjustment.")
+        # Check if human_config has valid human_foot
+        if not self.human_config.foot_names is not None:
+            print("human_config.foot_names is not valid. Cannot calculate height adjustment.")
             return None
         # Get motion data for both feet
-        feet_names = self.human_params.foot_names
+        feet_names = self.human_config.foot_names
         motion_data = self.get_body_motion_data(feet_names)
         
         low_velocity_heights = []
@@ -184,10 +184,10 @@ class HumanoidMotionPlayerBase(MotionPlayerBase, ABC):
             height_adjustment = np.mean(low_velocity_heights)
             print(f"Based on {len(low_velocity_heights)} valid frames meeting all criteria, "
                   f"height adjustment: {height_adjustment:.4f}")
-            self.human_params.height_adjustment = float(height_adjustment)
+            self.human_config.height_adjustment = float(height_adjustment)
 
 
     def adjust_height_adjustment(self):
-        if self.human_params.height_adjustment is not None and self.human_params.foot_offset is not None:
-            height_adjustment = self.human_params.height_adjustment + self.human_params.foot_offset
+        if self.human_config.height_adjustment is not None and self.human_config.foot_offset is not None:
+            height_adjustment = self.human_config.height_adjustment + self.human_config.foot_offset
             self._ref_qpos[:, 2] -= height_adjustment
