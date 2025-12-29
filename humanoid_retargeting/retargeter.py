@@ -159,7 +159,7 @@ class Retargeter:
         assert self.posture_task is not None and self.frame_tasks is not None
         #self.player.load(source_file_path=self.source_file_path)
         
-        self.player.adjust_height_adjustment()
+        self.player.apply_adjustments()
         
         for frame_idx in tqdm(range(self.frame_num), disable=not progress_bar):
             self.player.sync_data(frame_idx)

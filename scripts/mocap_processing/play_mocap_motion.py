@@ -26,7 +26,7 @@ def main(source_file_path, generator_type):
     if not source_file_path.with_suffix('.yaml').exists():
         player.save_config(source_file_path)
 
-    player.adjust_height_adjustment()
+    player.apply_adjustments()
     player.render()
     player.close()
 

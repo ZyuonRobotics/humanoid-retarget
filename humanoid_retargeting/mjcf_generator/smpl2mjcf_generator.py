@@ -18,7 +18,7 @@ class SMPL2MJCFGenerator(RetargetingMJCFGeneratorBase):
         relative_body_ratio_dict=None,
         using_dmpl=False,
         geom_size=0.01,
-        generate_skin=False,
+        generate_skin=True,
         **kwargs
     ):
         super().__init__(
