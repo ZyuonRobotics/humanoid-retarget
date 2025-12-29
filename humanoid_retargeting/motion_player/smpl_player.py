@@ -33,7 +33,11 @@ class SMPLPlayer(HumanoidMotionPlayerBase):
     def get_qpos(self):
         frame_num = self.motion_data['poses'].shape[0]
         rotvec_all = self.motion_data['poses'].reshape([frame_num, -1, 3])
-        trans = self.motion_data['trans'] + self.model.body("pelvis").pos[[1, 2, 0]]
+
+        pelvis_offset = self.model.body("pelvis").pos[[1, 2, 0]]
+        pelvis_offset /= self.global_body_ratio
+
+        trans = self.motion_data['trans'] + pelvis_offset
         rotvec_all[:, 1:, :] = rotvec_all[:, 1:, [2, 0, 1]]
 
         ref_qpos = np.zeros([trans.shape[0], self.model.nq])

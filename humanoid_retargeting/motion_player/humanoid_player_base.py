@@ -185,7 +185,8 @@ class HumanoidMotionPlayerBase(MotionPlayerBase, ABC):
         # Apply height adjustment to root position
         if self.human_config.height_adjustment is not None and self.human_config.foot_offset is not None:
             height_adjustment = self.human_config.height_adjustment + self.human_config.foot_offset
-            self._ref_qpos[:, 2] -= height_adjustment
+            global_body_ratio = self.global_body_ratio if isinstance(self.global_body_ratio, float) else self.global_body_ratio[2]
+            self._ref_qpos[:, 2] -= height_adjustment * global_body_ratio
         
         # Apply joint angle adjustments
         if self.human_config.joint_adjustments:

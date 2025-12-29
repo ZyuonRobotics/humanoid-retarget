@@ -11,6 +11,7 @@ from hurodes.generators import MJCFGeneratorComposite
 from scipy.spatial.transform import Rotation
 
 from humanoid_retargeting.motion_player import PLAYERS_CLASS
+from humanoid_retargeting.motion_player.humanoid_player_base import HumanoidMotionPlayerBase
 from humanoid_retargeting.mjcf_generator import generator_class
 from humanoid_retargeting.aligner import Aligner
 from humanoid_retargeting.mjcf_generator.tracker_generator import TrackerMJCFGenerator
@@ -51,7 +52,7 @@ class Retargeter:
         self.global_body_ratio = self.aligner.get_global_body_ratio()
         self.retarget_config = self.aligner.retarget_config
 
-        self.player = PLAYERS_CLASS[generator_type].from_source_file_path(
+        self.player: HumanoidMotionPlayerBase = PLAYERS_CLASS[generator_type].from_source_file_path(
             source_file_path=source_file_path,
             global_body_ratio=self.global_body_ratio * np.array(self.retarget_config.extra_body_ratio),
             relative_body_ratio_dict=self.retarget_config.relative_body_ratio_dict,
@@ -142,7 +143,7 @@ class Retargeter:
             self.velocity_limit = mink.VelocityLimit(self.model, velocities_dict)
 
     def build_mink_tasks(self):
-        self.posture_task = mink.PostureTask(self.robot_model, cost=200.0)
+        self.posture_task = mink.PostureTask(self.robot_model, cost=1.0)
         self.frame_tasks = []
         for group_name, group_value in self.retarget_config.tracker_dict.items():
             for human_body_name, robot_body_name in zip(group_value.human, group_value.robot):

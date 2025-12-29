@@ -64,6 +64,7 @@ class Aligner:
         self.robot = HumanoidRobot.from_name(self.robot_name)
         self.robot_hip_names = self.robot.hrdf.hip_names
         self.robot_foot_names = self.robot.hrdf.foot_names
+        # TODO: move this to hurodes
         self.robot_hip_offset = 0.0
         self.robot_foot_offset = -0.045
 
@@ -182,6 +183,8 @@ class Aligner:
             foot_names = [f"{target}_{name}" for name in getattr(self, f"{target}_foot_names")]
             assert getattr(self, f"{target}_foot_offset") is not None, "Foot offset is not set"
             foot_offset = getattr(self, f"{target}_foot_offset")
+            if target == "human":
+                foot_offset *= self.global_body_ratio
 
             foot_pos = (self.data.body(foot_names[0]).xpos + self.data.body(foot_names[1]).xpos) / 2
             foot_pos_z = foot_pos[2] + foot_offset
