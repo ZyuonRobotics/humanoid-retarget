@@ -7,6 +7,7 @@ import mujoco.viewer
 from scipy.spatial.transform import Rotation
 from hurodes.generators import MJCFGeneratorBase
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 from humanoid_retargeting.utils.plot import plot2d
 
@@ -106,7 +107,7 @@ class MotionPlayerBase(ABC):
         assert self._loaded, "Motion player is not loaded"
         assert self.view, "Viewer is not enabled"
 
-        for frame_idx in range(self.frame_num):
+        for frame_idx in tqdm(range(self.frame_num)):
             step_start = time.time()
 
             self.sync_data(frame_idx)

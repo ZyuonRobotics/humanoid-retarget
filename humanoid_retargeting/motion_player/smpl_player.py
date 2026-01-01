@@ -61,7 +61,7 @@ class SMPLPlayer(HumanoidMotionPlayerBase):
     @property
     def foot_names(self):
         """Return default foot names for SMPL model"""
-        return ["left_foot", "right_foot"]
+        return ["left_ankle", "right_ankle"]
 
     @property
     def hip_names(self):
