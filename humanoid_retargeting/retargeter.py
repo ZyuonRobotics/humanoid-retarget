@@ -57,6 +57,8 @@ class Retargeter:
             global_body_ratio=self.global_body_ratio * np.array(self.retarget_config.extra_body_ratio),
             relative_body_ratio_dict=self.retarget_config.relative_body_ratio_dict,
         )
+        if self.player.human_config.height_adjustment is None:
+            self.player.calculate_height_adjustment(draw_plot=False)
 
         self.human_generator = generator_class[self.generator_type].from_source_file_path(
             source_file_path=source_file_path,

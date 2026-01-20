@@ -70,8 +70,18 @@ class Aligner:
 
     def load_human_parmas(self):
         human_config_path = Path(self.source_file_path).with_suffix('.yaml')
-        assert human_config_path.exists(), "Human config file not found"
-        human_config = HumanConfig.from_yaml(str(human_config_path))
+        if human_config_path.exists():
+            human_config = HumanConfig.from_yaml(str(human_config_path))
+        else:
+            # Find yaml file in parent directory with the same name as the current directory
+            current_dir = human_config_path.parent
+            parent_dir = current_dir.parent
+            folder_name = current_dir.name
+            parent_config_path = parent_dir / f"{folder_name}.yaml"
+            if parent_config_path.exists():
+                human_config = HumanConfig.from_yaml(str(parent_config_path))
+                print(f"[WARNING] Not found config {human_config_path.name}, using parent config {parent_config_path.name}")
+
         assert human_config.is_valid(), "Human play config are not valid"
         self.human_hip_names = human_config.hip_names
         self.human_foot_names = human_config.foot_names

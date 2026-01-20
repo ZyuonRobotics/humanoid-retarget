@@ -51,6 +51,20 @@ class HumanoidMotionPlayerBase(MotionPlayerBase, ABC):
                 self.human_config.foot_names = self.foot_names
             if self.hip_names is not None:
                 self.human_config.hip_names = self.hip_names
+            
+            # Find yaml file in parent directory with the same name as the current directory
+            current_dir = config_path.parent
+            parent_dir = current_dir.parent
+            folder_name = current_dir.name
+            parent_config_path = parent_dir / f"{folder_name}.yaml"
+            
+            if parent_config_path.exists():
+                parent_config = HumanConfig.from_yaml(str(parent_config_path))
+                if parent_config.is_valid():
+                    self.human_config.foot_offset = parent_config.foot_offset
+                    self.human_config.hip_offset = parent_config.hip_offset
+                    self.human_config.joint_adjustments = parent_config.joint_adjustments
+                    
 
     def save_config(self, source_file_path):
         config_path = Path(source_file_path).with_suffix('.yaml')

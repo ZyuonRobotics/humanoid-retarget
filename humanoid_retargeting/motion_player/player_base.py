@@ -137,6 +137,41 @@ class MotionPlayerBase(ABC):
             dim_label=["w", "x", "y", "z"],
             view=self.view
         )
+    
+    def plot_dof_positions(self, dims_list=None):
+        if dims_list is None:
+            dims_list = list(range(self.model.nq - 7))
+        
+        num_dims = len(dims_list)
+        if num_dims == 0:
+            return
+        cols = int(np.ceil(np.sqrt(num_dims)))
+        rows = int(np.ceil(num_dims / cols))  
+        fig, axes = plt.subplots(rows, cols, figsize=(15, 4*rows))
+        if rows == 1 and cols == 1:
+            axes = np.array([axes])
+        elif rows == 1 or cols == 1:
+            axes = axes.flatten() if hasattr(axes, 'flatten') else np.array(axes)
+        else:
+            axes = axes.flatten()
+
+        for i, dim_idx in enumerate(dims_list):
+            ax = axes[i]
+
+            qpos_dim = self.ref_qpos[:, dim_idx + 7]
+            ax.plot(qpos_dim, label=f'DOF {dim_idx}')
+            ax.set_title(f'DOF {dim_idx}')
+            ax.set_xlabel('Frame')
+            ax.set_ylabel('Position')
+            ax.grid(True, alpha=0.3)
+            ax.legend()
+        
+        for i in range(num_dims, len(axes)):
+            axes[i].set_visible(False)
+        
+        plt.tight_layout()
+        if self.view:
+            plt.show()
 
     def close(self):
         if self.view:
