@@ -38,26 +38,28 @@ class HumanoidMotionPlayerBase(MotionPlayerBase, ABC):
         self._ref_qpos[:, :3] *= self.global_body_ratio
 
         self._loaded = True
-
+    
+    def init_config(self):
+        self.human_config = HumanConfig()
+        if self.foot_names is not None:
+            self.human_config.foot_names = self.foot_names
+        if self.hip_names is not None:
+            self.human_config.hip_names = self.hip_names
 
     def load_config(self, source_file_path):
         config_path = find_config_file(source_file_path)
 
         if config_path is not None:
-            print(f"Player uses config: {config_path.name} for {Path(source_file_path).name}")
+            print(f"[Player] Player uses config: {config_path.name} for {Path(source_file_path).name}")
             self.human_config = HumanConfig.from_yaml(str(config_path))
         else:
-            self.human_config = HumanConfig()
-            if self.foot_names is not None:
-                self.human_config.foot_names = self.foot_names
-            if self.hip_names is not None:
-                self.human_config.hip_names = self.hip_names
-                    
-
+            print(f"[Player] No config file found for {Path(source_file_path).name}. Using default config.")
+            self.init_config()
+                   
     def save_config(self, source_file_path):
         config_path = Path(source_file_path).with_suffix('.yaml')
         self.human_config.to_yaml(str(config_path))
-        print(f"Configuration saved to {config_path}")
+        print(f"[Player] Configuration saved to {config_path}")
 
     @property
     def foot_names(self):
@@ -101,8 +103,8 @@ class HumanoidMotionPlayerBase(MotionPlayerBase, ABC):
             float: Height adjustment value that was calculated, or None if human_config.human_foot is not valid
         """
         # Check if human_config has valid human_foot
-        if not self.human_config.foot_names is not None:
-            print("human_config.foot_names is not valid. Cannot calculate height adjustment.")
+        if self.human_config.foot_names is None:
+            print("[Player] human_config.foot_names is not valid. Cannot calculate height adjustment.")
             return None
         # Get motion data for both feet
         feet_names = self.human_config.foot_names
@@ -168,8 +170,8 @@ class HumanoidMotionPlayerBase(MotionPlayerBase, ABC):
 
         if len(low_velocity_heights) != 0:
             height_adjustment = np.mean(low_velocity_heights)
-            print(f"Based on {len(low_velocity_heights)} valid frames meeting all criteria, "
-                  f"height adjustment: {height_adjustment:.4f}")
+            print(f"[Player] Based on {len(low_velocity_heights)} valid frames meeting all criteria, "
+                  f"[Player] height adjustment: {height_adjustment:.4f}")
             self.human_config.height_adjustment = float(height_adjustment)
 
 

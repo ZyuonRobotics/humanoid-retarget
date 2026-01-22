@@ -123,6 +123,32 @@ python scripts/mocap_processing/play_mocap_motion.py \
   --generator-type smpl
 ```
 
+#### 批量播放/生成配置
+
+批量处理文件夹中的动捕文件以生成配置文件。支持 BVH 和 SMPL 格式。可以使用模板配置文件仅重新计算 `height_adjustment`，或使用自定义脚/髋偏移从头生成配置。
+
+**使用示例（为所有 BVH 文件生成配置）：**
+```bash
+python scripts/mocap_processing/batch_play.py \
+  /path/to/bvh/folder \
+  --generator-type bvh
+```
+
+**使用示例（使用模板配置，仅重新计算 height_adjustment）：**
+```bash
+python scripts/mocap_processing/batch_play.py \
+  /path/to/bvh/folder \
+  --generator-type bvh \
+  --config-file /path/to/template_config.yaml \
+  --draw-plot
+```
+
+**选项说明：**
+- `--config-file`: 模板配置 YAML 文件路径。使用此配置并仅重新计算 `height_adjustment`
+- `--foot-offset`: 自定义脚部偏移值（如果指定则覆盖配置文件）
+- `--hip-offset`: 自定义髋部偏移值（如果指定则覆盖配置文件）
+- `--draw-plot`: 是否绘制高度调整分析图
+
 ### 2. 动作重定向
 
 `scripts/mocap_retargeting/` 中的脚本处理核心重定向流程，包括对齐和动作转移。
@@ -254,6 +280,13 @@ python scripts/retargeted_data_processing/play_robot_motion.py \
   /path/to/retargeted.npz \
   unitree_g1
 ```
+
+**选项说明：**
+- `--plot-ref-trans`: 绘制 baselink 笛卡尔位置 (x, y, z)
+- `--plot-ref-euler`: 绘制 baselink 欧拉角 (roll, pitch, yaw)
+- `--plot-ref-joint-pos`: 绘制参考关节位置
+- `--plot-ref-joint-vel`: 绘制参考关节速度
+- `--dims`: 用于关节位置绘制的逗号分隔维度列表（例如："0,1,2"）
 
 #### 播放机器人周期动作
 

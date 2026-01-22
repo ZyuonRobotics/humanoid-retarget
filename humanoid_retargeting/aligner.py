@@ -73,7 +73,7 @@ class Aligner:
     def load_human_parmas(self):
         config_path = find_config_file(self.source_file_path)
         assert config_path is not None, f"No config file found for {self.source_file_path}"
-        print(f"Aligner uses config: {config_path.name} for {Path(self.source_file_path).name}")
+        print(f"[Aligner] Aligner uses config: {config_path.name} for {Path(self.source_file_path).name}")
         human_config = HumanConfig.from_yaml(str(config_path))
 
         assert human_config.is_valid(), "Human play config are not valid"

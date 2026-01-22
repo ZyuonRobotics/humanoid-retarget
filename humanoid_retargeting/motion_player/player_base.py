@@ -6,7 +6,6 @@ import mujoco
 import mujoco.viewer
 from scipy.spatial.transform import Rotation
 from hurodes.generators import MJCFGeneratorBase
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 from humanoid_retargeting.utils.plot import plot2d
@@ -138,40 +137,31 @@ class MotionPlayerBase(ABC):
             view=self.view
         )
     
-    def plot_dof_positions(self, dims_list=None):
+    def plot_ref_joint_positions(self, dims_list=None):
         if dims_list is None:
             dims_list = list(range(self.model.nq - 7))
-        
-        num_dims = len(dims_list)
-        if num_dims == 0:
+
+        if len(dims_list) == 0:
             return
-        cols = int(np.ceil(np.sqrt(num_dims)))
-        rows = int(np.ceil(num_dims / cols))  
-        fig, axes = plt.subplots(rows, cols, figsize=(15, 4*rows))
-        if rows == 1 and cols == 1:
-            axes = np.array([axes])
-        elif rows == 1 or cols == 1:
-            axes = axes.flatten() if hasattr(axes, 'flatten') else np.array(axes)
-        else:
-            axes = axes.flatten()
 
-        for i, dim_idx in enumerate(dims_list):
-            ax = axes[i]
+        joint_pos = self.ref_qpos[:, [dim + 7 for dim in dims_list]]
+        dim_labels = [f"DOF {dim}" for dim in dims_list]
+        plot2d(joint_pos, dim_labels, view=self.view)
 
-            qpos_dim = self.ref_qpos[:, dim_idx + 7]
-            ax.plot(qpos_dim, label=f'DOF {dim_idx}')
-            ax.set_title(f'DOF {dim_idx}')
-            ax.set_xlabel('Frame')
-            ax.set_ylabel('Position')
-            ax.grid(True, alpha=0.3)
-            ax.legend()
-        
-        for i in range(num_dims, len(axes)):
-            axes[i].set_visible(False)
-        
-        plt.tight_layout()
-        if self.view:
-            plt.show()
+    def plot_ref_joint_velocities(self, dims_list=None):
+        if dims_list is None:
+            dims_list = list(range(self.model.nq - 7))
+
+        if len(dims_list) == 0:
+            return
+
+        # Compute joint velocities by differentiating positions
+        dt = 1.0 / self.frame_rate
+        joint_pos = self.ref_qpos[:, [dim + 7 for dim in dims_list]]
+        joint_vel = np.diff(joint_pos, axis=0) / dt
+
+        dim_labels = [f"DOF {dim}" for dim in dims_list]
+        plot2d(joint_vel, dim_labels, view=self.view)
 
     def close(self):
         if self.view:

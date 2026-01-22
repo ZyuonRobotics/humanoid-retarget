@@ -123,6 +123,32 @@ python scripts/mocap_processing/play_mocap_motion.py \
   --generator-type smpl
 ```
 
+#### Batch Play / Generate Configs
+
+Batch process motion files in a folder to generate config files. Supports BVH and SMPL formats. Can use a template config file and only recalculate `height_adjustment`, or generate configs from scratch with custom foot/hip offsets.
+
+**Usage Example (Generate configs for all BVH files):**
+```bash
+python scripts/mocap_processing/batch_play.py \
+  /path/to/bvh/folder \
+  --generator-type bvh
+```
+
+**Usage Example (Use template config and only recalculate height_adjustment):**
+```bash
+python scripts/mocap_processing/batch_play.py \
+  /path/to/bvh/folder \
+  --generator-type bvh \
+  --config-file /path/to/template_config.yaml \
+  --draw-plot
+```
+
+**Options:**
+- `--config-file`: Path to template config YAML file. Uses this config and only recalculates `height_adjustment`
+- `--foot-offset`: Custom foot offset value (overrides config file if specified)
+- `--hip-offset`: Custom hip offset value (overrides config file if specified)
+- `--draw-plot`: Whether to draw analysis plots for height adjustment
+
 ### 2. Motion Retargeting
 
 Scripts in `scripts/mocap_retargeting/` handle the core retargeting process, including alignment and motion transfer.
@@ -254,6 +280,13 @@ python scripts/retargeted_data_processing/play_robot_motion.py \
   /path/to/retargeted.npz \
   unitree_g1
 ```
+
+**Options:**
+- `--plot-ref-trans`: Plot baselink Cartesian position (x, y, z)
+- `--plot-ref-euler`: Plot baselink Euler angles (roll, pitch, yaw)
+- `--plot-ref-joint-pos`: Plot reference joint positions
+- `--plot-ref-joint-vel`: Plot reference joint velocities
+- `--dims`: Comma-separated dimensions to plot for joint positions (e.g., "0,1,2")
 
 #### Play Robot Period Motion
 
