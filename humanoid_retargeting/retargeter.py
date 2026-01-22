@@ -15,6 +15,7 @@ from humanoid_retargeting.motion_player.humanoid_player_base import HumanoidMoti
 from humanoid_retargeting.mjcf_generator import generator_class
 from humanoid_retargeting.aligner import Aligner
 from humanoid_retargeting.mjcf_generator.tracker_generator import TrackerMJCFGenerator
+from humanoid_retargeting.utils.helper import check_mocap_path
 
 class Retargeter:
     def __init__(
@@ -30,6 +31,7 @@ class Retargeter:
             max_velocities = None,
             avoid_ground_collision=False
     ):
+        assert check_mocap_path(source_file_path), f"Source file path {source_file_path} is nonexistent or not under mocap data path."
         self.source_file_path = source_file_path
         self.robot_name = robot_name
         self.generator_type = generator_type
@@ -57,8 +59,6 @@ class Retargeter:
             global_body_ratio=self.global_body_ratio * np.array(self.retarget_config.extra_body_ratio),
             relative_body_ratio_dict=self.retarget_config.relative_body_ratio_dict,
         )
-        if self.player.human_config.height_adjustment is None:
-            self.player.calculate_height_adjustment(draw_plot=False)
 
         self.human_generator = generator_class[self.generator_type].from_source_file_path(
             source_file_path=source_file_path,

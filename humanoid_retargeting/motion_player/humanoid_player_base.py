@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from humanoid_retargeting.motion_player.player_base import MotionPlayerBase
 from humanoid_retargeting.mjcf_generator.retargeting_generator_base import RetargetingMJCFGeneratorBase
 from humanoid_retargeting.utils.lowpass import filter_lowpass2d, filter_lowpass_quaternion
+from humanoid_retargeting.utils.helper import find_config_file, check_mocap_path
 from humanoid_retargeting.utils.human_config import HumanConfig
 from scipy.spatial.transform import Rotation
 
@@ -27,6 +28,7 @@ class HumanoidMotionPlayerBase(MotionPlayerBase, ABC):
 
     def load(self, **kwargs):
         source_file_path = kwargs["source_file_path"]
+        assert check_mocap_path(source_file_path), f"Source file path {source_file_path} is nonexistent or not under mocap data path."
         
         self.generator.load(source_file_path)
         self._load(source_file_path)
@@ -39,31 +41,17 @@ class HumanoidMotionPlayerBase(MotionPlayerBase, ABC):
 
 
     def load_config(self, source_file_path):
-        config_path = Path(source_file_path).with_suffix('.yaml')
-        
-        if config_path.exists():
+        config_path = find_config_file(source_file_path)
+
+        if config_path is not None:
+            print(f"Player uses config: {config_path.name} for {Path(source_file_path).name}")
             self.human_config = HumanConfig.from_yaml(str(config_path))
         else:
-            # Create default HumanConfig if config doesn't exist
             self.human_config = HumanConfig()
-            # Set default foot and hip names from player properties
             if self.foot_names is not None:
                 self.human_config.foot_names = self.foot_names
             if self.hip_names is not None:
                 self.human_config.hip_names = self.hip_names
-            
-            # Find yaml file in parent directory with the same name as the current directory
-            current_dir = config_path.parent
-            parent_dir = current_dir.parent
-            folder_name = current_dir.name
-            parent_config_path = parent_dir / f"{folder_name}.yaml"
-            
-            if parent_config_path.exists():
-                parent_config = HumanConfig.from_yaml(str(parent_config_path))
-                if parent_config.is_valid():
-                    self.human_config.foot_offset = parent_config.foot_offset
-                    self.human_config.hip_offset = parent_config.hip_offset
-                    self.human_config.joint_adjustments = parent_config.joint_adjustments
                     
 
     def save_config(self, source_file_path):

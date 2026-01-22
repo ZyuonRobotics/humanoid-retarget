@@ -13,6 +13,7 @@ from humanoid_retargeting import CONFIGS_PATH
 from humanoid_retargeting.mjcf_generator import generator_class
 from humanoid_retargeting.utils.retarget_config import RetargetConfig
 from humanoid_retargeting.utils.rot import euler2quat
+from humanoid_retargeting.utils.helper import find_config_file, check_mocap_path
 from humanoid_retargeting.utils.human_config import HumanConfig
 
 
@@ -41,6 +42,7 @@ def get_leg_length(
 
 class Aligner:
     def __init__(self, source_file_path, robot_name, generator_type, config_name=None, view=True):
+        assert check_mocap_path(source_file_path), f"Source file path {source_file_path} is nonexistent or not under mocap data path."
         self.source_file_path = source_file_path
         self.robot_name = robot_name
         self.generator_type = generator_type
@@ -69,18 +71,10 @@ class Aligner:
         self.robot_foot_offset = -0.045
 
     def load_human_parmas(self):
-        human_config_path = Path(self.source_file_path).with_suffix('.yaml')
-        if human_config_path.exists():
-            human_config = HumanConfig.from_yaml(str(human_config_path))
-        else:
-            # Find yaml file in parent directory with the same name as the current directory
-            current_dir = human_config_path.parent
-            parent_dir = current_dir.parent
-            folder_name = current_dir.name
-            parent_config_path = parent_dir / f"{folder_name}.yaml"
-            if parent_config_path.exists():
-                human_config = HumanConfig.from_yaml(str(parent_config_path))
-                print(f"[WARNING] Not found config {human_config_path.name}, using parent config {parent_config_path.name}")
+        config_path = find_config_file(self.source_file_path)
+        assert config_path is not None, f"No config file found for {self.source_file_path}"
+        print(f"Aligner uses config: {config_path.name} for {Path(self.source_file_path).name}")
+        human_config = HumanConfig.from_yaml(str(config_path))
 
         assert human_config.is_valid(), "Human play config are not valid"
         self.human_hip_names = human_config.hip_names
