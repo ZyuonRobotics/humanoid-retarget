@@ -317,13 +317,24 @@ body {
   color: var(--color-text-primary) !important;
 }
 
+/* 虚线按钮图标 - 深色模式可见 */
 .ant-btn-dashed {
+  background: transparent !important;
   border-color: var(--color-border) !important;
   color: var(--color-text-secondary) !important;
 }
 
+.ant-btn-dashed .anticon {
+  color: var(--color-text-secondary) !important;
+}
+
 .ant-btn-dashed:hover {
+  background: var(--color-bg-hover) !important;
+  color: var(--color-text-primary) !important;
   border-color: var(--color-border-strong) !important;
+}
+
+.ant-btn-dashed:hover .anticon {
   color: var(--color-text-primary) !important;
 }
 
@@ -341,6 +352,24 @@ body {
 
 .ant-tree-node-selected .ant-tree-node-content-wrapper {
   background: var(--color-text-primary) !important;
+  color: var(--color-bg-base) !important;
+}
+
+/* Tree 展开/折叠图标 - 深色模式可见 */
+.ant-tree-switcher {
+  color: var(--color-text-secondary) !important;
+}
+
+.ant-tree-switcher:hover {
+  color: var(--color-text-primary) !important;
+}
+
+.ant-tree-switcher .ant-tree-switcher-icon {
+  color: inherit !important;
+}
+
+/* 选中节点时的图标颜色 */
+.ant-tree-node-selected .ant-tree-switcher {
   color: var(--color-bg-base) !important;
 }
 

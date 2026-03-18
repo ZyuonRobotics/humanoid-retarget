@@ -73,7 +73,7 @@ const TopBar: React.FC<TopBarProps> = ({
           value={selectedRobot}
           onChange={onRobotChange}
           style={{ width: 140 }}
-          options={robots.map((r) => ({ value: r.name, label: r.name }))}
+          options={robots.map((r) => ({ value: r, label: r }))}
           suffixIcon={<RobotOutlined />}
         />
       </div>

@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from web_backend.core.config import CORS_ORIGINS, CORS_ALLOW_CREDENTIALS, CORS_ALLOW_METHODS, CORS_ALLOW_HEADERS
-from web_backend.api import config, model
+from web_backend.api import config, model, robots
 
 app = FastAPI(
     title="Humanoid Retargeting API",
@@ -25,6 +25,7 @@ app.add_middleware(
 # Include routers
 app.include_router(config.router)
 app.include_router(model.router)
+app.include_router(robots.router)
 
 
 @app.get("/")

@@ -1,14 +1,14 @@
 import React from 'react';
 import { Card, Tree } from 'antd';
 import { useTranslation } from 'react-i18next';
+import type { DataNode } from 'antd/es/tree';
 
 interface BodyTreeWidgetProps {
   bodyTree: {
-    robot?: {
-      bodies?: string[];
-    };
+    robot?: DataNode[];
     human?: {
       note?: string;
+      error?: string;
     };
   };
 }
@@ -19,14 +19,8 @@ const BodyTreeWidget: React.FC<BodyTreeWidgetProps> = ({ bodyTree }) => {
   return (
     <div>
       <Card size="small" title={t('configPanel.card.robotBodies')} style={{ marginBottom: 8 }}>
-        {bodyTree.robot?.bodies ? (
-          <Tree
-            treeData={bodyTree.robot.bodies.map((name: string) => ({
-              title: name,
-              key: name,
-            }))}
-            defaultExpandAll
-          />
+        {bodyTree.robot && bodyTree.robot.length > 0 ? (
+          <Tree treeData={bodyTree.robot} />
         ) : (
           <div className="text-secondary">{t('configPanel.loading')}</div>
         )}

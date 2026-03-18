@@ -1,7 +1,4 @@
-export interface RobotInfo {
-  name: string;
-  generator_type: string;
-}
+export type RobotInfo = string;
 
 export interface TrackerConfig {
   human: string[];

@@ -1,5 +1,5 @@
 """Pydantic schemas for API request/response models."""
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 
 
@@ -43,5 +43,42 @@ class MotionInfo(BaseModel):
     frame_rate: Optional[float] = None
 
 
+class JointInfoSchema(BaseModel):
+    """Joint information schema."""
+    name: str
+    range: List[float]
+
+
+class ActuatorInfoSchema(BaseModel):
+    """Actuator information schema."""
+    joint_name: str
+    peak_velocity: float
+    peak_torque: float
+
+
+class BodyTreeNodeSchema(BaseModel):
+    """Body tree node schema for robot structure."""
+    name: str
+    id: int
+    mass: Optional[float] = None
+    children: List["BodyTreeNodeSchema"] = []
+
+
+class RobotDetailSchema(BaseModel):
+    """Robot detailed information schema."""
+    name: str
+    joints: List[JointInfoSchema]
+    actuators: List[ActuatorInfoSchema]
+    body_tree: List[BodyTreeNodeSchema]
+    base_height: float
+    hip_names: List[str]
+    knee_names: List[str]
+    foot_names: List[str]
+    torso_name: str
+    imu_dict: Dict[str, Any]
+    motor_dict: Dict[str, Any]
+
+
 # Update forward references
 BodyTreeNode.model_rebuild()
+BodyTreeNodeSchema.model_rebuild()

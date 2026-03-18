@@ -174,3 +174,4 @@ cython_debug/
 .pypirc
 
 web_frontend/node_modules
+CLAUDE.md

@@ -20,7 +20,7 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('theme');
     return (saved as 'light' | 'dark') || 'dark';
   });
-  const [robots, setRobots] = useState<RobotInfo[]>([]);
+  const [robots, setRobots] = useState<string[]>([]);
   const [selectedRobot, setSelectedRobot] = useState<string>('');
   const [generatorType, setGeneratorType] = useState<string>('bvh');
   const [configs, setConfigs] = useState<string[]>([]);
@@ -61,8 +61,7 @@ const App: React.FC = () => {
       const data = await configApi.getRobots();
       setRobots(data);
       if (data.length > 0) {
-        setSelectedRobot(data[0].name);
-        setGeneratorType(data[0].generator_type);
+        setSelectedRobot(data[0]);
       }
     } catch (error) {
       message.error(t('message.failedToLoadRobots'));

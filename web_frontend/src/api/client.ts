@@ -13,7 +13,7 @@ export type { RobotInfo, RetargetConfig, MotionInfo };
 
 // Config API
 export const configApi = {
-  getRobots: () => client.get<RobotInfo[]>('/config/robots').then(res => res.data),
+  getRobots: () => client.get<string[]>('/robots').then(res => res.data),
 
   listConfigs: (robotName: string, generatorType: string) =>
     client.get<string[]>(`/config/${robotName}/${generatorType}/configs`).then(res => res.data),
