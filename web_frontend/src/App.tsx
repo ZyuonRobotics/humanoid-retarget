@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { message, Button, Space, Upload, Modal } from 'antd';
+import React, { useState, useEffect, useRef } from 'react';
+import { Button, Space, Upload } from 'antd';
 import { PlayCircleOutlined, UploadOutlined, SaveOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 
@@ -7,30 +7,38 @@ import TopBar from './components/TopBar';
 import Viewer3D from './components/Viewer3D';
 import DraggablePanel from './components/DraggablePanel';
 import BaseSettingsWidget from './components/Widgets/BaseSettingsWidget';
-import BodyRatioWidget from './components/Widgets/BodyRatioWidget';
-import BodyRotateWidget from './components/Widgets/BodyRotateWidget';
+import HumanSettingsWidget from './components/Widgets/BodyRotateWidget';
 import TrackersWidget from './components/Widgets/TrackersWidget';
 import BodyTreeWidget from './components/Widgets/BodyTreeWidget';
-import { configApi, modelApi } from './api/client';
-import { RobotInfo, RetargetConfig, defaultRetargetConfig } from './types/config';
+import ErrorBoundary from './components/ErrorBoundary';
+import { ConfigProvider, useConfigContext } from './contexts/ConfigContext';
+import { MotionProvider, useMotionContext } from './contexts/MotionContext';
 
-const App: React.FC = () => {
+type ThemeType = 'dark' | 'light' | 'ocean' | 'forest' | 'sunset';
+
+const AppContent: React.FC = () => {
   const { t } = useTranslation();
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const saved = localStorage.getItem('theme');
-    return (saved as 'light' | 'dark') || 'dark';
-  });
-  const [robots, setRobots] = useState<string[]>([]);
-  const [selectedRobot, setSelectedRobot] = useState<string>('');
-  const [generatorType, setGeneratorType] = useState<string>('bvh');
-  const [configs, setConfigs] = useState<string[]>([]);
-  const [selectedConfig, setSelectedConfig] = useState<string>('default');
+  const { uploadMotion, handleRetarget } = useMotionContext();
+  const { loading, saving, bodyTree, config, setConfig, saveConfig, handleDeleteConfig } = useConfigContext();
   const [activePanel, setActivePanel] = useState<string>('config');
-  const [config, setConfig] = useState<RetargetConfig>(defaultRetargetConfig);
-  const [bodyTree, setBodyTree] = useState<any>({});
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [selectedMotion, setSelectedMotion] = useState<string>('');
+  const [theme, setTheme] = useState<ThemeType>(() => {
+    const saved = localStorage.getItem('theme');
+    return (saved as ThemeType) || 'dark';
+  });
+  const [containerWidth, setContainerWidth] = useState<number>(window.innerWidth);
+  const appContainerRef = useRef<HTMLDivElement>(null);
+
+  // Get container width for rightmost positioning
+  useEffect(() => {
+    const updateWidth = () => {
+      if (appContainerRef.current) {
+        setContainerWidth(appContainerRef.current.offsetWidth);
+      }
+    };
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, []);
 
   // Apply theme
   useEffect(() => {
@@ -38,159 +46,10 @@ const App: React.FC = () => {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  useEffect(() => {
-    loadRobots();
-  }, []);
-
-  useEffect(() => {
-    if (selectedRobot && generatorType) {
-      loadConfigs();
-    }
-  }, [selectedRobot, generatorType]);
-
-  useEffect(() => {
-    if (selectedRobot && generatorType && selectedConfig) {
-      loadConfig();
-      loadBodyTree();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedRobot, generatorType, selectedConfig]);
-
-  const loadRobots = async () => {
-    try {
-      const data = await configApi.getRobots();
-      setRobots(data);
-      if (data.length > 0) {
-        setSelectedRobot(data[0]);
-      }
-    } catch (error) {
-      message.error(t('message.failedToLoadRobots'));
-    }
-  };
-
-  const loadConfigs = async () => {
-    try {
-      const data = await configApi.listConfigs(selectedRobot, generatorType);
-      setConfigs(data);
-      if (data.length > 0) {
-        setSelectedConfig(data[0]);
-      } else {
-        setSelectedConfig('');
-        message.info(t('configPanel.message.noConfigsPleaseCreate'));
-      }
-    } catch (error) {
-      message.error(t('message.failedToLoadConfigs'));
-    }
-  };
-
-  const loadConfig = async () => {
-    setLoading(true);
-    try {
-      const data = await configApi.getConfig(selectedRobot, generatorType, selectedConfig);
-      setConfig(data);
-    } catch (error) {
-      setConfig(defaultRetargetConfig);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadBodyTree = async () => {
-    try {
-      const data = await configApi.getBodyTree(selectedRobot, generatorType);
-      setBodyTree(data);
-    } catch (error) {
-      console.error('Failed to load body tree', error);
-    }
-  };
-
-  const saveConfig = async () => {
-    setSaving(true);
-    try {
-      await configApi.saveConfig(selectedRobot, generatorType, selectedConfig, config);
-      message.success(t('configPanel.message.configSaved'));
-    } catch (error) {
-      message.error(t('configPanel.message.failedToSaveConfig'));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleCreateConfig = async (name: string) => {
-    try {
-      await configApi.saveConfig(selectedRobot, generatorType, name, config);
-      await loadConfigs();
-      setSelectedConfig(name);
-      message.success(t('configPanel.message.configCreated'));
-    } catch (error) {
-      message.error(t('configPanel.message.failedToCreateConfig'));
-    }
-  };
-
-  const handleDeleteConfig = () => {
-    Modal.confirm({
-      title: t('configPanel.deleteConfirmTitle'),
-      content: t('configPanel.deleteConfirmContent', { name: selectedConfig }),
-      okText: t('common.ok'),
-      cancelText: t('common.cancel'),
-      onOk: async () => {
-        try {
-          await configApi.deleteConfig(selectedRobot, generatorType, selectedConfig);
-          message.success(t('configPanel.message.configDeleted'));
-          await loadConfigs();
-          if (configs.length > 1) {
-            const newConfigs = configs.filter((c) => c !== selectedConfig);
-            setSelectedConfig(newConfigs[0]);
-          }
-        } catch (error) {
-          message.error(t('configPanel.message.failedToDeleteConfig'));
-        }
-      },
-    });
-  };
-
-  const handleRetarget = async () => {
-    if (!selectedRobot || !selectedConfig) {
-      message.warning(t('message.pleaseSelectRobotAndConfig'));
-      return;
-    }
-    if (!selectedMotion) {
-      message.warning(t('message.pleaseSelectMotion'));
-      return;
-    }
-    setLoading(true);
-    try {
-      const result = await modelApi.retarget(
-        selectedMotion,
-        selectedRobot,
-        generatorType,
-        selectedConfig
-      );
-      if (result.status === 'success') {
-        message.success(t('message.retargetSuccess'));
-      } else {
-        message.error(t('message.retargetFailed'));
-      }
-    } catch (error) {
-      message.error(t('message.retargetFailed'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className="app-container">
+    <div className="app-container" ref={appContainerRef}>
       {/* Top Bar */}
       <TopBar
-        robots={robots}
-        selectedRobot={selectedRobot}
-        onRobotChange={setSelectedRobot}
-        generatorType={generatorType}
-        onGeneratorTypeChange={setGeneratorType}
-        configs={configs}
-        selectedConfig={selectedConfig}
-        onConfigChange={setSelectedConfig}
-        onCreateConfig={handleCreateConfig}
         activePanel={activePanel}
         onPanelChange={setActivePanel}
         theme={theme}
@@ -199,28 +58,14 @@ const App: React.FC = () => {
 
       {/* 3D Background */}
       <div className="viewer-3d-background">
-        <Viewer3D robotName={selectedRobot} />
+        <Viewer3D />
       </div>
 
       {/* Floating Panels */}
       {activePanel === 'config' && (
         <>
           {/* Config Action Bar - Top Center */}
-          <div
-            style={{
-              position: 'absolute',
-              top: 70,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              zIndex: 100,
-              background: 'var(--card-background)',
-              borderRadius: 8,
-              padding: '8px 16px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-              display: 'flex',
-              gap: 8,
-            }}
-          >
+          <div className="config-action-bar">
             <Button icon={<SaveOutlined />} onClick={saveConfig} loading={saving}>
               {t('configPanel.save')}
             </Button>
@@ -230,87 +75,65 @@ const App: React.FC = () => {
           </div>
 
           {/* Base Settings Panel - Top Left */}
-          <DraggablePanel
-            title={t('configPanel.tabs.baseSettings')}
-            defaultX={40}
-            defaultY={100}
-            defaultWidth={340}
-            defaultHeight={320}
-          >
-            <BaseSettingsWidget
-              config={config}
-              onChange={setConfig}
-            />
-          </DraggablePanel>
+          <ErrorBoundary>
+            <DraggablePanel
+              title={t('configPanel.tabs.robotSettings')}
+              defaultX={40}
+              defaultY={100}
+              defaultWidth={510}
+              defaultHeight={480}
+            >
+              <BaseSettingsWidget config={config} onChange={setConfig} />
+            </DraggablePanel>
+          </ErrorBoundary>
 
-          {/* Body Ratio Panel - Top Right */}
-          <DraggablePanel
-            title={t('configPanel.tabs.bodyRatio')}
-            defaultX={400}
-            defaultY={100}
-            defaultWidth={300}
-            defaultHeight={280}
-          >
-            <BodyRatioWidget config={config} onChange={setConfig} />
-          </DraggablePanel>
+          {/* Human Settings Panel - Left Bottom */}
+          <ErrorBoundary>
+            <DraggablePanel
+              title={t('configPanel.tabs.humanSettings')}
+              defaultX={40}
+              defaultY={600}
+              defaultWidth={510}
+              defaultHeight={400}
+            >
+              <HumanSettingsWidget config={config} onChange={setConfig} />
+            </DraggablePanel>
+          </ErrorBoundary>
 
-          {/* Body Rotate Panel - Left Middle */}
-          <DraggablePanel
-            title={t('configPanel.tabs.bodyRotate')}
-            defaultX={40}
-            defaultY={440}
-            defaultWidth={340}
-            defaultHeight={320}
-          >
-            <BodyRotateWidget config={config} onChange={setConfig} />
-          </DraggablePanel>
+          {/* Retargeting Parameters Panel - Middle Left */}
+          <ErrorBoundary>
+            <DraggablePanel
+              title={t('configPanel.tabs.retargetingParams')}
+              defaultX={560}
+              defaultY={100}
+              defaultWidth={510}
+              defaultHeight={540}
+            >
+              <TrackersWidget config={config} onChange={setConfig} />
+            </DraggablePanel>
+          </ErrorBoundary>
 
-          {/* Trackers Panel - Right Middle */}
-          <DraggablePanel
-            title={t('configPanel.tabs.trackers')}
-            defaultX={400}
-            defaultY={400}
-            defaultWidth={340}
-            defaultHeight={360}
-          >
-            <TrackersWidget config={config} onChange={setConfig} />
-          </DraggablePanel>
-
-          {/* Body Tree Panel - Right Side */}
-          <DraggablePanel
-            title={t('configPanel.tabs.bodyTree')}
-            defaultX={760}
-            defaultY={100}
-            defaultWidth={300}
-            defaultHeight={320}
-          >
-            <BodyTreeWidget bodyTree={bodyTree} />
-          </DraggablePanel>
+          {/* Body Tree Panel - Right Side Full Height */}
+          <ErrorBoundary>
+            <DraggablePanel
+              title={t('configPanel.tabs.bodyTree')}
+              defaultX={containerWidth - 450}
+              defaultY={60}
+              defaultWidth={450}
+              defaultHeight="calc(100vh - 80px)"
+            >
+              <BodyTreeWidget bodyTree={bodyTree} />
+            </DraggablePanel>
+          </ErrorBoundary>
 
           {/* Action Buttons - Bottom Center */}
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 40,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              zIndex: 50,
-            }}
-          >
+          <div className="action-buttons-bottom">
             <Space>
               <Upload.Dragger
                 showUploadList={false}
                 accept=".bvh,.npz"
-                beforeUpload={async (file) => {
-                  try {
-                    const result = await modelApi.uploadMotion(file, generatorType);
-                    if (result.status === 'uploaded') {
-                      setSelectedMotion(result.filename);
-                      message.success(t('message.uploadSuccess'));
-                    }
-                  } catch (error) {
-                    message.error(t('message.uploadFailed'));
-                  }
+                beforeUpload={(file) => {
+                  uploadMotion(file);
                   return false;
                 }}
               >
@@ -332,6 +155,16 @@ const App: React.FC = () => {
         </>
       )}
     </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <ConfigProvider>
+      <MotionProvider>
+        <AppContent />
+      </MotionProvider>
+    </ConfigProvider>
   );
 };
 

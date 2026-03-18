@@ -27,21 +27,29 @@
     "save": "Save",
     "delete": "Delete",
     "tabs": {
-      "baseSettings": "Base Settings",
-      "bodyRatio": "Body Ratio",
-      "bodyRotate": "Body Rotate",
-      "trackers": "Trackers",
+      "robotSettings": "Robot Settings",
+      "humanSettings": "Human Settings",
+      "retargetingParams": "Retargeting Parameters",
       "bodyTree": "Body Tree"
     },
     "card": {
+      "robotSettings": "Robot Settings",
+      "humanSettings": "Human Settings",
+      "retargetingParams": "Retargeting Parameters",
       "baseTranslation": "Base Translation",
       "baseRotation": "Base Rotation (Euler)",
       "extraBodyRatio": "Extra Body Ratio",
       "dampingCost": "Damping Cost",
       "robotBodies": "Robot Bodies",
-      "humanBodies": "Human Bodies"
+      "humanBodies": "Human Bodies",
+      "bodyRotate": "Human Body Rotation",
+      "relativeBodyRatio": "Relative Body Ratio"
     },
     "label": {
+      "baseLinkXOffset": "Base Link X Offset",
+      "baseLinkYOffset": "Base Link Y Offset",
+      "baseLinkRotation": "Base Link Rotation",
+      "dampingCost": "Damping Cost",
       "xShift": "X Shift",
       "yShift": "Y Shift",
       "x": "X",
@@ -50,10 +58,13 @@
       "positionCost": "Position Cost",
       "orientationCost": "Orientation Cost",
       "humanTrackers": "Human Trackers",
-      "robotTrackers": "Robot Trackers"
+      "robotTrackers": "Robot Trackers",
+      "globalBodyRatio": "Global Body Ratio",
+      "relativeBodyRatio": "Relative Body Ratio"
     },
     "button": {
       "addBodyRotation": "Add Body Rotation",
+      "addRelativeBodyRatio": "Add Relative Body Ratio",
       "addTracker": "Add Tracker"
     },
     "message": {
@@ -79,6 +90,13 @@
     "switch": "Language",
     "en": "English",
     "zh": "中文"
+  },
+  "theme": {
+    "dark": "Dark",
+    "light": "Light",
+    "ocean": "Ocean",
+    "forest": "Forest",
+    "sunset": "Sunset"
   },
   "common": {
     "ok": "OK",

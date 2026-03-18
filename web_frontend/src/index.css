@@ -1,6 +1,8 @@
 /* Import style modules */
 @import './styles/variables.css';
+@import './styles/themes.css';
 @import './styles/animations.css';
+@import './styles/components.css';
 
 /* Reset & Base */
 * {
@@ -155,8 +157,10 @@ body {
   background: var(--color-bg-elevated);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--color-border);
+  border-top: none;
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-  max-height: 400px;
+  box-shadow: var(--shadow-md);
   overflow-y: auto;
 }
 
@@ -271,6 +275,22 @@ body {
 
 .ant-input-number-input {
   color: var(--color-text-primary) !important;
+}
+
+/* Placeholder styles */
+.ant-input::placeholder,
+.ant-input-number::placeholder,
+.ant-select-selection-placeholder,
+.ant-select-selection__rendered__placeholder {
+  color: var(--color-text-tertiary) !important;
+}
+
+.ant-select-arrow {
+  color: var(--color-text-secondary) !important;
+}
+
+.ant-select-selection-search-input {
+  color: var(--color-text-tertiary) !important;
 }
 
 .ant-slider-track {
@@ -462,4 +482,44 @@ body {
 :focus-visible {
   outline: 2px solid var(--color-text-primary);
   outline-offset: 2px;
+}
+
+/* Ant Design Empty */
+.ant-empty-description {
+  color: var(--color-text-secondary) !important;
+}
+
+/* Select dropdown placeholder */
+.ant-select-selection-search-input::placeholder,
+.ant-select-selection-placeholder {
+  color: var(--color-text-tertiary) !important;
+}
+
+.ant-select-selection__clear {
+  background: var(--color-bg-elevated) !important;
+}
+
+/* Select when no value selected */
+.ant-select.ant-select-show-placeholder .ant-select-selection__rendered {
+  color: var(--color-text-tertiary) !important;
+}
+
+/* Ant Design Select placeholder - high priority */
+.ant-select .ant-select-selection-placeholder,
+.ant-select.ant-select-single.ant-select-show-placeholder .ant-select-selection-placeholder,
+.ant-select-selection-placeholder,
+.ant-select-selection__placeholder {
+  color: var(--color-text-tertiary) !important;
+}
+
+/* Ensure placeholder text in inputs follows theme */
+input::placeholder,
+.ant-input::placeholder {
+  color: var(--color-text-tertiary) !important;
+  opacity: 1 !important;
+}
+
+/* Tree empty text */
+.ant-tree .ant-tree-treenode-empty-text .ant-tree-node-content-wrapper {
+  color: var(--color-text-tertiary) !important;
 }

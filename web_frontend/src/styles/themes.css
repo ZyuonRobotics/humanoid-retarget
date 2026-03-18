@@ -1,0 +1,8 @@
+/* Theme Selector - Imports all theme CSS files */
+/* Theme colors are defined by data-theme attribute on html element */
+
+@import './themes/dark.css';
+@import './themes/light.css';
+@import './themes/ocean.css';
+@import './themes/forest.css';
+@import './themes/sunset.css';

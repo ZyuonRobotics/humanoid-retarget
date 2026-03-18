@@ -6,46 +6,29 @@ import {
   RobotOutlined,
   FileTextOutlined,
   GlobalOutlined,
-  SunOutlined,
-  MoonOutlined,
   PlusOutlined,
   CheckOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { RobotInfo } from '../../api/client';
+import { useConfigContext } from '../../contexts/ConfigContext';
+
+type ThemeType = 'dark' | 'light' | 'ocean' | 'forest' | 'sunset';
 
 interface TopBarProps {
-  robots: RobotInfo[];
-  selectedRobot: string;
-  onRobotChange: (robot: string) => void;
-  generatorType: string;
-  onGeneratorTypeChange: (type: string) => void;
-  configs: string[];
-  selectedConfig: string;
-  onConfigChange: (config: string) => void;
-  onCreateConfig: (name: string) => void;
   activePanel: string;
   onPanelChange: (panel: string) => void;
-  theme: 'light' | 'dark';
-  onThemeChange: (theme: 'light' | 'dark') => void;
+  theme: ThemeType;
+  onThemeChange: (theme: ThemeType) => void;
 }
 
 const TopBar: React.FC<TopBarProps> = ({
-  robots,
-  selectedRobot,
-  onRobotChange,
-  generatorType,
-  onGeneratorTypeChange,
-  configs,
-  selectedConfig,
-  onConfigChange,
-  onCreateConfig,
   activePanel,
   onPanelChange,
   theme,
   onThemeChange,
 }) => {
   const { t, i18n } = useTranslation();
+  const { robots, selectedRobot, setSelectedRobot, generatorType, setGeneratorType, configs, selectedConfig, setSelectedConfig, handleCreateConfig } = useConfigContext();
   const [isCreatingConfig, setIsCreatingConfig] = useState(false);
   const [newConfigName, setNewConfigName] = useState('');
 
@@ -61,13 +44,28 @@ const TopBar: React.FC<TopBarProps> = ({
     ],
   };
 
-  const handleCreateConfig = () => {
+  const themeMenu = {
+    items: [
+      { key: 'dark', label: t('theme.dark'), onClick: () => onThemeChange('dark') },
+      { key: 'light', label: t('theme.light'), onClick: () => onThemeChange('light') },
+      { key: 'ocean', label: t('theme.ocean'), onClick: () => onThemeChange('ocean') },
+      { key: 'forest', label: t('theme.forest'), onClick: () => onThemeChange('forest') },
+      { key: 'sunset', label: t('theme.sunset'), onClick: () => onThemeChange('sunset') },
+    ],
+  };
+
+  const handleCreateConfigLocal = () => {
     if (newConfigName.trim()) {
-      onCreateConfig(newConfigName.trim());
+      handleCreateConfig(newConfigName.trim());
       setNewConfigName('');
       setIsCreatingConfig(false);
     }
   };
+
+  // Convert robots to options - handle both string[] and RobotInfo[]
+  const robotOptions = robots.map((r) =>
+    typeof r === 'string' ? { value: r, label: r } : { value: r.name, label: r.name }
+  );
 
   return (
     <div className="topbar">
@@ -85,9 +83,9 @@ const TopBar: React.FC<TopBarProps> = ({
       <div className="topbar-section">
         <Select
           value={selectedRobot}
-          onChange={onRobotChange}
+          onChange={setSelectedRobot}
           style={{ width: 140 }}
-          options={robots.map((r) => ({ value: r, label: r }))}
+          options={robotOptions}
           suffixIcon={<RobotOutlined />}
         />
       </div>
@@ -96,7 +94,7 @@ const TopBar: React.FC<TopBarProps> = ({
       <div className="topbar-section">
         <Select
           value={generatorType}
-          onChange={onGeneratorTypeChange}
+          onChange={setGeneratorType}
           style={{ width: 100 }}
           options={[
             { value: 'bvh', label: 'BVH' },
@@ -112,7 +110,7 @@ const TopBar: React.FC<TopBarProps> = ({
             placeholder={t('configPanel.newConfigPlaceholder')}
             value={newConfigName}
             onChange={(e) => setNewConfigName(e.target.value)}
-            onPressEnter={handleCreateConfig}
+            onPressEnter={handleCreateConfigLocal}
             onBlur={() => {
               if (!newConfigName.trim()) {
                 setIsCreatingConfig(false);
@@ -124,7 +122,7 @@ const TopBar: React.FC<TopBarProps> = ({
         ) : (
           <Select
             value={selectedConfig || undefined}
-            onChange={onConfigChange}
+            onChange={setSelectedConfig}
             style={{ width: 140 }}
             options={configs.map((c) => ({ value: c, label: c }))}
             placeholder={t('configPanel.selectConfigPlaceholder')}
@@ -134,7 +132,7 @@ const TopBar: React.FC<TopBarProps> = ({
         <Button
           type="text"
           icon={isCreatingConfig ? <CheckOutlined /> : <PlusOutlined />}
-          onClick={isCreatingConfig ? handleCreateConfig : () => setIsCreatingConfig(true)}
+          onClick={isCreatingConfig ? handleCreateConfigLocal : () => setIsCreatingConfig(true)}
           style={{ marginLeft: 4 }}
         />
       </div>
@@ -163,11 +161,9 @@ const TopBar: React.FC<TopBarProps> = ({
 
       {/* Theme & Language */}
       <div className="topbar-section">
-        <Button
-          type="text"
-          icon={theme === 'dark' ? <SunOutlined /> : <MoonOutlined />}
-          onClick={() => onThemeChange(theme === 'dark' ? 'light' : 'dark')}
-        />
+        <Dropdown menu={themeMenu} trigger={['click']}>
+          <Button type="text">{t('theme.' + theme)}</Button>
+        </Dropdown>
         <Dropdown menu={languageMenu} trigger={['click']}>
           <Button type="text" icon={<GlobalOutlined />} />
         </Dropdown>

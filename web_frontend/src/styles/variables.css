@@ -1,7 +1,8 @@
-/* Apple Glassmorphism Theme Variables */
+/* Design Tokens - Spacing, Radius, Shadows, Typography */
+/* Color variables are defined in themes/*.css files */
 
 :root {
-  /* Dark Theme (Default) */
+  /* Default dark theme colors (can be overridden by data-theme) */
   --color-bg-base: #0d0d0f;
   --color-bg-elevated: rgba(30, 30, 32, 0.72);
   --color-bg-hover: rgba(255, 255, 255, 0.08);
@@ -37,12 +38,12 @@
 
   /* Typography */
   --font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
-  --font-size-xs: 11px;
-  --font-size-sm: 13px;
-  --font-size-md: 15px;
-  --font-size-lg: 17px;
-  --font-size-xl: 22px;
-  --font-size-xxl: 28px;
+  --font-size-xs: 13px;
+  --font-size-sm: 16px;
+  --font-size-md: 18px;
+  --font-size-lg: 20px;
+  --font-size-xl: 26px;
+  --font-size-xxl: 34px;
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
@@ -58,22 +59,6 @@
   --z-panel: 10;
   --z-topbar: 100;
   --z-modal: 1000;
-}
-
-/* Light Theme */
-[data-theme="light"] {
-  --color-bg-base: #f5f5f7;
-  --color-bg-elevated: rgba(255, 255, 255, 0.72);
-  --color-bg-hover: rgba(0, 0, 0, 0.04);
-  --color-text-primary: rgba(0, 0, 0, 0.88);
-  --color-text-secondary: rgba(0, 0, 0, 0.64);
-  --color-text-tertiary: rgba(0, 0, 0, 0.36);
-  --color-border: rgba(0, 0, 0, 0.08);
-  --color-border-strong: rgba(0, 0, 0, 0.16);
-
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.10);
-  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.14);
 }
 
 /* Glass Panel Base Style */

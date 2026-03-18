@@ -46,9 +46,7 @@ const DraggablePanel: React.FC<DraggablePanelProps> = ({
       enableUserSelectHack={false}
       size={isMaximized ? { width: '100%', height: 'calc(100vh - 80px)' } : undefined}
       position={isMaximized ? { x: 0, y: 60 } : undefined}
-      style={{
-        zIndex: 10,
-      }}
+      className="draggable-panel"
     >
       <div className="draggable-panel-wrapper" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         <div className="draggable-panel-header">

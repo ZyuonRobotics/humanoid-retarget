@@ -36,10 +36,58 @@ export function useConfig(
     [config.tracker_dict, updateConfig]
   );
 
+  const addBodyRotate = useCallback(() => {
+    const key = `body_${Object.keys(config.body_rotate_dict).length + 1}`;
+    updateConfig('body_rotate_dict', { ...config.body_rotate_dict, [key]: [0, 0, 0] });
+  }, [config.body_rotate_dict, updateConfig]);
+
+  const removeBodyRotate = useCallback(
+    (key: string) => {
+      const newDict = { ...config.body_rotate_dict };
+      delete newDict[key];
+      updateConfig('body_rotate_dict', newDict);
+    },
+    [config.body_rotate_dict, updateConfig]
+  );
+
+  const updateBodyRotate = useCallback(
+    (key: string, value: number[]) => {
+      updateConfig('body_rotate_dict', { ...config.body_rotate_dict, [key]: value });
+    },
+    [config.body_rotate_dict, updateConfig]
+  );
+
+  const addRelativeBodyRatio = useCallback(() => {
+    const key = `body_${Object.keys(config.relative_body_ratio_dict).length + 1}`;
+    updateConfig('relative_body_ratio_dict', { ...config.relative_body_ratio_dict, [key]: [1, 1, 1] });
+  }, [config.relative_body_ratio_dict, updateConfig]);
+
+  const removeRelativeBodyRatio = useCallback(
+    (key: string) => {
+      const newDict = { ...config.relative_body_ratio_dict };
+      delete newDict[key];
+      updateConfig('relative_body_ratio_dict', newDict);
+    },
+    [config.relative_body_ratio_dict, updateConfig]
+  );
+
+  const updateRelativeBodyRatio = useCallback(
+    (key: string, value: number[]) => {
+      updateConfig('relative_body_ratio_dict', { ...config.relative_body_ratio_dict, [key]: value });
+    },
+    [config.relative_body_ratio_dict, updateConfig]
+  );
+
   return {
     updateConfig,
     addTracker,
     removeTracker,
     updateTracker,
+    addBodyRotate,
+    removeBodyRotate,
+    updateBodyRotate,
+    addRelativeBodyRatio,
+    removeRelativeBodyRatio,
+    updateRelativeBodyRatio,
   };
 }

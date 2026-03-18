@@ -1,28 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { message } from 'antd';
-import { modelApi } from '../../api/client';
+import { useConfigContext } from '../../contexts/ConfigContext';
 
-interface Viewer3DProps {
-  robotName: string;
-  motionName?: string;
-}
-
-const Viewer3D: React.FC<Viewer3DProps> = ({ robotName, motionName }) => {
+const Viewer3D: React.FC = () => {
+  const { selectedRobot } = useConfigContext();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [mjcfXml, setMjcfXml] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (robotName) {
+    if (selectedRobot) {
       loadRobotModel();
     }
-  }, [robotName]);
+  }, [selectedRobot]);
 
   const loadRobotModel = async () => {
     try {
       setLoading(true);
-      const data = await modelApi.getRobotMJCF(robotName);
-      setMjcfXml(data.xml);
+      // TODO: Use modelApi.getRobotMJCF when backend is ready
+      // const data = await modelApi.getRobotMJCF(selectedRobot);
+      // setMjcfXml(data.xml);
       // TODO: Initialize MuJoCo WASM here
     } catch (error) {
       // Background viewer - show placeholder instead of error
@@ -114,7 +110,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ robotName, motionName }) => {
             🤖
           </div>
           <div style={{ fontSize: 14 }}>
-            3D Preview: {robotName || 'Select a robot'}
+            3D Preview: {selectedRobot || 'Select a robot'}
           </div>
         </div>
       )}

@@ -1,8 +1,8 @@
 import React from 'react';
-import { Card, Button, InputNumber, Row, Col, Input } from 'antd';
+import { Card, Button, InputNumber, Row, Col, Input, Slider } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { RetargetConfig, TrackerConfig } from '../../../types/config';
+import { RetargetConfig } from '../../../types/config';
 import { useConfig } from '../../../hooks/useConfig';
 
 interface TrackersWidgetProps {
@@ -16,6 +16,26 @@ const TrackersWidget: React.FC<TrackersWidgetProps> = ({ config, onChange }) => 
 
   return (
     <div>
+      {/* Damping Cost Section */}
+      <div style={{ marginBottom: 16 }}>
+        <div className="widget-label">{t('configPanel.label.dampingCost')}</div>
+        <Slider
+          min={0}
+          max={20}
+          step={0.1}
+          value={config.damping_cost}
+          onChange={(v) => updateConfig('damping_cost', v)}
+        />
+        <InputNumber
+          style={{ width: '100%' }}
+          step={0.1}
+          min={0}
+          value={config.damping_cost}
+          onChange={(v) => updateConfig('damping_cost', v)}
+        />
+      </div>
+
+      {/* Trackers Section */}
       {Object.entries(config.tracker_dict).map(([key, tracker]) => (
         <Card
           size="small"

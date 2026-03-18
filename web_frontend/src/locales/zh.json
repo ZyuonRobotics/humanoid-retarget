@@ -27,21 +27,29 @@
     "save": "保存",
     "delete": "删除",
     "tabs": {
-      "baseSettings": "基础设置",
-      "bodyRatio": "身体比例",
-      "bodyRotate": "身体旋转",
-      "trackers": "追踪器",
+      "robotSettings": "机器人设置",
+      "humanSettings": "人体参数",
+      "retargetingParams": "重定向参数",
       "bodyTree": "身体结构"
     },
     "card": {
+      "robotSettings": "机器人设置",
+      "humanSettings": "人体参数",
+      "retargetingParams": "重定向参数",
       "baseTranslation": "基础位移",
       "baseRotation": "基础旋转 (欧拉角)",
       "extraBodyRatio": "额外身体比例",
       "dampingCost": "阻尼成本",
       "robotBodies": "机器人身体",
-      "humanBodies": "人体身体"
+      "humanBodies": "人体身体",
+      "bodyRotate": "人体旋转偏差",
+      "relativeBodyRatio": "相对身体比例"
     },
     "label": {
+      "baseLinkXOffset": "Base Link X 偏移",
+      "baseLinkYOffset": "Base Link Y 偏移",
+      "baseLinkRotation": "Base Link 旋转",
+      "dampingCost": "阻尼成本",
       "xShift": "X 偏移",
       "yShift": "Y 偏移",
       "x": "X",
@@ -50,10 +58,13 @@
       "positionCost": "位置成本",
       "orientationCost": "方向成本",
       "humanTrackers": "人体追踪器",
-      "robotTrackers": "机器人追踪器"
+      "robotTrackers": "机器人追踪器",
+      "globalBodyRatio": "全局身体比例",
+      "relativeBodyRatio": "相对身体比例"
     },
     "button": {
       "addBodyRotation": "添加身体旋转",
+      "addRelativeBodyRatio": "添加相对身体比例",
       "addTracker": "添加追踪器"
     },
     "message": {
@@ -79,6 +90,13 @@
     "switch": "语言",
     "en": "English",
     "zh": "中文"
+  },
+  "theme": {
+    "dark": "深色",
+    "light": "浅色",
+    "ocean": "海洋",
+    "forest": "森林",
+    "sunset": "日落"
   },
   "common": {
     "ok": "确定",

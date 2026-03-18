@@ -1,7 +1,8 @@
 import React from 'react';
 import { Slider, InputNumber, Row, Col } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { RetargetConfig } from '../../../api/client';
+import { RetargetConfig } from '../../../types/config';
+import { useConfig } from '../../../hooks/useConfig';
 
 interface BaseSettingsWidgetProps {
   config: RetargetConfig;
@@ -13,19 +14,16 @@ const BaseSettingsWidget: React.FC<BaseSettingsWidgetProps> = ({
   onChange,
 }) => {
   const { t } = useTranslation();
-
-  const updateConfig = (key: keyof RetargetConfig, value: any) => {
-    onChange({ ...config, [key]: value });
-  };
+  const { updateConfig } = useConfig(config, onChange);
 
   return (
     <div>
       <div style={{ marginBottom: 16 }}>
-        <div className="widget-label">{t('configPanel.card.baseTranslation')}</div>
+        <div className="widget-label">{t('configPanel.card.robotSettings')}</div>
         <Row gutter={16}>
           <Col span={12}>
             <div style={{ marginBottom: 8 }}>
-              <span className="text-secondary" style={{ fontSize: 12 }}>{t('configPanel.label.xShift')}</span>
+              <span className="text-secondary" style={{ fontSize: 12 }}>{t('configPanel.label.baseLinkXOffset')}</span>
             </div>
             <Slider
               min={-1}
@@ -43,7 +41,7 @@ const BaseSettingsWidget: React.FC<BaseSettingsWidgetProps> = ({
           </Col>
           <Col span={12}>
             <div style={{ marginBottom: 8 }}>
-              <span className="text-secondary" style={{ fontSize: 12 }}>{t('configPanel.label.yShift')}</span>
+              <span className="text-secondary" style={{ fontSize: 12 }}>{t('configPanel.label.baseLinkYOffset')}</span>
             </div>
             <Slider
               min={-1}
@@ -63,7 +61,7 @@ const BaseSettingsWidget: React.FC<BaseSettingsWidgetProps> = ({
       </div>
 
       <div style={{ marginBottom: 16 }}>
-        <div className="widget-label">{t('configPanel.card.baseRotation')}</div>
+        <div className="widget-label">{t('configPanel.label.baseLinkRotation')}</div>
         <Row gutter={16}>
           <Col span={8}>
             <div style={{ marginBottom: 4 }}>

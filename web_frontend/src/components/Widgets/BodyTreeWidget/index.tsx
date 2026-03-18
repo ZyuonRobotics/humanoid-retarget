@@ -33,14 +33,14 @@ const BodyTreeWidget: React.FC<BodyTreeWidgetProps> = ({ bodyTree }) => {
     <div>
       <Card size="small" title={t('configPanel.card.robotBodies')} style={{ marginBottom: 8 }}>
         {bodyTree.robot && bodyTree.robot.length > 0 ? (
-          <Tree treeData={bodyTree.robot.map(transformToDataNode)} />
+          <Tree treeData={bodyTree.robot.map(transformToDataNode)} defaultExpandAll />
         ) : (
           <div className="text-secondary">{t('configPanel.loading')}</div>
         )}
       </Card>
       <Card size="small" title={t('configPanel.card.humanBodies')}>
         {bodyTree.human ? (
-          <div className="text-secondary">{bodyTree.human.note || t('configPanel.noData')}</div>
+          <div className="text-primary">{bodyTree.human.note || t('configPanel.noData')}</div>
         ) : (
           <div className="text-secondary">{t('configPanel.loading')}</div>
         )}

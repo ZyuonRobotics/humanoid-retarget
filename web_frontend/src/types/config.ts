@@ -1,4 +1,24 @@
-export type RobotInfo = string;
+export interface RobotInfo {
+  name: string;
+  modelPath?: string;
+  generatorTypes?: ('bvh' | 'smpl')[];
+}
+
+export interface BodyTreeNode {
+  name: string;
+  children?: BodyTreeNode[];
+  properties?: Record<string, unknown>;
+}
+
+export interface HumanBodyInfo {
+  note?: string;
+  error?: string;
+}
+
+export interface BodyTree {
+  robot?: BodyTreeNode[];
+  human?: HumanBodyInfo;
+}
 
 export interface TrackerConfig {
   human: string[];
