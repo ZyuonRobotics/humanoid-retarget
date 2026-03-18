@@ -25,6 +25,7 @@
   "configPanel": {
     "title": "配置: {{configName}}",
     "save": "保存",
+    "delete": "删除",
     "tabs": {
       "baseSettings": "基础设置",
       "bodyRatio": "身体比例",
@@ -57,17 +58,31 @@
     },
     "message": {
       "configSaved": "配置已保存",
-      "failedToSaveConfig": "保存配置失败"
+      "failedToSaveConfig": "保存配置失败",
+      "configCreated": "配置已创建",
+      "failedToCreateConfig": "创建配置失败",
+      "configDeleted": "配置已删除",
+      "failedToDeleteConfig": "删除配置失败",
+      "noConfigsPleaseCreate": "没有找到配置，请创建新配置。"
     },
     "loading": "加载中...",
     "noData": "无数据",
     "humanTrackerPlaceholder": "输入人体追踪器名称（逗号分隔）",
     "robotTrackerPlaceholder": "输入机器人追踪器名称（逗号分隔）",
-    "bodyName": "身体名称"
+    "bodyName": "身体名称",
+    "newConfigPlaceholder": "新配置名称",
+    "selectConfigPlaceholder": "选择配置",
+    "deleteConfirmTitle": "删除配置",
+    "deleteConfirmContent": "确定要删除配置 \"{{name}}\" 吗？"
   },
   "language": {
     "switch": "语言",
     "en": "English",
     "zh": "中文"
+  },
+  "common": {
+    "ok": "确定",
+    "cancel": "取消",
+    "confirm": "确认"
   }
 }

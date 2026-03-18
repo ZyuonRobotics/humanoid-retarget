@@ -3,13 +3,26 @@ import { Card, Tree } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { DataNode } from 'antd/es/tree';
 
+interface TreeNode {
+  name: string;
+  children?: TreeNode[];
+}
+
 interface BodyTreeWidgetProps {
   bodyTree: {
-    robot?: DataNode[];
+    robot?: TreeNode[];
     human?: {
       note?: string;
       error?: string;
     };
+  };
+}
+
+function transformToDataNode(node: TreeNode): DataNode {
+  return {
+    title: node.name,
+    key: node.name,
+    children: node.children?.map(transformToDataNode),
   };
 }
 
@@ -20,7 +33,7 @@ const BodyTreeWidget: React.FC<BodyTreeWidgetProps> = ({ bodyTree }) => {
     <div>
       <Card size="small" title={t('configPanel.card.robotBodies')} style={{ marginBottom: 8 }}>
         {bodyTree.robot && bodyTree.robot.length > 0 ? (
-          <Tree treeData={bodyTree.robot} />
+          <Tree treeData={bodyTree.robot.map(transformToDataNode)} />
         ) : (
           <div className="text-secondary">{t('configPanel.loading')}</div>
         )}

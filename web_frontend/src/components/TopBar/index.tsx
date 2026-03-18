@@ -1,5 +1,5 @@
-import React from 'react';
-import { Select, Button, Dropdown } from 'antd';
+import React, { useState } from 'react';
+import { Select, Button, Input, Dropdown } from 'antd';
 import {
   SettingOutlined,
   PlayCircleOutlined,
@@ -8,6 +8,8 @@ import {
   GlobalOutlined,
   SunOutlined,
   MoonOutlined,
+  PlusOutlined,
+  CheckOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { RobotInfo } from '../../api/client';
@@ -21,6 +23,7 @@ interface TopBarProps {
   configs: string[];
   selectedConfig: string;
   onConfigChange: (config: string) => void;
+  onCreateConfig: (name: string) => void;
   activePanel: string;
   onPanelChange: (panel: string) => void;
   theme: 'light' | 'dark';
@@ -36,12 +39,15 @@ const TopBar: React.FC<TopBarProps> = ({
   configs,
   selectedConfig,
   onConfigChange,
+  onCreateConfig,
   activePanel,
   onPanelChange,
   theme,
   onThemeChange,
 }) => {
   const { t, i18n } = useTranslation();
+  const [isCreatingConfig, setIsCreatingConfig] = useState(false);
+  const [newConfigName, setNewConfigName] = useState('');
 
   const changeLanguage = (lang: string) => {
     localStorage.setItem('i18nextLng', lang);
@@ -53,6 +59,14 @@ const TopBar: React.FC<TopBarProps> = ({
       { key: 'en', label: t('language.en'), onClick: () => changeLanguage('en') },
       { key: 'zh', label: t('language.zh'), onClick: () => changeLanguage('zh') },
     ],
+  };
+
+  const handleCreateConfig = () => {
+    if (newConfigName.trim()) {
+      onCreateConfig(newConfigName.trim());
+      setNewConfigName('');
+      setIsCreatingConfig(false);
+    }
   };
 
   return (
@@ -93,12 +107,35 @@ const TopBar: React.FC<TopBarProps> = ({
 
       {/* Config Selection */}
       <div className="topbar-section">
-        <Select
-          value={selectedConfig}
-          onChange={onConfigChange}
-          style={{ width: 140 }}
-          options={configs.map((c) => ({ value: c, label: c }))}
-          suffixIcon={<FileTextOutlined />}
+        {isCreatingConfig ? (
+          <Input
+            placeholder={t('configPanel.newConfigPlaceholder')}
+            value={newConfigName}
+            onChange={(e) => setNewConfigName(e.target.value)}
+            onPressEnter={handleCreateConfig}
+            onBlur={() => {
+              if (!newConfigName.trim()) {
+                setIsCreatingConfig(false);
+              }
+            }}
+            autoFocus
+            style={{ width: 140 }}
+          />
+        ) : (
+          <Select
+            value={selectedConfig || undefined}
+            onChange={onConfigChange}
+            style={{ width: 140 }}
+            options={configs.map((c) => ({ value: c, label: c }))}
+            placeholder={t('configPanel.selectConfigPlaceholder')}
+            suffixIcon={<FileTextOutlined />}
+          />
+        )}
+        <Button
+          type="text"
+          icon={isCreatingConfig ? <CheckOutlined /> : <PlusOutlined />}
+          onClick={isCreatingConfig ? handleCreateConfig : () => setIsCreatingConfig(true)}
+          style={{ marginLeft: 4 }}
         />
       </div>
 

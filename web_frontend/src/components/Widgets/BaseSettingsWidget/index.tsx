@@ -1,21 +1,16 @@
 import React from 'react';
-import { Slider, InputNumber, Row, Col, Button, Space } from 'antd';
-import { SaveOutlined } from '@ant-design/icons';
+import { Slider, InputNumber, Row, Col } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { RetargetConfig } from '../../../api/client';
 
 interface BaseSettingsWidgetProps {
   config: RetargetConfig;
   onChange: (config: RetargetConfig) => void;
-  onSave: () => void;
-  saving: boolean;
 }
 
 const BaseSettingsWidget: React.FC<BaseSettingsWidgetProps> = ({
   config,
   onChange,
-  onSave,
-  saving,
 }) => {
   const { t } = useTranslation();
 
@@ -105,12 +100,6 @@ const BaseSettingsWidget: React.FC<BaseSettingsWidgetProps> = ({
           </Col>
         </Row>
       </div>
-
-      <Space>
-        <Button type="primary" icon={<SaveOutlined />} onClick={onSave} loading={saving}>
-          {t('configPanel.save')}
-        </Button>
-      </Space>
     </div>
   );
 };

@@ -25,6 +25,7 @@
   "configPanel": {
     "title": "Configuration: {{configName}}",
     "save": "Save",
+    "delete": "Delete",
     "tabs": {
       "baseSettings": "Base Settings",
       "bodyRatio": "Body Ratio",
@@ -57,17 +58,31 @@
     },
     "message": {
       "configSaved": "Config saved",
-      "failedToSaveConfig": "Failed to save config"
+      "failedToSaveConfig": "Failed to save config",
+      "configCreated": "Config created",
+      "failedToCreateConfig": "Failed to create config",
+      "configDeleted": "Config deleted",
+      "failedToDeleteConfig": "Failed to delete config",
+      "noConfigsPleaseCreate": "No configs found. Please create a new config."
     },
     "loading": "Loading...",
     "noData": "No data",
     "humanTrackerPlaceholder": "Enter human tracker names (comma separated)",
     "robotTrackerPlaceholder": "Enter robot tracker names (comma separated)",
-    "bodyName": "Body name"
+    "bodyName": "Body name",
+    "newConfigPlaceholder": "New config name",
+    "selectConfigPlaceholder": "Select config",
+    "deleteConfirmTitle": "Delete Config",
+    "deleteConfirmContent": "Are you sure you want to delete config \"{{name}}\"?"
   },
   "language": {
     "switch": "Language",
     "en": "English",
     "zh": "中文"
+  },
+  "common": {
+    "ok": "OK",
+    "cancel": "Cancel",
+    "confirm": "Confirm"
   }
 }

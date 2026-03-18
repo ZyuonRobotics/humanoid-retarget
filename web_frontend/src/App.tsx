@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { message, Button, Space, Upload } from 'antd';
-import { PlayCircleOutlined, UploadOutlined } from '@ant-design/icons';
+import { message, Button, Space, Upload, Modal } from 'antd';
+import { PlayCircleOutlined, UploadOutlined, SaveOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 
 import TopBar from './components/TopBar';
@@ -75,7 +75,8 @@ const App: React.FC = () => {
       if (data.length > 0) {
         setSelectedConfig(data[0]);
       } else {
-        setSelectedConfig('default');
+        setSelectedConfig('');
+        message.info(t('configPanel.message.noConfigsPleaseCreate'));
       }
     } catch (error) {
       message.error(t('message.failedToLoadConfigs'));
@@ -113,6 +114,39 @@ const App: React.FC = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleCreateConfig = async (name: string) => {
+    try {
+      await configApi.saveConfig(selectedRobot, generatorType, name, config);
+      await loadConfigs();
+      setSelectedConfig(name);
+      message.success(t('configPanel.message.configCreated'));
+    } catch (error) {
+      message.error(t('configPanel.message.failedToCreateConfig'));
+    }
+  };
+
+  const handleDeleteConfig = () => {
+    Modal.confirm({
+      title: t('configPanel.deleteConfirmTitle'),
+      content: t('configPanel.deleteConfirmContent', { name: selectedConfig }),
+      okText: t('common.ok'),
+      cancelText: t('common.cancel'),
+      onOk: async () => {
+        try {
+          await configApi.deleteConfig(selectedRobot, generatorType, selectedConfig);
+          message.success(t('configPanel.message.configDeleted'));
+          await loadConfigs();
+          if (configs.length > 1) {
+            const newConfigs = configs.filter((c) => c !== selectedConfig);
+            setSelectedConfig(newConfigs[0]);
+          }
+        } catch (error) {
+          message.error(t('configPanel.message.failedToDeleteConfig'));
+        }
+      },
+    });
   };
 
   const handleRetarget = async () => {
@@ -156,6 +190,7 @@ const App: React.FC = () => {
         configs={configs}
         selectedConfig={selectedConfig}
         onConfigChange={setSelectedConfig}
+        onCreateConfig={handleCreateConfig}
         activePanel={activePanel}
         onPanelChange={setActivePanel}
         theme={theme}
@@ -170,6 +205,30 @@ const App: React.FC = () => {
       {/* Floating Panels */}
       {activePanel === 'config' && (
         <>
+          {/* Config Action Bar - Top Center */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 70,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 100,
+              background: 'var(--card-background)',
+              borderRadius: 8,
+              padding: '8px 16px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+              display: 'flex',
+              gap: 8,
+            }}
+          >
+            <Button icon={<SaveOutlined />} onClick={saveConfig} loading={saving}>
+              {t('configPanel.save')}
+            </Button>
+            <Button icon={<DeleteOutlined />} onClick={handleDeleteConfig} danger>
+              {t('configPanel.delete')}
+            </Button>
+          </div>
+
           {/* Base Settings Panel - Top Left */}
           <DraggablePanel
             title={t('configPanel.tabs.baseSettings')}
@@ -181,8 +240,6 @@ const App: React.FC = () => {
             <BaseSettingsWidget
               config={config}
               onChange={setConfig}
-              onSave={saveConfig}
-              saving={saving}
             />
           </DraggablePanel>
 
