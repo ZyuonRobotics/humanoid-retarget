@@ -18,7 +18,7 @@ type ThemeType = 'dark' | 'light' | 'ocean' | 'forest' | 'sunset';
 
 const AppContent: React.FC = () => {
   const { t } = useTranslation();
-  const { uploadMotion, handleRetarget } = useMotionContext();
+  const { selectedMotion, uploadMotion, handleRetarget } = useMotionContext();
   const { loading, saving, bodyTree, config, setConfig, saveConfig, handleDeleteConfig } = useConfigContext();
   const [activePanel, setActivePanel] = useState<string>('config');
   const [theme, setTheme] = useState<ThemeType>(() => {
@@ -58,7 +58,7 @@ const AppContent: React.FC = () => {
 
       {/* 3D Background */}
       <div className="viewer-3d-background">
-        <Viewer3D />
+        <Viewer3D sourceFile={selectedMotion} />
       </div>
 
       {/* Floating Panels */}

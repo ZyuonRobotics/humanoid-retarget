@@ -55,8 +55,9 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
           setSelectedRobot(data[0] as string);
         } else {
           // New format
-          setRobots(data as RobotInfo[]);
-          setSelectedRobot((data as RobotInfo[])[0].name);
+          const robots = data as unknown as RobotInfo[];
+          setRobots(robots);
+          setSelectedRobot(robots[0].name);
         }
       }
     } catch (error) {

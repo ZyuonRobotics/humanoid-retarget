@@ -183,6 +183,67 @@ async def upload_motion(file: UploadFile = File(...), generator_type: str = "bvh
     }
 
 
+@router.post("/align-preview")
+async def get_align_preview(
+    source_file: str,
+    robot_name: str,
+    generator_type: str,
+    retarget_config: dict
+):
+    """Get align preview with combined human-robot MJCF and calibrated initial pose."""
+    from humanoid_retargeting.aligner import Aligner
+    from humanoid_retargeting.utils.retarget_config import RetargetConfig, TrackerConfig
+
+    motion_path = Path(DATA_PATH) / source_file
+    if not motion_path.exists():
+        raise HTTPException(status_code=404, detail="Motion file not found")
+
+    # Convert retarget_config dict to RetargetConfig object
+    tracker_dict = {}
+    for key, tracker_data in retarget_config.get('tracker_dict', {}).items():
+        tracker_dict[key] = TrackerConfig(
+            human=tracker_data['human'],
+            robot=tracker_data['robot'],
+            position_cost=tracker_data['position_cost'],
+            orientation_cost=tracker_data['orientation_cost']
+        )
+
+    config = RetargetConfig(
+        base_x_shift=retarget_config.get('base_x_shift', 0.0),
+        base_y_shift=retarget_config.get('base_y_shift', 0.0),
+        base_rotation=retarget_config.get('base_rotation', [0.0, 0.0, 0.0]),
+        body_rotate_dict=retarget_config.get('body_rotate_dict', {}),
+        extra_body_ratio=retarget_config.get('extra_body_ratio', [1.0, 1.0, 1.0]),
+        relative_body_ratio_dict=retarget_config.get('relative_body_ratio_dict', {}),
+        damping_cost=retarget_config.get('damping_cost', 5.0),
+        tracker_dict=tracker_dict
+    )
+
+    try:
+        aligner = Aligner(
+            source_file_path=str(motion_path),
+            robot_name=robot_name,
+            generator_type=generator_type,
+            config_name=None,
+            view=False
+        )
+
+        # Reload mujoco with provided config
+        aligner.load_mujoco(retarget_config=config)
+
+        # Get calibrated qpos (this computes the aligned pose)
+        qpos = aligner.cali_qpos.tolist()
+
+        return {
+            "xml": aligner.generator.xml_str,
+            "qpos": qpos,
+            "body_names": aligner.generator.all_body_names,
+            "global_body_ratio": aligner.global_body_ratio
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/frame/{output_name}/{frame_id}")
 async def get_frame_data(output_name: str, frame_id: int):
     """Get frame data for visualization."""

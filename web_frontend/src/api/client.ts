@@ -31,6 +31,13 @@ export const configApi = {
     client.get(`/config/${robotName}/${generatorType}/body-tree`).then(res => res.data),
 };
 
+export interface AlignPreviewResponse {
+  xml: string;
+  qpos: number[];
+  body_names: string[];
+  global_body_ratio: number;
+}
+
 // Model API
 export const modelApi = {
   listMotions: (generatorType: string) =>
@@ -49,6 +56,11 @@ export const modelApi = {
 
   getRobotMJCF: (robotName: string) =>
     client.get(`/model/mjcf/${robotName}`).then(res => res.data),
+
+  getAlignPreview: (sourceFile: string, robotName: string, generatorType: string, retargetConfig: RetargetConfig) =>
+    client.post<AlignPreviewResponse>('/model/align-preview', retargetConfig, {
+      params: { source_file: sourceFile, robot_name: robotName, generator_type: generatorType }
+    }).then(res => res.data),
 
   getFrameData: (outputName: string, frameId: number) =>
     client.get(`/model/frame/${outputName}/${frameId}`).then(res => res.data),
