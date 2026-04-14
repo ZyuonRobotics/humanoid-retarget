@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button, Space, Upload } from 'antd';
-import { PlayCircleOutlined, UploadOutlined, SaveOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlayCircleOutlined, UploadOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 
 import TopBar from './components/TopBar';
@@ -18,8 +18,8 @@ type ThemeType = 'dark' | 'light' | 'ocean' | 'forest' | 'sunset';
 
 const AppContent: React.FC = () => {
   const { t } = useTranslation();
-  const { selectedMotion, setSelectedMotion, uploadMotion, handleRetarget } = useMotionContext();
-  const { loading, saving, bodyTree, config, setConfig, saveConfig, handleDeleteConfig, selectedMotionFile, setSelectedMotionFile, loadBodyTree, generatorType } = useConfigContext();
+  const { selectedMotion, uploadMotion, handleRetarget } = useMotionContext();
+  const { loading, bodyTree, config, setConfig } = useConfigContext();
   const [activePanel, setActivePanel] = useState<string>('config');
   const [theme, setTheme] = useState<ThemeType>(() => {
     const saved = localStorage.getItem('theme');
@@ -64,16 +64,6 @@ const AppContent: React.FC = () => {
       {/* Floating Panels */}
       {activePanel === 'config' && (
         <>
-          {/* Config Action Bar - Top Center */}
-          <div className="config-action-bar">
-            <Button icon={<SaveOutlined />} onClick={saveConfig} loading={saving}>
-              {t('configPanel.save')}
-            </Button>
-            <Button icon={<DeleteOutlined />} onClick={handleDeleteConfig} danger>
-              {t('configPanel.delete')}
-            </Button>
-          </div>
-
           {/* Base Settings Panel - Top Left */}
           <ErrorBoundary>
             <DraggablePanel

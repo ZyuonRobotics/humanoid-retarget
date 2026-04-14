@@ -58,7 +58,7 @@ body {
   z-index: var(--z-topbar);
   display: flex;
   flex-direction: column;
-  padding: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
   background: var(--color-bg-elevated);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
@@ -71,6 +71,7 @@ body {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
+  min-height: 38px;
 }
 
 .topbar-section {
@@ -81,18 +82,25 @@ body {
 
 .topbar-divider {
   width: 1px;
-  height: 24px;
+  height: 20px;
   background: var(--color-border);
-  margin: 0 var(--spacing-xs);
+  margin: 0 var(--spacing-sm);
+  flex-shrink: 0;
 }
 
 .topbar-logo {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  padding: var(--spacing-xs) var(--spacing-md);
+  padding: var(--spacing-xs) var(--spacing-sm);
   font-weight: var(--font-weight-semibold);
   font-size: var(--font-size-md);
+  color: var(--color-text-primary);
+  letter-spacing: 0.01em;
+}
+
+.topbar-logo .anticon {
+  opacity: 0.7;
 }
 
 .topbar-button {
@@ -121,7 +129,34 @@ body {
   color: var(--color-bg-base);
 }
 
-/* Draggable Panels */
+.topbar-row-separator {
+  height: 1px;
+  width: 100%;
+  background: var(--color-border);
+  margin: var(--spacing-sm) 0;
+}
+
+.motion-file-btn {
+  width: 180px;
+  display: inline-flex !important;
+  align-items: center;
+  overflow: hidden;
+}
+
+.motion-file-btn .ant-btn-icon {
+  flex-shrink: 0;
+}
+
+.motion-file-btn-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+
 .draggable-panel {
   position: absolute;
   z-index: var(--z-panel);

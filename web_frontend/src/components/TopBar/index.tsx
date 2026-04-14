@@ -12,12 +12,13 @@ import {
   FolderOutlined,
   CloseOutlined,
   RightOutlined,
+  SaveOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useConfigContext } from '../../contexts/ConfigContext';
 import { useMotionContext } from '../../contexts/MotionContext';
 import { modelApi, MotionTreeNode, MotionFileInfo } from '../../api/client';
-import { MotionInfo } from '../../types/config';
 import './FileSelector.css';
 
 interface FolderInfo {
@@ -61,31 +62,19 @@ const TopBar: React.FC<TopBarProps> = ({
     setSelectedConfig,
     handleCreateConfig,
     loadBodyTree,
+    saveConfig,
+    handleDeleteConfig,
+    saving,
   } = useConfigContext();
   const { setSelectedMotion } = useMotionContext();
   const [isCreatingConfig, setIsCreatingConfig] = useState(false);
   const [newConfigName, setNewConfigName] = useState('');
-  const [motions, setMotions] = useState<MotionInfo[]>([]);
 
   // File selector popover state
   const [fileSelectorOpen, setFileSelectorOpen] = useState(false);
   const [motionTree, setMotionTree] = useState<Record<string, MotionTreeNode> | null>(null);
   const [columns, setColumns] = useState<ColumnData[]>([]);
   const [treeLoading, setTreeLoading] = useState(false);
-
-  // Fetch motion files when generator type changes
-  useEffect(() => {
-    const fetchMotions = async () => {
-      try {
-        const data = await modelApi.listMotions(generatorType);
-        setMotions(data);
-      } catch (error) {
-        console.error('Failed to load motions', error);
-        setMotions([]);
-      }
-    };
-    fetchMotions();
-  }, [generatorType]);
 
   // Load motion tree when file selector opens
   useEffect(() => {
@@ -148,12 +137,6 @@ const TopBar: React.FC<TopBarProps> = ({
     setFileSelectorOpen(false);
   };
 
-  const handleColumnClick = (columnIndex: number) => {
-    if (columnIndex < columns.length - 1) {
-      setColumns(prev => prev.slice(0, columnIndex + 1));
-    }
-  };
-
   const changeLanguage = (lang: string) => {
     localStorage.setItem('i18nextLng', lang);
     i18n.changeLanguage(lang);
@@ -184,17 +167,12 @@ const TopBar: React.FC<TopBarProps> = ({
     }
   };
 
-  const handleMotionChange = (filename: string) => {
-    setSelectedMotionFile(filename);
-    setSelectedMotion(filename);
-    loadBodyTree(filename);
-  };
-
   const handleGeneratorTypeChange = (type: string) => {
     setGeneratorType(type);
     setSelectedMotionFile('');
     setSelectedMotion('');
-    setMotions([]);
+    setMotionTree(null);
+    setColumns([]);
   };
 
   // Convert robots to options - handle both string[] and RobotInfo[]
@@ -202,15 +180,11 @@ const TopBar: React.FC<TopBarProps> = ({
     typeof r === 'string' ? { value: r, label: r } : { value: r.name, label: r.name }
   );
 
-  // Motion file options based on generator type
-  const motionOptions = motions.map((m) => ({ value: m.filename, label: m.filename }));
-
   return (
     <>
     <div className="topbar">
-      {/* Row 1: Logo | Robot | Generator Type | Motion File | Config */}
+      {/* Row 1: Logo | Config/3D Viewer toggles | Theme & Language */}
       <div className="topbar-row">
-        {/* Logo Section */}
         <div className="topbar-section">
           <div className="topbar-logo">
             <RobotOutlined />
@@ -220,7 +194,39 @@ const TopBar: React.FC<TopBarProps> = ({
 
         <div className="topbar-divider" />
 
-        {/* Robot Selection */}
+        <div className="topbar-section">
+          <Button
+            type={activePanel === 'config' ? 'primary' : 'text'}
+            icon={<SettingOutlined />}
+            onClick={() => onPanelChange('config')}
+          >
+            {t('menu.configuration')}
+          </Button>
+          <Button
+            type={activePanel === 'viewer' ? 'primary' : 'text'}
+            icon={<PlayCircleOutlined />}
+            onClick={() => onPanelChange('viewer')}
+          >
+            {t('menu.3dViewer')}
+          </Button>
+        </div>
+
+        <div className="topbar-divider" />
+
+        <div className="topbar-section">
+          <Dropdown menu={themeMenu} trigger={['click']}>
+            <Button type="text">{t('theme.' + theme)}</Button>
+          </Dropdown>
+          <Dropdown menu={languageMenu} trigger={['click']}>
+            <Button type="text" icon={<GlobalOutlined />} />
+          </Dropdown>
+        </div>
+      </div>
+
+      <div className="topbar-row-separator" />
+
+      {/* Row 2: Robot | Generator Type | Motion File */}
+      <div className="topbar-row">
         <div className="topbar-section">
           <Select
             value={selectedRobot}
@@ -231,7 +237,6 @@ const TopBar: React.FC<TopBarProps> = ({
           />
         </div>
 
-        {/* Generator Type */}
         <div className="topbar-section">
           <Select
             value={generatorType}
@@ -244,20 +249,25 @@ const TopBar: React.FC<TopBarProps> = ({
           />
         </div>
 
-        {/* Motion File Selection */}
         <div className="topbar-section">
           <Button
-            style={{ width: 160 }}
+            className="motion-file-btn"
             icon={<FileOutlined />}
             onClick={() => setFileSelectorOpen(true)}
           >
-            {selectedMotionFile
-              ? selectedMotionFile.split('/').pop()
-              : t('configPanel.selectMotionPlaceholder')}
+            <span className="motion-file-btn-text">
+              {selectedMotionFile
+                ? selectedMotionFile.split('/').pop()
+                : t('configPanel.selectMotionPlaceholder')}
+            </span>
           </Button>
         </div>
+      </div>
 
-        {/* Config Selection */}
+      <div className="topbar-row-separator" />
+
+      {/* Row 3: Config selector | Add | Save | Delete */}
+      <div className="topbar-row">
         <div className="topbar-section">
           {isCreatingConfig ? (
             <Input
@@ -290,40 +300,16 @@ const TopBar: React.FC<TopBarProps> = ({
             style={{ marginLeft: 4 }}
           />
         </div>
-      </div>
-
-      <div className="topbar-divider" />
-
-      {/* Row 2: Panel Toggles | Theme & Language */}
-      <div className="topbar-row">
-        {/* Panel Toggles */}
-        <div className="topbar-section">
-          <Button
-            type={activePanel === 'config' ? 'primary' : 'text'}
-            icon={<SettingOutlined />}
-            onClick={() => onPanelChange('config')}
-          >
-            {t('menu.configuration')}
-          </Button>
-          <Button
-            type={activePanel === 'viewer' ? 'primary' : 'text'}
-            icon={<PlayCircleOutlined />}
-            onClick={() => onPanelChange('viewer')}
-          >
-            {t('menu.3dViewer')}
-          </Button>
-        </div>
 
         <div className="topbar-divider" />
 
-        {/* Theme & Language */}
         <div className="topbar-section">
-          <Dropdown menu={themeMenu} trigger={['click']}>
-            <Button type="text">{t('theme.' + theme)}</Button>
-          </Dropdown>
-          <Dropdown menu={languageMenu} trigger={['click']}>
-            <Button type="text" icon={<GlobalOutlined />} />
-          </Dropdown>
+          <Button icon={<SaveOutlined />} onClick={saveConfig} loading={saving}>
+            {t('configPanel.save')}
+          </Button>
+          <Button icon={<DeleteOutlined />} onClick={handleDeleteConfig} danger>
+            {t('configPanel.delete')}
+          </Button>
         </div>
       </div>
     </div>
