@@ -17,27 +17,6 @@ from web_backend.api.schemas import MotionInfo
 router = APIRouter(prefix="/api/model", tags=["model"])
 
 
-@router.get("/motions/{generator_type}", response_model=list[MotionInfo])
-async def list_motions(generator_type: str):
-    """List available motion files."""
-    motions = []
-
-    data_path = Path(GENERATOR_TYPE_TO_DATA_PATH.get(generator_type, DATA_PATH))
-    if not data_path.exists():
-        return []
-
-    ext = PLAYER_FILE_SUFFIXES.get(generator_type, generator_type)
-
-    for motion_file in data_path.rglob(f"*.{ext}"):
-        info = MotionInfo(
-            filename=str(motion_file.relative_to(data_path)),
-            type=generator_type
-        )
-        motions.append(info)
-
-    return motions
-
-
 @router.get("/motions/tree")
 async def list_motions_tree():
     """Return nested motion file tree structure."""
@@ -67,6 +46,27 @@ def _scan_directory(path: Path, root_path: Path) -> dict:
         elif item.is_dir():
             result["subdirs"][item.name] = _scan_directory(item, root_path)
     return result
+
+
+@router.get("/motions/{generator_type}", response_model=list[MotionInfo])
+async def list_motions(generator_type: str):
+    """List available motion files."""
+    motions = []
+
+    data_path = Path(GENERATOR_TYPE_TO_DATA_PATH.get(generator_type, DATA_PATH))
+    if not data_path.exists():
+        return []
+
+    ext = PLAYER_FILE_SUFFIXES.get(generator_type, generator_type)
+
+    for motion_file in data_path.rglob(f"*.{ext}"):
+        info = MotionInfo(
+            filename=str(motion_file.relative_to(data_path)),
+            type=generator_type
+        )
+        motions.append(info)
+
+    return motions
 
 
 @router.get("/motions/{generator_type}/{filename}")
