@@ -95,7 +95,7 @@ const AppContent: React.FC = () => {
             <DraggablePanel
               title={t('configPanel.tabs.retargetingParams')}
               defaultX={560}
-              defaultY={100}
+              defaultY={250}
               defaultWidth={510}
               defaultHeight={540}
             >

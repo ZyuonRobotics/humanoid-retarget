@@ -65,7 +65,9 @@
     "button": {
       "addBodyRotation": "Add Body Rotation",
       "addRelativeBodyRatio": "Add Relative Body Ratio",
-      "addTracker": "Add Tracker"
+      "addTracker": "Add Tracker",
+      "addTrackerGroup": "Add Tracker Group",
+      "addPair": "Add Pair"
     },
     "message": {
       "configSaved": "Config saved",
@@ -80,6 +82,11 @@
     "noData": "No data",
     "humanTrackerPlaceholder": "Enter human tracker names (comma separated)",
     "robotTrackerPlaceholder": "Enter robot tracker names (comma separated)",
+    "modal": {
+      "addPair": "Add Tracker Pair",
+      "selectHumanBody": "Select human body",
+      "selectRobotBody": "Select robot body"
+    },
     "bodyName": "Body name",
     "newConfigPlaceholder": "New config name",
     "selectConfigPlaceholder": "Select config",

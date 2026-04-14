@@ -563,3 +563,120 @@ input::placeholder,
 .ant-tree .ant-tree-treenode-empty-text .ant-tree-node-content-wrapper {
   color: var(--color-text-tertiary) !important;
 }
+
+/* Table dark mode styles */
+.ant-table {
+  background: transparent !important;
+  color: var(--color-text-primary) !important;
+}
+
+.ant-table-thead > tr > th {
+  background: var(--color-bg-hover) !important;
+  color: var(--color-text-secondary) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  border-right: none !important;
+}
+
+.ant-table-tbody > tr > td {
+  background: transparent !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  border-right: none !important;
+  color: var(--color-text-primary) !important;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: var(--color-bg-hover) !important;
+}
+
+.ant-table-wrapper .ant-table-container table tbody tr td:first-child {
+  border-left: none;
+}
+
+.ant-table-wrapper .ant-table-container table thead tr th:first-child {
+  border-left: none;
+}
+
+/* Tracker Pairs Table - custom layout without vertical lines */
+.tracker-pairs-table {
+  width: 100%;
+}
+
+.tracker-pairs-header {
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 4px;
+  gap: 8px;
+}
+
+.tracker-pairs-row {
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--color-border);
+  gap: 8px;
+}
+
+.tracker-pairs-row:last-child {
+  border-bottom: none;
+}
+
+.tracker-pair-cell {
+  display: flex;
+  align-items: center;
+}
+
+.tracker-pair-input {
+  flex: 1;
+}
+
+.tracker-pair-action {
+  flex-shrink: 0;
+  width: auto;
+}
+
+/* Modal dark mode styles */
+.ant-modal-content {
+  background: var(--color-bg-elevated) !important;
+  backdrop-filter: blur(var(--glass-blur)) !important;
+  -webkit-backdrop-filter: blur(var(--glass-blur)) !important;
+  border: 1px solid var(--color-border) !important;
+}
+
+.ant-modal-header {
+  background: transparent !important;
+  border-bottom: 1px solid var(--color-border) !important;
+}
+
+.ant-modal-title {
+  color: var(--color-text-primary) !important;
+}
+
+.ant-modal-close-x {
+  color: var(--color-text-secondary) !important;
+}
+
+.ant-modal-footer {
+  border-top: 1px solid var(--color-border) !important;
+}
+
+/* Danger button text - dark mode */
+.ant-btn-text.ant-btn-dangerous {
+  color: #ff4d4f !important;
+}
+
+.ant-btn-text.ant-btn-dangerous:hover {
+  background: var(--color-bg-hover) !important;
+  color: #ff7875 !important;
+}
+
+/* Table row delete button visibility */
+.ant-table-cell .ant-btn-text.ant-btn-dangerous {
+  color: #ff4d4f !important;
+}
+
+.ant-table-cell .ant-btn-text.ant-btn-dangerous:hover {
+  background: var(--color-bg-hover) !important;
+  color: #ff7875 !important;
+}

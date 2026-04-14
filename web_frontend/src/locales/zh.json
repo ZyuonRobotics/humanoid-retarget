@@ -65,7 +65,9 @@
     "button": {
       "addBodyRotation": "添加身体旋转",
       "addRelativeBodyRatio": "添加相对身体比例",
-      "addTracker": "添加追踪器"
+      "addTracker": "添加追踪器",
+      "addTrackerGroup": "添加追踪器组",
+      "addPair": "添加配对"
     },
     "message": {
       "configSaved": "配置已保存",
@@ -80,6 +82,11 @@
     "noData": "无数据",
     "humanTrackerPlaceholder": "输入人体追踪器名称（逗号分隔）",
     "robotTrackerPlaceholder": "输入机器人追踪器名称（逗号分隔）",
+    "modal": {
+      "addPair": "添加追踪器配对",
+      "selectHumanBody": "选择人体部位",
+      "selectRobotBody": "选择机器人部位"
+    },
     "bodyName": "身体名称",
     "newConfigPlaceholder": "新配置名称",
     "selectConfigPlaceholder": "选择配置",
