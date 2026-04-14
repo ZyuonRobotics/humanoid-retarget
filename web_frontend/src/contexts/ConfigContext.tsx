@@ -102,6 +102,7 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
       setBodyTree(data);
     } catch (error) {
       console.error('Failed to load body tree', error);
+      setBodyTree({ human: { error: 'Failed to load body tree' } });
     }
   }, [selectedRobot, generatorType]);
 
@@ -163,9 +164,9 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
   useEffect(() => {
     if (selectedRobot && generatorType && selectedConfig) {
       loadConfig();
-      loadBodyTree();
+      loadBodyTree(selectedMotionFile || undefined);
     }
-  }, [selectedRobot, generatorType, selectedConfig, loadConfig, loadBodyTree]);
+  }, [selectedRobot, generatorType, selectedConfig, selectedMotionFile, loadConfig, loadBodyTree]);
 
   return (
     <ConfigContext.Provider

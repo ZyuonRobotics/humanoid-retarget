@@ -13,8 +13,6 @@ export interface BodyTreeNode {
 export interface HumanBodyInfo {
   note?: string;
   error?: string;
-  name?: string;
-  children?: BodyTreeNode[];
 }
 
 export interface BodyTree {

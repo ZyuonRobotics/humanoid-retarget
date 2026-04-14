@@ -91,6 +91,7 @@
     "newConfigPlaceholder": "New config name",
     "selectConfigPlaceholder": "Select config",
     "selectMotionPlaceholder": "Select motion file",
+    "selectMotionFileHint": "Please select a motion file to view human body structure",
     "deleteConfirmTitle": "Delete Config",
     "deleteConfirmContent": "Are you sure you want to delete config \"{{name}}\"?"
   },

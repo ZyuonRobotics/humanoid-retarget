@@ -45,7 +45,7 @@ const BodyTreeWidget: React.FC<{ bodyTree: BodyTree }> = ({ bodyTree }) => {
         return <div className="text-error">{bodyTree.human.error}</div>;
       }
       if (bodyTree.human.note) {
-        return <div className="text-secondary">{bodyTree.human.note}</div>;
+        return <div className="text-secondary">{t(bodyTree.human.note)}</div>;
       }
     }
 

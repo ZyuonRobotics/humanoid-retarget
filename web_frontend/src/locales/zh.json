@@ -91,6 +91,7 @@
     "newConfigPlaceholder": "新配置名称",
     "selectConfigPlaceholder": "选择配置",
     "selectMotionPlaceholder": "选择动作文件",
+    "selectMotionFileHint": "请选择动作文件以查看人体结构",
     "deleteConfirmTitle": "删除配置",
     "deleteConfirmContent": "确定要删除配置 \"{{name}}\" 吗？"
   },

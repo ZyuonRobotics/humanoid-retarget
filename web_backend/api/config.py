@@ -41,11 +41,11 @@ async def get_robots():
 async def get_body_tree(
     robot_name: str,
     generator_type: str,
-    motion_file: Optional[str] = Query(None, description="Optional motion file path for human body tree")
+    motion_file: Optional[str] = Query(None, description="Motion file path for human body tree")
 ):
     """Get body tree structure for human and robot."""
     result = {
-        "human": get_human_body_tree(generator_type, motion_file),
+        "human": get_human_body_tree(generator_type, motion_file) if motion_file else {"note": "configPanel.selectMotionFileHint"},
         "robot": get_robot_body_tree(robot_name)
     }
     return result
