@@ -44,3 +44,6 @@ from humanoid_retargeting.utils.retarget_config import (
     RetargetConfig,
     TrackerConfig,
 )
+
+# Import motion player file suffixes
+from humanoid_retargeting.motion_player import PLAYER_FILE_SUFFIXES

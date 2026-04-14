@@ -10,6 +10,7 @@ import BaseSettingsWidget from './components/Widgets/BaseSettingsWidget';
 import HumanSettingsWidget from './components/Widgets/BodyRotateWidget';
 import TrackersWidget from './components/Widgets/TrackersWidget';
 import BodyTreeWidget from './components/Widgets/BodyTreeWidget';
+import FileBrowserWidget from './components/Widgets/FileBrowserWidget';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ConfigProvider, useConfigContext } from './contexts/ConfigContext';
 import { MotionProvider, useMotionContext } from './contexts/MotionContext';
@@ -18,8 +19,8 @@ type ThemeType = 'dark' | 'light' | 'ocean' | 'forest' | 'sunset';
 
 const AppContent: React.FC = () => {
   const { t } = useTranslation();
-  const { selectedMotion, uploadMotion, handleRetarget } = useMotionContext();
-  const { loading, saving, bodyTree, config, setConfig, saveConfig, handleDeleteConfig } = useConfigContext();
+  const { selectedMotion, setSelectedMotion, uploadMotion, handleRetarget } = useMotionContext();
+  const { loading, saving, bodyTree, config, setConfig, saveConfig, handleDeleteConfig, selectedMotionFile, setSelectedMotionFile, loadBodyTree, generatorType } = useConfigContext();
   const [activePanel, setActivePanel] = useState<string>('config');
   const [theme, setTheme] = useState<ThemeType>(() => {
     const saved = localStorage.getItem('theme');
@@ -123,6 +124,27 @@ const AppContent: React.FC = () => {
               defaultHeight="calc(100vh - 80px)"
             >
               <BodyTreeWidget bodyTree={bodyTree} />
+            </DraggablePanel>
+          </ErrorBoundary>
+
+          {/* File Browser Panel - Left of Body Tree */}
+          <ErrorBoundary>
+            <DraggablePanel
+              title={t('fileBrowser.title')}
+              defaultX={containerWidth - 920}
+              defaultY={60}
+              defaultWidth={450}
+              defaultHeight="calc(100vh - 80px)"
+            >
+              <FileBrowserWidget
+                generatorType={generatorType as 'bvh' | 'smpl'}
+                onFileSelect={(relativePath, _filename) => {
+                  setSelectedMotionFile(relativePath);
+                  setSelectedMotion(relativePath);
+                  loadBodyTree(relativePath);
+                }}
+                selectedFile={selectedMotionFile}
+              />
             </DraggablePanel>
           </ErrorBoundary>
 

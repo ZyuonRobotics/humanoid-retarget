@@ -10,7 +10,7 @@ from typing import Optional
 import numpy as np
 from fastapi import APIRouter, HTTPException, UploadFile, File
 
-from humanoid_retargeting import DATA_PATH, RETARGETING_PATH
+from humanoid_retargeting import DATA_PATH, RETARGETING_PATH, GENERATOR_TYPE_TO_DATA_PATH, PLAYER_FILE_SUFFIXES
 from humanoid_retargeting.mjcf_generator import generator_class
 from web_backend.api.schemas import MotionInfo
 
@@ -22,13 +22,15 @@ async def list_motions(generator_type: str):
     """List available motion files."""
     motions = []
 
-    data_path = Path(DATA_PATH)
+    data_path = Path(GENERATOR_TYPE_TO_DATA_PATH.get(generator_type, DATA_PATH))
     if not data_path.exists():
         return []
 
-    for motion_file in data_path.glob(f"*.{generator_type}"):
+    ext = PLAYER_FILE_SUFFIXES.get(generator_type, generator_type)
+
+    for motion_file in data_path.rglob(f"*.{ext}"):
         info = MotionInfo(
-            filename=motion_file.name,
+            filename=str(motion_file.relative_to(data_path)),
             type=generator_type
         )
         motions.append(info)
@@ -36,10 +38,41 @@ async def list_motions(generator_type: str):
     return motions
 
 
+@router.get("/motions/tree")
+async def list_motions_tree():
+    """Return nested motion file tree structure."""
+    tree = {}
+
+    for gen_type, data_path in GENERATOR_TYPE_TO_DATA_PATH.items():
+        tree[gen_type] = _scan_directory(Path(data_path), DATA_PATH)
+
+    return tree
+
+
+def _scan_directory(path: Path, root_path: Path) -> dict:
+    """Recursively scan directory for motion files."""
+    result = {"motions": [], "subdirs": {}}
+    if not path.exists():
+        return result
+
+    for item in sorted(path.iterdir()):
+        if item.is_file():
+            ext = item.suffix.lower()
+            if ext in ('.bvh', '.npz'):
+                result["motions"].append({
+                    "filename": item.name,
+                    "relative_path": str(item.relative_to(root_path)),
+                    "type": ext.lstrip('.')
+                })
+        elif item.is_dir():
+            result["subdirs"][item.name] = _scan_directory(item, root_path)
+    return result
+
+
 @router.get("/motions/{generator_type}/{filename}")
 async def get_motion_info(generator_type: str, filename: str):
     """Get detailed info about a motion file."""
-    motion_path = Path(DATA_PATH) / f"{filename}"
+    motion_path = Path(GENERATOR_TYPE_TO_DATA_PATH.get(generator_type, DATA_PATH)) / f"{filename}"
 
     if not motion_path.exists():
         raise HTTPException(status_code=404, detail="Motion file not found")

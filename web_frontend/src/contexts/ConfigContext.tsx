@@ -10,6 +10,8 @@ interface ConfigContextType {
   setSelectedRobot: (robot: string) => void;
   generatorType: string;
   setGeneratorType: (type: string) => void;
+  selectedMotionFile: string;
+  setSelectedMotionFile: (motion: string) => void;
   configs: string[];
   selectedConfig: string;
   setSelectedConfig: (config: string) => void;
@@ -21,6 +23,7 @@ interface ConfigContextType {
   loadRobots: () => Promise<void>;
   loadConfigs: () => Promise<void>;
   loadConfig: () => Promise<void>;
+  loadBodyTree: (motionFile?: string) => Promise<void>;
   saveConfig: () => Promise<void>;
   handleCreateConfig: (name: string) => Promise<void>;
   handleDeleteConfig: () => void;
@@ -37,6 +40,7 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
   const [robots, setRobots] = useState<RobotInfo[]>([]);
   const [selectedRobot, setSelectedRobot] = useState<string>('');
   const [generatorType, setGeneratorType] = useState<string>('bvh');
+  const [selectedMotionFile, setSelectedMotionFile] = useState<string>('');
   const [configs, setConfigs] = useState<string[]>([]);
   const [selectedConfig, setSelectedConfig] = useState<string>('default');
   const [config, setConfig] = useState<RetargetConfig>(defaultRetargetConfig);
@@ -92,9 +96,9 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
     }
   }, [selectedRobot, generatorType, selectedConfig]);
 
-  const loadBodyTree = useCallback(async () => {
+  const loadBodyTree = useCallback(async (motionFile?: string) => {
     try {
-      const data = await configApi.getBodyTree(selectedRobot, generatorType);
+      const data = await configApi.getBodyTree(selectedRobot, generatorType, motionFile);
       setBodyTree(data);
     } catch (error) {
       console.error('Failed to load body tree', error);
@@ -171,6 +175,8 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
         setSelectedRobot,
         generatorType,
         setGeneratorType,
+        selectedMotionFile,
+        setSelectedMotionFile,
         configs,
         selectedConfig,
         setSelectedConfig,
@@ -182,6 +188,7 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
         loadRobots,
         loadConfigs,
         loadConfig,
+        loadBodyTree,
         saveConfig,
         handleCreateConfig,
         handleDeleteConfig,

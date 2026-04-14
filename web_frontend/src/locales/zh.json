@@ -83,6 +83,7 @@
     "bodyName": "身体名称",
     "newConfigPlaceholder": "新配置名称",
     "selectConfigPlaceholder": "选择配置",
+    "selectMotionPlaceholder": "选择动作文件",
     "deleteConfirmTitle": "删除配置",
     "deleteConfirmContent": "确定要删除配置 \"{{name}}\" 吗？"
   },
@@ -102,5 +103,13 @@
     "ok": "确定",
     "cancel": "取消",
     "confirm": "确认"
+  },
+  "fileBrowser": {
+    "title": "动作文件",
+    "folders": "文件夹",
+    "rootFiles": "文件",
+    "files": "个文件",
+    "emptyFolder": "此文件夹为空",
+    "noFiles": "未找到动作文件"
   }
 }

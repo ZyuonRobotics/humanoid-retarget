@@ -13,11 +13,13 @@ export interface BodyTreeNode {
 export interface HumanBodyInfo {
   note?: string;
   error?: string;
+  name?: string;
+  children?: BodyTreeNode[];
 }
 
 export interface BodyTree {
   robot?: BodyTreeNode[];
-  human?: HumanBodyInfo;
+  human?: HumanBodyInfo | BodyTreeNode[];
 }
 
 export interface TrackerConfig {

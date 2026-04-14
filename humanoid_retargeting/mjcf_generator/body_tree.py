@@ -26,28 +26,39 @@ def build_body_tree(joint_names: List[str], joint_parents: List[int], parent_idx
     return tree
 
 
-def get_human_body_tree(generator_type: str) -> Dict[str, Any]:
+def get_human_body_tree(generator_type: str, file_path: str = None) -> Dict[str, Any]:
     """Get human body tree for a generator type.
 
     Args:
         generator_type: Either "smpl" or "bvh"
+        file_path: Optional path to motion file. If provided, uses Player to get
+                   the actual skeleton structure. Required for BVH, can be used for SMPL too.
 
     Returns:
         Dict with human body tree or error message
     """
-    from humanoid_retargeting.mjcf_generator import generator_class
-    from humanoid_retargeting.mjcf_generator.constants import SMPL_JOINT_NAMES, SMPL_JOINT_PARENTS
-
-    if generator_type not in generator_class:
+    if generator_type not in ["smpl", "bvh"]:
         return {"error": f"Unknown generator type: {generator_type}"}
 
-    if generator_type == "smpl":
-        # Use default SMPL joint names and parents
-        return build_body_tree(SMPL_JOINT_NAMES, SMPL_JOINT_PARENTS)
+    if file_path:
+        # Use Player to get the actual skeleton structure from the motion file
+        if generator_type == "smpl":
+            from humanoid_retargeting.motion_player import SMPLPlayer
+            player = SMPLPlayer.from_source_file_path(file_path)
+        elif generator_type == "bvh":
+            from humanoid_retargeting.motion_player import BVHPlayer
+            player = BVHPlayer.from_source_file_path(file_path)
+
+        return build_body_tree(player.generator.joint_names, player.generator.joint_parents.tolist())
     else:
-        return {
-            "note": f"Human body structure for {generator_type} requires a motion file to be loaded"
-        }
+        # Without a file, SMPL can use default constants, but BVH cannot
+        if generator_type == "smpl":
+            from humanoid_retargeting.mjcf_generator.constants import SMPL_JOINT_NAMES, SMPL_JOINT_PARENTS
+            return build_body_tree(SMPL_JOINT_NAMES, SMPL_JOINT_PARENTS)
+        else:
+            return {
+                "note": f"Human body structure for {generator_type} requires a motion file to be loaded"
+            }
 
 
 def get_robot_body_tree(robot_name: str) -> Dict[str, Any]:

@@ -83,6 +83,7 @@
     "bodyName": "Body name",
     "newConfigPlaceholder": "New config name",
     "selectConfigPlaceholder": "Select config",
+    "selectMotionPlaceholder": "Select motion file",
     "deleteConfirmTitle": "Delete Config",
     "deleteConfirmContent": "Are you sure you want to delete config \"{{name}}\"?"
   },
@@ -102,5 +103,13 @@
     "ok": "OK",
     "cancel": "Cancel",
     "confirm": "Confirm"
+  },
+  "fileBrowser": {
+    "title": "Motion Files",
+    "folders": "Folders",
+    "rootFiles": "Files",
+    "files": "files",
+    "emptyFolder": "This folder is empty",
+    "noFiles": "No motion files found"
   }
 }

@@ -1,8 +1,8 @@
 """Configuration API endpoints."""
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, Query
 
 from humanoid_retargeting import CONFIGS_PATH, get_human_body_tree, get_robot_body_tree
 from humanoid_retargeting.utils.retarget_config import RetargetConfig, TrackerConfig
@@ -38,10 +38,14 @@ async def get_robots():
 
 
 @router.get("/{robot_name}/{generator_type}/body-tree", response_model=Dict)
-async def get_body_tree(robot_name: str, generator_type: str):
+async def get_body_tree(
+    robot_name: str,
+    generator_type: str,
+    motion_file: Optional[str] = Query(None, description="Optional motion file path for human body tree")
+):
     """Get body tree structure for human and robot."""
     result = {
-        "human": get_human_body_tree(generator_type),
+        "human": get_human_body_tree(generator_type, motion_file),
         "robot": get_robot_body_tree(robot_name)
     }
     return result

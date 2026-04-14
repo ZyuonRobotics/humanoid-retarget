@@ -27,8 +27,10 @@ export const configApi = {
   deleteConfig: (robotName: string, generatorType: string, configName: string) =>
     client.delete(`/config/${robotName}/${generatorType}/${configName}`),
 
-  getBodyTree: (robotName: string, generatorType: string) =>
-    client.get(`/config/${robotName}/${generatorType}/body-tree`).then(res => res.data),
+  getBodyTree: (robotName: string, generatorType: string, motionFile?: string) =>
+    client.get(`/config/${robotName}/${generatorType}/body-tree`, {
+      params: motionFile ? { motion_file: motionFile } : {}
+    }).then(res => res.data),
 };
 
 export interface AlignPreviewResponse {
@@ -38,10 +40,25 @@ export interface AlignPreviewResponse {
   global_body_ratio: number;
 }
 
+// Motion file tree types
+export interface MotionFileInfo {
+  filename: string;
+  relative_path: string;
+  type: 'bvh' | 'npz';
+}
+
+export interface MotionTreeNode {
+  motions: MotionFileInfo[];
+  subdirs: Record<string, MotionTreeNode>;
+}
+
 // Model API
 export const modelApi = {
   listMotions: (generatorType: string) =>
     client.get<MotionInfo[]>(`/model/motions/${generatorType}`).then(res => res.data),
+
+  listMotionsTree: () =>
+    client.get<Record<string, MotionTreeNode>>(`/model/motions/tree`).then(res => res.data),
 
   getMotionInfo: (generatorType: string, filename: string) =>
     client.get(`/model/motions/${generatorType}/${filename}`).then(res => res.data),
