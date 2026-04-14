@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { FolderOpenOutlined, FileOutlined, FolderOutlined, CaretRightOutlined, CaretDownOutlined } from '@ant-design/icons';
+import { FolderOutlined, FileOutlined, FolderOpenOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { modelApi, MotionTreeNode, MotionFileInfo } from '../../../api/client';
 import './index.css';
@@ -10,6 +10,18 @@ interface FileBrowserWidgetProps {
   selectedFile?: string;
 }
 
+interface FolderInfo {
+  name: string;
+  node: MotionTreeNode;
+  path: string[];
+}
+
+interface ColumnData {
+  path: string[];
+  folders: FolderInfo[];
+  files: MotionFileInfo[];
+}
+
 const FileBrowserWidget: React.FC<FileBrowserWidgetProps> = ({
   generatorType,
   onFileSelect,
@@ -18,21 +30,33 @@ const FileBrowserWidget: React.FC<FileBrowserWidgetProps> = ({
   const { t } = useTranslation();
   const [motionTree, setMotionTree] = useState<Record<string, MotionTreeNode> | null>(null);
   const [loading, setLoading] = useState(true);
-  const [currentPath, setCurrentPath] = useState<string[]>([]);
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [columns, setColumns] = useState<ColumnData[]>([]);
 
   useEffect(() => {
     loadMotionTree();
   }, []);
+
+  useEffect(() => {
+    if (motionTree && motionTree[generatorType]) {
+      const rootNode = motionTree[generatorType];
+      const rootColumn: ColumnData = {
+        path: [],
+        folders: Object.entries(rootNode.subdirs).map(([name, node]) => ({
+          name,
+          node,
+          path: [name]
+        })),
+        files: rootNode.motions
+      };
+      setColumns([rootColumn]);
+    }
+  }, [motionTree, generatorType]);
 
   const loadMotionTree = async () => {
     try {
       setLoading(true);
       const tree = await modelApi.listMotionsTree();
       setMotionTree(tree);
-      // Auto-expand root folders
-      const rootFolders = Object.keys(tree[generatorType]?.subdirs || {});
-      setExpandedFolders(new Set(rootFolders.map(f => `${generatorType}/${f}`)));
     } catch (error) {
       console.error('Failed to load motion tree:', error);
     } finally {
@@ -40,72 +64,32 @@ const FileBrowserWidget: React.FC<FileBrowserWidgetProps> = ({
     }
   };
 
-  const currentNode = useMemo(() => {
+  const getNodeAtPath = (path: string[]): MotionTreeNode | null => {
     if (!motionTree || !motionTree[generatorType]) return null;
-
     let node: MotionTreeNode = motionTree[generatorType];
-    for (const folder of currentPath) {
+    for (const folder of path) {
       if (!node.subdirs[folder]) return null;
       node = node.subdirs[folder];
     }
     return node;
-  }, [motionTree, generatorType, currentPath]);
-
-  const rootNode = motionTree?.[generatorType];
-
-  const toggleFolder = (folderPath: string) => {
-    setExpandedFolders(prev => {
-      const next = new Set(prev);
-      if (next.has(folderPath)) {
-        next.delete(folderPath);
-      } else {
-        next.add(folderPath);
-      }
-      return next;
-    });
   };
 
-  const navigateToFolder = (folderPath: string[], folderName: string) => {
-    setCurrentPath([...folderPath, folderName]);
-  };
+  const handleFolderClick = (columnIndex: number, folder: FolderInfo) => {
+    const node = folder.node;
+    const newColumn: ColumnData = {
+      path: folder.path,
+      folders: Object.entries(node.subdirs).map(([name, subNode]) => ({
+        name,
+        node: subNode,
+        path: [...folder.path, name]
+      })),
+      files: node.motions
+    };
 
-  const getBreadcrumbs = () => {
-    return [
-      { name: generatorType, path: [] },
-      ...currentPath.map((folder, index) => ({
-        name: folder,
-        path: currentPath.slice(0, index + 1)
-      }))
-    ];
-  };
-
-  const renderFolderTree = (node: MotionTreeNode, path: string[], depth: number = 0) => {
-    const subdirs = Object.entries(node.subdirs);
-
-    return subdirs.map(([folderName, folderNode]) => {
-      const folderPath = [...path, folderName];
-      const fullPath = `${generatorType}/${folderPath.join('/')}`;
-      const isExpanded = expandedFolders.has(fullPath);
-
-      return (
-        <div key={folderName} className="fbw-folder-item" style={{ paddingLeft: depth * 16 }}>
-          <div
-            className="fbw-folder-row"
-            onClick={() => toggleFolder(fullPath)}
-          >
-            <span className="fbw-expand-icon">
-              {isExpanded ? <CaretDownOutlined /> : <CaretRightOutlined />}
-            </span>
-            {isExpanded ? <FolderOpenOutlined /> : <FolderOutlined />}
-            <span className="fbw-folder-name">{folderName}</span>
-          </div>
-          {isExpanded && (
-            <div className="fbw-folder-children">
-              {renderFolderTree(folderNode, folderPath, depth + 1)}
-            </div>
-          )}
-        </div>
-      );
+    setColumns(prev => {
+      const newColumns = prev.slice(0, columnIndex + 1);
+      newColumns.push(newColumn);
+      return newColumns;
     });
   };
 
@@ -113,16 +97,29 @@ const FileBrowserWidget: React.FC<FileBrowserWidgetProps> = ({
     onFileSelect(file.relative_path, file.filename);
   };
 
+  const handleColumnClick = (columnIndex: number) => {
+    if (columnIndex < columns.length - 1) {
+      setColumns(prev => prev.slice(0, columnIndex + 1));
+    }
+  };
+
+  const getBreadcrumbs = () => {
+    const crumbs: { name: string; path: string[] }[] = [{ name: generatorType, path: [] }];
+    columns.forEach((col, index) => {
+      if (col.path.length > 0) {
+        crumbs.push({ name: col.path[col.path.length - 1], path: col.path });
+      }
+    });
+    return crumbs;
+  };
+
   if (loading) {
     return <div className="fbw-loading">{t('configPanel.loading')}</div>;
   }
 
-  if (!motionTree || !rootNode) {
+  if (!motionTree || !motionTree[generatorType]) {
     return <div className="fbw-empty">{t('configPanel.noData')}</div>;
   }
-
-  const hasRootFiles = rootNode.motions.length > 0;
-  const hasSubfolders = Object.keys(rootNode.subdirs).length > 0;
 
   return (
     <div className="file-browser-widget">
@@ -133,11 +130,7 @@ const FileBrowserWidget: React.FC<FileBrowserWidgetProps> = ({
             {index > 0 && <span className="fbw-breadcrumb-sep">/</span>}
             <span
               className={`fbw-breadcrumb-item ${index === getBreadcrumbs().length - 1 ? 'active' : ''}`}
-              onClick={() => {
-                if (index < getBreadcrumbs().length - 1) {
-                  setCurrentPath(crumb.path);
-                }
-              }}
+              onClick={() => index < getBreadcrumbs().length - 1 && handleColumnClick(index)}
             >
               {crumb.name}
             </span>
@@ -145,90 +138,52 @@ const FileBrowserWidget: React.FC<FileBrowserWidgetProps> = ({
         ))}
       </div>
 
-      <div className="fbw-content">
-        {/* Left: Folder Tree */}
-        {currentPath.length === 0 && (
-          <div className="fbw-sidebar">
-            {hasSubfolders && (
-              <div className="fbw-sidebar-section">
-                <div className="fbw-sidebar-title">{t('fileBrowser.folders')}</div>
-                {renderFolderTree(rootNode, [])}
-              </div>
-            )}
-            {hasRootFiles && (
-              <div className="fbw-sidebar-section">
-                <div className="fbw-sidebar-title">{t('fileBrowser.rootFiles')}</div>
-                <div className="fbw-root-files">
-                  {rootNode.motions.map(file => (
+      {/* Multi-column Content */}
+      <div className="fbw-columns-container">
+        {columns.map((column, columnIndex) => (
+          <div key={columnIndex} className="fbw-column">
+            <div className="fbw-column-header">
+              {column.path.length === 0 ? generatorType : column.path[column.path.length - 1]}
+            </div>
+            <div className="fbw-column-content">
+              {column.folders.length === 0 && column.files.length === 0 ? (
+                <div className="fbw-empty-column">{t('fileBrowser.emptyFolder')}</div>
+              ) : (
+                <>
+                  {column.folders.map(folder => (
                     <div
-                      key={file.relative_path}
-                      className={`fbw-file-item ${selectedFile === file.relative_path ? 'selected' : ''}`}
-                      onClick={() => handleFileClick(file)}
+                      key={folder.name}
+                      className="fbw-column-item folder"
+                      onClick={() => handleFolderClick(columnIndex, folder)}
                     >
-                      <FileOutlined />
-                      <span className="fbw-file-name">{file.filename}</span>
+                      <span className="fbw-item-icon">
+                        <FolderOutlined />
+                      </span>
+                      <span className="fbw-item-name">{folder.name}</span>
+                      <span className="fbw-item-count">
+                        {folder.node.motions.length}
+                      </span>
+                      <span className="fbw-item-chevron">›</span>
                     </div>
                   ))}
-                </div>
-              </div>
-            )}
+                  {column.files.map(file => (
+                    <div
+                      key={file.relative_path}
+                      className={`fbw-column-item ${selectedFile === file.relative_path ? 'selected' : ''}`}
+                      onClick={() => handleFileClick(file)}
+                    >
+                      <span className="fbw-item-icon">
+                        <FileOutlined />
+                      </span>
+                      <span className="fbw-item-name">{file.filename}</span>
+                      <span className="fbw-item-type">{file.type.toUpperCase()}</span>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
           </div>
-        )}
-
-        {/* Right: Current Directory Files */}
-        {currentPath.length > 0 && currentNode && (
-          <div className="fbw-file-list">
-            {currentNode.motions.length === 0 && Object.keys(currentNode.subdirs).length === 0 ? (
-              <div className="fbw-empty-dir">{t('fileBrowser.emptyFolder')}</div>
-            ) : (
-              <>
-                {/* Subdirectories */}
-                {Object.entries(currentNode.subdirs).map(([folderName, folderNode]) => (
-                  <div
-                    key={folderName}
-                    className="fbw-file-item folder"
-                    onClick={() => navigateToFolder(currentPath, folderName)}
-                  >
-                    <FolderOutlined />
-                    <span className="fbw-file-name">{folderName}</span>
-                    <span className="fbw-file-count">
-                      {folderNode.motions.length} {t('fileBrowser.files')}
-                    </span>
-                  </div>
-                ))}
-                {/* Files */}
-                {currentNode.motions.map(file => (
-                  <div
-                    key={file.relative_path}
-                    className={`fbw-file-item ${selectedFile === file.relative_path ? 'selected' : ''}`}
-                    onClick={() => handleFileClick(file)}
-                  >
-                    <FileOutlined />
-                    <span className="fbw-file-name">{file.filename}</span>
-                    <span className="fbw-file-type">{file.type.toUpperCase()}</span>
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Show files when in root */}
-        {currentPath.length === 0 && (
-          <div className="fbw-file-list">
-            {!hasSubfolders && rootNode.motions.map(file => (
-              <div
-                key={file.relative_path}
-                className={`fbw-file-item ${selectedFile === file.relative_path ? 'selected' : ''}`}
-                onClick={() => handleFileClick(file)}
-              >
-                <FileOutlined />
-                <span className="fbw-file-name">{file.filename}</span>
-                <span className="fbw-file-type">{file.type.toUpperCase()}</span>
-              </div>
-            ))}
-          </div>
-        )}
+        ))}
       </div>
     </div>
   );

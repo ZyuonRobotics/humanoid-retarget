@@ -42,136 +42,130 @@
   background: transparent;
 }
 
-.fbw-content {
+/* Multi-column container */
+.fbw-columns-container {
   display: flex;
-  flex: 1;
-  overflow: hidden;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
-.fbw-sidebar {
-  width: 180px;
+.fbw-column {
+  min-width: 200px;
+  max-width: 250px;
+  height: 100%;
   border-right: 1px solid var(--color-border);
-  padding: var(--spacing-sm);
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   background: var(--color-bg-base);
 }
 
-.fbw-sidebar-section {
-  margin-bottom: var(--spacing-md);
+.fbw-column:last-child {
+  border-right: none;
 }
 
-.fbw-sidebar-title {
-  font-size: var(--font-size-xs);
+.fbw-column-header {
+  padding: var(--spacing-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
   text-transform: uppercase;
-  margin-bottom: var(--spacing-xs);
-  padding-left: var(--spacing-xs);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
 }
 
-.fbw-root-files {
-  margin-top: var(--spacing-xs);
-}
-
-.fbw-folder-item {
-  user-select: none;
-}
-
-.fbw-folder-row {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-xs);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.fbw-folder-row:hover {
-  background: var(--color-bg-hover);
-}
-
-.fbw-expand-icon {
-  width: 16px;
-  color: var(--color-text-tertiary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.fbw-folder-name {
-  color: var(--color-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.fbw-folder-children {
-  margin-left: var(--spacing-sm);
-}
-
-.fbw-file-list {
+.fbw-column-content {
   flex: 1;
-  padding: var(--spacing-sm);
   overflow-y: auto;
 }
 
-.fbw-file-item {
+.fbw-column-item {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  padding: var(--spacing-sm);
-  border-radius: var(--radius-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
   cursor: pointer;
-  transition: all var(--transition-fast);
-  margin-bottom: 2px;
+  transition: background var(--transition-fast);
+  border-bottom: 1px solid var(--color-border-lighter);
 }
 
-.fbw-file-item:hover {
+.fbw-column-item:hover {
   background: var(--color-bg-hover);
 }
 
-.fbw-file-item.selected {
+.fbw-column-item.selected {
   background: var(--color-text-primary);
   color: var(--color-bg-base);
 }
 
-.fbw-file-item.selected .fbw-file-type {
+.fbw-column-item.selected .fbw-item-type {
   color: var(--color-bg-base);
   opacity: 0.7;
 }
 
-.fbw-file-item.folder {
+.fbw-column-item.folder {
   color: var(--color-text-primary);
 }
 
-.fbw-file-name {
+.fbw-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  color: var(--color-text-tertiary);
+}
+
+.fbw-column-item.folder .fbw-item-icon {
+  color: var(--color-primary);
+}
+
+.fbw-column-item.selected .fbw-item-icon {
+  color: var(--color-bg-base);
+}
+
+.fbw-item-name {
   flex: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.fbw-file-type {
+.fbw-item-type {
   font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
   padding: 2px 6px;
-  background: var(--color-bg-base);
+  background: var(--color-bg-elevated);
   border-radius: var(--radius-sm);
 }
 
-.fbw-file-count {
+.fbw-item-count {
   font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
 }
 
+.fbw-item-chevron {
+  color: var(--color-text-tertiary);
+  font-size: 10px;
+}
+
 .fbw-loading,
-.fbw-empty,
-.fbw-empty-dir {
+.fbw-empty {
   display: flex;
   align-items: center;
   justify-content: center;
   height: 100%;
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
+}
+
+.fbw-empty-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--color-text-tertiary);
+  padding: var(--spacing-lg);
+  text-align: center;
 }
