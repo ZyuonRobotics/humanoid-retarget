@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Query
 
-from humanoid_retargeting import CONFIGS_PATH, get_human_body_tree, get_robot_body_tree
+from humanoid_retargeting import CONFIGS_PATH, DATA_PATH, get_human_body_tree, get_robot_body_tree
 from humanoid_retargeting.utils.retarget_config import RetargetConfig, TrackerConfig
 from web_backend.api.schemas import RobotInfo, TrackerConfigSchema, RetargetConfigSchema
 
@@ -44,6 +44,9 @@ async def get_body_tree(
     motion_file: Optional[str] = Query(None, description="Motion file path for human body tree")
 ):
     """Get body tree structure for human and robot."""
+    # Prepend data path to motion_file for human body tree
+    if motion_file:
+        motion_file = str(DATA_PATH/ motion_file)
     result = {
         "human": get_human_body_tree(generator_type, motion_file) if motion_file else {"note": "configPanel.selectMotionFileHint"},
         "robot": get_robot_body_tree(robot_name)

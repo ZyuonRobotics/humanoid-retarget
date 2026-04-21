@@ -67,6 +67,14 @@ def get_robot_body_tree(robot_name: str) -> Dict[str, Any]:
     """
     try:
         robot_generator = MJCFHumanoidGenerator.from_robot_name(robot_name)
-        return robot_generator.get_body_tree_dict()
+        robot_generator.generate(relative_mesh_path=False)
+
+        body_names = robot_generator.all_body_names
+        body_parents = robot_generator.body_parent_id
+
+        if not body_names:
+            return {"error": f"No body names found for robot: {robot_name}"}
+
+        return build_body_tree(body_names, body_parents.tolist() if hasattr(body_parents, 'tolist') else body_parents)
     except Exception as e:
         return {"error": str(e)}

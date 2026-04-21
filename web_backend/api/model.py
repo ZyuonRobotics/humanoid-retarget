@@ -198,12 +198,12 @@ async def upload_motion(file: UploadFile = File(...), generator_type: str = "bvh
 
     # Validate file type
     ext = Path(file.filename).suffix.lower()
-    valid_exts = {".bvh", ".npz"}
-    if ext not in valid_exts:
+    valid_exts = {".bvh": "bvh", ".npz": "smpl"}
+    if ext not in list(valid_exts.keys()):
         raise HTTPException(status_code=400, detail="Invalid file type")
 
     # Save file
-    save_path = data_path / file.filename
+    save_path = data_path / valid_exts[ext] / file.filename
     try:
         save_path.write_bytes(content)
     except OSError as e:

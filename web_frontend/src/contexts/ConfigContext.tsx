@@ -162,11 +162,17 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
   }, [selectedRobot, generatorType, loadConfigs]);
 
   useEffect(() => {
-    if (selectedRobot && generatorType && selectedConfig) {
-      loadConfig();
+    if (selectedRobot && generatorType) {
+      loadConfigs();
       loadBodyTree(selectedMotionFile || undefined);
     }
-  }, [selectedRobot, generatorType, selectedConfig, selectedMotionFile, loadConfig, loadBodyTree]);
+  }, [selectedRobot, generatorType, loadConfigs, loadBodyTree, selectedMotionFile]);
+
+  useEffect(() => {
+    if (selectedRobot && generatorType && selectedConfig) {
+      loadConfig();
+    }
+  }, [selectedRobot, generatorType, selectedConfig, loadConfig]);
 
   return (
     <ConfigContext.Provider

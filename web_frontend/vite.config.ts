@@ -2,7 +2,19 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'mujoco-worker-transform',
+      transform(code, id) {
+        if (id.indexOf('node_modules/mujoco/mujoco.js') === -1) return null;
+        return code.replace(
+          /new Worker\(new URL\("mujoco\.js", import\.meta\.url\),\s*/g,
+          'new Worker(new URL("mujoco.js", import.meta.url), /* @vite-ignore */ '
+        );
+      }
+    }
+  ],
   build: {
     target: 'es2022',
     rollupOptions: {
