@@ -1,4 +1,5 @@
 """Model API endpoints."""
+import logging
 import base64
 import io
 import json
@@ -13,6 +14,8 @@ from fastapi import APIRouter, HTTPException, UploadFile, File
 from humanoid_retargeting import DATA_PATH, RETARGETING_PATH, GENERATOR_TYPE_TO_DATA_PATH, PLAYER_FILE_SUFFIXES
 from humanoid_retargeting.mjcf_generator import generator_class
 from web_backend.api.schemas import MotionInfo
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/model", tags=["model"])
 
@@ -95,7 +98,8 @@ async def get_motion_info(generator_type: str, filename: str):
             "frame_rate": player.frame_rate,
             "body_names": player.all_body_names
         }
-    except Exception:
+    except Exception as e:
+        logger.error(f"Failed to load motion file '{filename}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to load motion file")
 
 
@@ -182,10 +186,49 @@ async def get_robot_mjcf(robot_name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/mjcf/{robot_name}/with-meshes")
+async def get_robot_mjcf_with_meshes(robot_name: str):
+    """Get MJCF XML for a robot with mesh files encoded as base64."""
+    import base64
+
+    from hurodes.generators import MJCFHumanoidGenerator
+    from hurodes import HumanoidRobot
+
+    try:
+        generator = MJCFHumanoidGenerator.from_robot_name(robot_name)
+        generator.generate(relative_mesh_path=False)
+
+        # Get robot info
+        robot = HumanoidRobot.from_name(robot_name)
+
+        # Read mesh directory
+        mesh_dir = robot.hrdf.hrdf_path / "meshes"
+        meshes = {}
+        if mesh_dir.exists():
+            for mesh_file in mesh_dir.glob("*.stl"):
+                with open(mesh_file, "rb") as f:
+                    meshes[mesh_file.name] = base64.b64encode(f.read()).decode("utf-8")
+
+        return {
+            "robot_name": robot_name,
+            "xml": generator.xml_str,
+            "body_names": generator.all_body_names,
+            "joint_names": robot.hrdf.joint_name_list,
+            "meshes": meshes
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/upload/motion")
 async def upload_motion(file: UploadFile = File(...), generator_type: str = "bvh"):
     """Upload a motion file."""
     from web_backend.core.config import MAX_UPLOAD_SIZE
+
+    # Validate filename - prevent path traversal attacks
+    filename = file.filename or ""
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename: path traversal not allowed")
 
     # Ensure DATA_PATH directory exists
     data_path = Path(DATA_PATH)
@@ -197,13 +240,13 @@ async def upload_motion(file: UploadFile = File(...), generator_type: str = "bvh
         raise HTTPException(status_code=400, detail="File too large")
 
     # Validate file type
-    ext = Path(file.filename).suffix.lower()
+    ext = Path(filename).suffix.lower()
     valid_exts = {".bvh": "bvh", ".npz": "smpl"}
     if ext not in list(valid_exts.keys()):
         raise HTTPException(status_code=400, detail="Invalid file type")
 
     # Save file
-    save_path = data_path / valid_exts[ext] / file.filename
+    save_path = data_path / valid_exts[ext] / filename
     try:
         save_path.write_bytes(content)
     except OSError as e:
@@ -211,7 +254,7 @@ async def upload_motion(file: UploadFile = File(...), generator_type: str = "bvh
 
     return {
         "status": "uploaded",
-        "filename": file.filename,
+        "filename": filename,
         "path": str(save_path)
     }
 

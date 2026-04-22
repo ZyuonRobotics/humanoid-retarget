@@ -175,3 +175,5 @@ cython_debug/
 
 web_frontend/node_modules
 CLAUDE.md
+.claude/
+.vscode/

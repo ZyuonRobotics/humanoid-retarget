@@ -1,13 +1,20 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useConfigContext } from '../../contexts/ConfigContext';
+import { modelApi } from '../../api/client';
 import {
   initMuJoCo,
-  render,
   fetchAlignPreview,
+  loadRobotModel,
+  dispose,
   AlignPreviewData,
   setCamera,
   getBodyPosition,
   highlightBody,
+  initThreeScene,
+  startRendering,
+  mujocoModule,
+  currentModel,
+  currentData,
 } from './mujoco';
 
 interface Viewer3DProps {
@@ -18,7 +25,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
   const { selectedRobot, config, generatorType } = useConfigContext();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const animationFrameRef = useRef<number>();
+  const threeSceneRef = useRef<any>(null);
 
   const [alignData, setAlignData] = useState<AlignPreviewData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -36,9 +43,17 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
     lastY: 0
   });
 
-  // Debounced fetch for align preview
+  // Initialize Three.js scene when canvas becomes available
+  // Debounced fetch for model (robot only or robot+human)
   const fetchPreview = useCallback(async () => {
-    if (!sourceFile || !selectedRobot || !generatorType) {
+    // Clean up previous model/scene before loading new one
+    dispose();
+    if (threeSceneRef.current) {
+      threeSceneRef.current.dispose();
+      threeSceneRef.current = null;
+    }
+
+    if (!selectedRobot) {
       setAlignData(null);
       return;
     }
@@ -47,15 +62,60 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
     setError(null);
 
     try {
-      const data = await fetchAlignPreview(sourceFile, selectedRobot, generatorType, config);
-      setAlignData(data);
+      if (sourceFile && generatorType) {
+        // Load robot + human combined model
+        const data = await fetchAlignPreview(sourceFile, selectedRobot, generatorType, config);
+        if (data) {
+          // Initialize MuJoCo with the fetched data
+          await initMuJoCo(data.xml, data.qpos);
+          // Update camera lookat based on global body ratio
+          const lookatY = data.globalBodyRatio * 0.5;
+          setCamera({ lookat: [0, 0, lookatY] });
+        }
+        setAlignData(data);
+      } else {
+        // Load robot only model
+        const robotData = await modelApi.getRobotMJCFWithMeshes(selectedRobot);
+        await loadRobotModel(selectedRobot, robotData.xml, robotData.meshes || {});
 
-      if (data) {
-        // Initialize MuJoCo with the fetched data
-        await initMuJoCo(data.xml, data.qpos);
-        // Update camera lookat based on global body ratio
-        const lookatY = data.globalBodyRatio * 0.5;
-        setCamera({ lookat: [0, 0, lookatY] });
+        // Now create the scene - canvas must be available after setAlignData triggers re-render
+        const createSceneIfReady = () => {
+          const canvas = canvasRef.current;
+          if (!canvas) return false;
+          if (!threeSceneRef.current) {
+            threeSceneRef.current = initThreeScene(canvas);
+          }
+          if (threeSceneRef.current && mujocoModule && currentModel && currentData) {
+            console.log('fetchPreview: calling createScene, model nbody=', (currentModel as any).nbody);
+            threeSceneRef.current.createScene(mujocoModule, currentModel, currentData as any);
+            startRendering();
+            console.log('fetchPreview: createScene done, startRendering called');
+            return true;
+          } else {
+            console.log('fetchPreview: createScene skipped, threeSceneRef=', !!threeSceneRef.current, 'mujocoModule=', !!mujocoModule, 'currentModel=', !!currentModel, 'currentData=', !!currentData);
+          }
+          return false;
+        };
+
+        setAlignData({
+          xml: robotData.xml,
+          qpos: [],
+          bodyNames: robotData.body_names || [],
+          globalBodyRatio: 1.0
+        });
+
+        // Try to create scene immediately (canvas might be available after setAlignData)
+        if (!createSceneIfReady()) {
+          // If canvas wasn't ready, set a timeout to retry
+          setTimeout(() => {
+            if (createSceneIfReady()) {
+              console.log('fetchPreview: createScene succeeded on retry');
+            } else {
+              console.log('fetchPreview: createScene failed even on retry');
+            }
+          }, 100);
+        }
+        setCamera({ lookat: [0, 0, 0.5] });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load preview');
@@ -74,67 +134,13 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
     return () => clearTimeout(debounceTimer);
   }, [fetchPreview]);
 
-  // Render loop
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const renderLoop = () => {
-      render(canvas);
-      animationFrameRef.current = requestAnimationFrame(renderLoop);
-    };
-
-    renderLoop();
-
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [alignData]);
-
-  // Handle mouse interactions for camera orbit
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    setCameraState(prev => ({ ...prev, isDragging: true, lastX: e.clientX, lastY: e.clientY }));
-  }, []);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!camera.isDragging) return;
-
-    const deltaX = e.clientX - camera.lastX;
-    const deltaY = e.clientY - camera.lastY;
-
-    setCameraState(prev => ({
-      ...prev,
-      azimuth: prev.azimuth + deltaX * 0.5,
-      elevation: Math.max(-90, Math.min(90, prev.elevation - deltaY * 0.5)),
-      lastX: e.clientX,
-      lastY: e.clientY
-    }));
-
-    setCamera({ azimuth: camera.azimuth + deltaX * 0.5, elevation: camera.elevation });
-  }, [camera]);
-
-  const handleMouseUp = useCallback(() => {
-    setCameraState(prev => ({ ...prev, isDragging: false }));
-  }, []);
-
-  // Handle zoom
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.1 : -0.1;
-    const newDistance = Math.max(0.5, Math.min(10, camera.distance + delta));
-    setCameraState(prev => ({ ...prev, distance: newDistance }));
-    setCamera({ distance: newDistance });
-  }, [camera.distance]);
-
   // Handle body picking on click
   const handleClick = useCallback((_e: React.MouseEvent) => {
     const canvas = canvasRef.current;
     if (!canvas || !alignData) return;
 
     // For now, just highlight clicked position
-    // Actual body picking would require mujoco-wasm integration
+    // Actual body picking would require raycasting in Three.js
     const bodyId = Math.floor(Math.random() * alignData.bodyNames.length); // Placeholder
     const bodyName = alignData.bodyNames[bodyId];
 
@@ -167,11 +173,29 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
           position: 'relative',
           cursor: camera.isDragging ? 'grabbing' : 'grab'
         }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        onWheel={handleWheel}
+        onMouseDown={(e) => setCameraState(prev => ({ ...prev, isDragging: true, lastX: e.clientX, lastY: e.clientY }))}
+        onMouseMove={(e) => {
+          if (!camera.isDragging) return;
+          const deltaX = e.clientX - camera.lastX;
+          const deltaY = e.clientY - camera.lastY;
+          setCameraState(prev => ({
+            ...prev,
+            azimuth: prev.azimuth + deltaX * 0.5,
+            elevation: Math.max(-90, Math.min(90, prev.elevation - deltaY * 0.5)),
+            lastX: e.clientX,
+            lastY: e.clientY
+          }));
+          setCamera({ azimuth: camera.azimuth + deltaX * 0.5, elevation: camera.elevation });
+        }}
+        onMouseUp={() => setCameraState(prev => ({ ...prev, isDragging: false }))}
+        onMouseLeave={() => setCameraState(prev => ({ ...prev, isDragging: false }))}
+        onWheel={(e) => {
+          e.preventDefault();
+          const delta = e.deltaY > 0 ? 0.1 : -0.1;
+          const newDistance = Math.max(0.5, Math.min(10, camera.distance + delta));
+          setCameraState(prev => ({ ...prev, distance: newDistance }));
+          setCamera({ distance: newDistance });
+        }}
       >
         {/* Animated gradient background */}
         <div
@@ -266,7 +290,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
               🤖
             </div>
             <div style={{ fontSize: 14 }}>
-              3D Preview: {selectedRobot || 'Select a robot'}
+              {sourceFile ? 'Loading motion preview...' : '3D Preview: '}{selectedRobot || 'Select a robot'}
             </div>
           </div>
         ) : (

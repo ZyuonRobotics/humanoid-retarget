@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
 import { message, Modal } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { configApi } from '../api/client';
@@ -47,6 +47,7 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
   const [bodyTree, setBodyTree] = useState<BodyTree>({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const requestIdRef = useRef(0);
 
   const loadRobots = useCallback(async () => {
     try {
@@ -70,8 +71,10 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
   }, [t]);
 
   const loadConfigs = useCallback(async () => {
+    const currentRequestId = ++requestIdRef.current;
     try {
       const data = await configApi.listConfigs(selectedRobot, generatorType);
+      if (currentRequestId !== requestIdRef.current) return;
       setConfigs(data);
       if (data.length > 0) {
         setSelectedConfig(data[0]);
@@ -80,29 +83,38 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
         message.info(t('configPanel.message.noConfigsPleaseCreate'));
       }
     } catch (error) {
+      if (currentRequestId !== requestIdRef.current) return;
       message.error(t('message.failedToLoadConfigs'));
     }
   }, [selectedRobot, generatorType, t]);
 
   const loadConfig = useCallback(async () => {
     setLoading(true);
+    const currentRequestId = ++requestIdRef.current;
     try {
       const data = await configApi.getConfig(selectedRobot, generatorType, selectedConfig);
+      if (currentRequestId !== requestIdRef.current) return;
       setConfig(data);
     } catch (error) {
       setConfig(defaultRetargetConfig);
     } finally {
-      setLoading(false);
+      if (currentRequestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [selectedRobot, generatorType, selectedConfig]);
 
   const loadBodyTree = useCallback(async (motionFile?: string) => {
+    const currentRequestId = ++requestIdRef.current;
     try {
       const data = await configApi.getBodyTree(selectedRobot, generatorType, motionFile);
+      if (currentRequestId !== requestIdRef.current) return;
       setBodyTree(data);
     } catch (error) {
       console.error('Failed to load body tree', error);
-      setBodyTree({ human: { error: 'Failed to load body tree' } });
+      if (currentRequestId === requestIdRef.current) {
+        setBodyTree({ human: { error: 'Failed to load body tree' } });
+      }
     }
   }, [selectedRobot, generatorType]);
 
@@ -154,12 +166,6 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
   useEffect(() => {
     loadRobots();
   }, [loadRobots]);
-
-  useEffect(() => {
-    if (selectedRobot && generatorType) {
-      loadConfigs();
-    }
-  }, [selectedRobot, generatorType, loadConfigs]);
 
   useEffect(() => {
     if (selectedRobot && generatorType) {

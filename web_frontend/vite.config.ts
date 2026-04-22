@@ -7,10 +7,11 @@ export default defineConfig({
     {
       name: 'mujoco-worker-transform',
       transform(code, id) {
-        if (id.indexOf('node_modules/mujoco/mujoco.js') === -1) return null;
+        if (id.indexOf('node_modules/mujoco/mujoco.js') === -1 &&
+            id.indexOf('node_modules/mujoco-js/dist/mujoco_wasm.js') === -1) return null;
         return code.replace(
-          /new Worker\(new URL\("mujoco\.js", import\.meta\.url\),\s*/g,
-          'new Worker(new URL("mujoco.js", import.meta.url), /* @vite-ignore */ '
+          /new Worker\(new URL\("mujoco.*?\.js", import\.meta\.url\),\s*/g,
+          'new Worker(new URL("mujoco_wasm.js", import.meta.url), /* @vite-ignore */ '
         );
       }
     }
@@ -21,7 +22,7 @@ export default defineConfig({
       output: {
         manualChunks: undefined
       },
-      external: ['mujoco']
+      external: ['mujoco', 'mujoco-js']
     }
   },
   server: {
@@ -34,6 +35,6 @@ export default defineConfig({
     }
   },
   optimizeDeps: {
-    exclude: ['mujoco']
+    exclude: ['mujoco', 'mujoco-js']
   }
 })

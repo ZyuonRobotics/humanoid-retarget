@@ -4,38 +4,106 @@
  */
 
 import { modelApi } from '../../api/client';
+import { ThreeScene } from './ThreeScene';
 
 // mujoco module types (will be populated when the package is loaded)
 export interface MuJoCoModule {
-  loadModel: (xml: string) => Promise<MuJoCoModel>;
-  Model: new (xml: string) => MuJoCoModel;
-  Data: new (model: MuJoCoModel) => MuJoCoData;
+  Model: {
+    load_from_xml: (xmlPath: string) => Promise<MuJoCoModel>;
+    loadFromXML?: (xmlPath: string) => Promise<MuJoCoModel>;
+  };
+  MjModel?: {
+    loadFromXML: (xmlPath: string) => Promise<MuJoCoModel>;
+  };
+  MjData?: new (model: MuJoCoModel) => MuJoCoData;
+  State?: new (model: MuJoCoModel) => MuJoCoState;
+  Simulation?: new (model: MuJoCoModel, state: MuJoCoState) => MuJoCoSimulation;
+  FS: {
+    mkdir: (path: string) => void;
+    mount: (fs: any, opts: any, mountpoint: string) => void;
+    writeFile: (path: string, data: string | Uint8Array) => void;
+    readdir: (path: string) => string[];
+    stat: (path: string) => any;
+    unlink: (path: string) => void;
+    rmdir: (path: string) => void;
+    isDir: (mode: number) => boolean;
+    analyzePath: (path: string) => { exists: boolean };
+  };
+  MEMFS: any;
+  mj_forward: (model: MuJoCoModel, data: MuJoCoData) => void;
+  mj_resetData: (model: MuJoCoModel, data: MuJoCoData) => void;
+  mjtGeom: {
+    mjGEOM_SPHERE: { value: number };
+    mjGEOM_CAPSULE: { value: number };
+    mjGEOM_CYLINDER: { value: number };
+    mjGEOM_BOX: { value: number };
+    mjGEOM_ELLIPSOID: { value: number };
+    mjGEOM_MESH: { value: number };
+  };
+  mjtJoint: {
+    mjJNT_HINGE: { value: number };
+    mjJNT_BALL: { value: number };
+  };
 }
 
 export interface MuJoCoModel {
-  ptr: number;
+  names: Uint8Array;
   nq: number;
   nv: number;
   nbody: number;
-  bodyNames: string[];
-  bodyId: Record<string, number>;
-  geomId: Record<string, number>;
+  ngeom: number;
+  body_mass: Float64Array;
+  body_ipos: Float64Array;
+  body_iquat: Float64Array;
+  body_inertia: Float64Array;
+  geom_group: Int32Array;
+  geom_bodyid: Int32Array;
+  geom_type: Int32Array;
+  geom_size: Float64Array;
+  geom_pos: Float64Array;
+  geom_quat: Float64Array;
+  geom_rgba: Float32Array;
+  geom_dataid: Int32Array;
+  name_bodyadr: Int32Array;
+  name_meshadr: Int32Array;
+  mesh_vertadr: Int32Array;
+  mesh_vertnum: Int32Array;
+  mesh_faceadr: Int32Array;
+  mesh_facenum: Int32Array;
+  mesh_vert: Float32Array;
+  mesh_normal: Float32Array;
+  mesh_face: Int32Array;
+  name_geomsadr: Int32Array;
+  njnt: number;
+  jnt_type: Int32Array;
+  jnt_bodyid: Int32Array;
+  jnt_pos: Float64Array;
+  jnt_axis: Float64Array;
+  getOptions?: () => { timestep: number };
 }
 
 export interface MuJoCoData {
-  ptr: number;
   qpos: Float64Array;
   qvel: Float64Array;
-  xpos: Float32Array;
-  xquat: Float32Array;
-  geomXpos: Float32Array;
+  xpos: Float64Array;
+  xquat: Float64Array;
+  qfrc_applied: Float64Array;
+  forward?: () => void;
 }
 
-export interface MuJoCoVisualizer {
-  model: MuJoCoModel;
-  data: MuJoCoData;
-  scene: any;
-  renderer: any;
+export interface MuJoCoState {
+  delete?: () => void;
+}
+
+export interface MuJoCoSimulation {
+  xpos: Float64Array;
+  xquat: Float64Array;
+  qpos: Float64Array;
+  qvel: Float64Array;
+  resetData: () => void;
+  forward: () => void;
+  step: () => void;
+  free: () => void;
 }
 
 // Camera and rendering types
@@ -51,11 +119,10 @@ export interface RenderCallbacks {
   onBodyHover?: (bodyId: number | null, bodyName: string | null) => void;
 }
 
-let mujocoModule: MuJoCoModule | null = null;
-let currentModel: MuJoCoModel | null = null;
-let currentData: MuJoCoData | null = null;
-let currentScene: any = null;
-let currentRenderer: any = null;
+export let mujocoModule: MuJoCoModule | null = null;
+export let currentModel: MuJoCoModel | null = null;
+export let currentData: MuJoCoData | MuJoCoSimulation | null = null;
+let currentScene: ThreeScene | null = null;
 let currentConfig: CameraConfig = {
   azimuth: 0,
   elevation: -30,
@@ -70,14 +137,150 @@ export async function initMuJoCoModule(): Promise<void> {
   if (mujocoModule) return;
 
   try {
-    // Dynamic import of mujoco
-    // @ts-ignore - mujoco types
-    const module = await import('mujoco');
-    // @ts-ignore - type mismatch between mujoco module types
-    mujocoModule = await module.default();
+    // Dynamic import from mujoco-js npm package (same as robot_viewer)
+    const load_mujoco = (await import('mujoco-js/dist/mujoco_wasm.js')).default;
+    const loaded: any = await load_mujoco();
+
+    // Setup virtual file system
+    loaded.FS.mkdir('/working');
+    loaded.FS.mount(loaded.MEMFS, { root: '.' }, '/working');
+
+    mujocoModule = loaded as MuJoCoModule;
   } catch (error) {
-    console.warn('mujoco not available, using fallback renderer');
+    console.warn('mujoco not available:', error);
     mujocoModule = null;
+  }
+}
+
+/**
+ * Load robot model with mesh files (for robot-only display)
+ */
+export async function loadRobotModel(
+  _robotName: string,
+  xml: string,
+  meshes: Record<string, string> // base64 encoded mesh files
+): Promise<boolean> {
+  try {
+    await initMuJoCoModule();
+
+    if (!mujocoModule) {
+      console.warn('mujoco not loaded, cannot initialize');
+      return false;
+    }
+
+    // Clear any existing model
+    dispose();
+
+    // Write XML to VFS
+    const xmlPath = '/working/robot.xml';
+    // Modify meshdir to point to /working since files are in VFS, not filesystem
+    const modifiedXml = xml
+      .replace(/meshdir="[^"]*"/, 'meshdir="/working"')
+      .replace(/texturedir="[^"]*"/, 'texturedir="/working"');
+    mujocoModule.FS.writeFile(xmlPath, modifiedXml);
+
+    // Write mesh files to VFS
+    for (const [filename, base64Data] of Object.entries(meshes)) {
+      const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+      const meshPath = `/working/${filename}`;
+      mujocoModule.FS.writeFile(meshPath, binaryData);
+    }
+
+    // Load model
+    if (mujocoModule.Model?.load_from_xml) {
+      currentModel = await mujocoModule.Model.load_from_xml(xmlPath);
+    } else if (mujocoModule.MjModel?.loadFromXML) {
+      currentModel = mujocoModule.MjModel.loadFromXML(xmlPath) as any;
+    }
+    if (!currentModel) {
+      console.error('Failed to load model');
+      return false;
+    }
+
+    // Create data with MjData constructor
+    if (mujocoModule.MjData) {
+      currentData = new mujocoModule.MjData(currentModel) as any;
+    } else {
+      console.error('MjData constructor not found');
+      return false;
+    }
+
+    // Reset and forward to compute initial positions
+    if (mujocoModule.mj_resetData && currentModel && currentData) {
+      mujocoModule.mj_resetData(currentModel, currentData as any);
+    }
+    if (mujocoModule.mj_forward && currentModel && currentData) {
+      mujocoModule.mj_forward(currentModel, currentData as any);
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Failed to load robot model:', error);
+    return false;
+  }
+}
+
+/**
+ * Load align preview (robot + human combined model)
+ */
+export async function loadAlignPreview(
+  sourceFile: string,
+  robotName: string,
+  generatorType: string,
+  retargetConfig: any
+): Promise<AlignPreviewData | null> {
+  try {
+    await initMuJoCoModule();
+
+    if (!mujocoModule) {
+      console.warn('mujoco not loaded');
+      return null;
+    }
+
+    // Get align preview from backend
+    const response = await modelApi.getAlignPreview(sourceFile, robotName, generatorType, retargetConfig);
+
+    // Clear any existing model
+    dispose();
+
+    // Write XML to VFS
+    const xmlPath = '/working/align.xml';
+    // Modify meshdir to point to /working since files are in VFS
+    const modifiedXml = response.xml
+      .replace(/meshdir="[^"]*"/, 'meshdir="/working"')
+      .replace(/texturedir="[^"]*"/, 'texturedir="/working"');
+    mujocoModule.FS.writeFile(xmlPath, modifiedXml);
+
+    // Load model
+    if (mujocoModule.Model?.load_from_xml) {
+      currentModel = await mujocoModule.Model.load_from_xml(xmlPath);
+      const state = new mujocoModule.State!(currentModel);
+      currentData = new mujocoModule.Simulation!(currentModel, state);
+    } else if (mujocoModule.MjModel?.loadFromXML) {
+      currentModel = await mujocoModule.MjModel.loadFromXML(xmlPath);
+      currentData = new mujocoModule.MjData!(currentModel);
+    }
+
+    // Set initial qpos
+    if (currentData && response.qpos) {
+      for (let i = 0; i < Math.min(response.qpos.length, currentData.qpos.length); i++) {
+        currentData.qpos[i] = response.qpos[i];
+      }
+      // Forward to apply qpos
+      if (currentData.forward) {
+        currentData.forward();
+      }
+    }
+
+    return {
+      xml: response.xml,
+      qpos: response.qpos,
+      bodyNames: response.body_names,
+      globalBodyRatio: response.global_body_ratio
+    };
+  } catch (error) {
+    console.error('Failed to load align preview:', error);
+    return null;
   }
 }
 
@@ -93,14 +296,43 @@ export async function initMuJoCo(xmlString: string, qpos?: number[]): Promise<bo
       return false;
     }
 
-    // Load model from XML
-    currentModel = mujocoModule.Model ? new mujocoModule.Model(xmlString) : await mujocoModule.loadModel(xmlString);
-    currentData = new mujocoModule.Data(currentModel);
+    // Clear any existing model
+    dispose();
+
+    // Write XML to VFS
+    const xmlPath = '/working/model.xml';
+    // Modify meshdir to point to /working since files are in VFS, not filesystem
+    const modifiedXml = xmlString
+      .replace(/meshdir="[^"]*"/, 'meshdir="/working"')
+      .replace(/texturedir="[^"]*"/, 'texturedir="/working"');
+    mujocoModule.FS.writeFile(xmlPath, modifiedXml);
+
+    // Load model (compatible with old and new API)
+    try {
+      if (mujocoModule.Model?.load_from_xml) {
+        currentModel = await mujocoModule.Model.load_from_xml(xmlPath);
+        const state = new mujocoModule.State!(currentModel);
+        currentData = new mujocoModule.Simulation!(currentModel, state);
+      }
+      else if (mujocoModule.MjModel?.loadFromXML) {
+        currentModel = await mujocoModule.MjModel.loadFromXML(xmlPath);
+        currentData = new mujocoModule.MjData!(currentModel);
+      } else {
+        throw new Error('Cannot find MuJoCo model loading method');
+      }
+    } catch (loadError) {
+      console.error('MuJoCo model loading error:', loadError);
+      throw loadError;
+    }
 
     // Set initial qpos if provided
     if (qpos && currentData.qpos) {
       for (let i = 0; i < Math.min(qpos.length, currentData.qpos.length); i++) {
         currentData.qpos[i] = qpos[i];
+      }
+      // Forward to apply qpos
+      if (currentData.forward) {
+        currentData.forward();
       }
     }
 
@@ -135,12 +367,6 @@ export function getQPos(): number[] {
  */
 export function getBodyAtPosition(_x: number, _y: number, _canvas: HTMLCanvasElement): number | null {
   if (!currentModel || !currentData) return null;
-
-  // Simple ray casting based on mouse position
-  // This is a simplified version - actual implementation depends on mujoco API
-  // TODO: implement proper body picking using camera parameters and ray casting
-
-  // For now, return null (actual body picking requires more sophisticated implementation)
   return null;
 }
 
@@ -149,11 +375,24 @@ export function getBodyAtPosition(_x: number, _y: number, _canvas: HTMLCanvasEle
  */
 export function getBodyName(bodyId: number): string | null {
   if (!currentModel) return null;
-  const names = currentModel.bodyNames;
-  if (bodyId >= 0 && bodyId < names.length) {
-    return names[bodyId];
+
+  const names_array = currentModel.names;
+  if (!names_array) return null;
+
+  const name_adr = currentModel.name_bodyadr;
+  if (!name_adr || bodyId >= name_adr.length) return null;
+
+  const start_idx = name_adr[bodyId];
+  let end_idx = start_idx;
+  while (end_idx < names_array.length && names_array[end_idx] !== 0) {
+    end_idx++;
   }
-  return null;
+
+  if (start_idx >= end_idx || start_idx >= names_array.length) return null;
+
+  const bytes = names_array.subarray(start_idx, end_idx);
+  const decoder = new TextDecoder('utf-8');
+  return decoder.decode(bytes);
 }
 
 /**
@@ -178,29 +417,58 @@ export function getBodyPosition(bodyId: number): [number, number, number] | null
  * Highlight a body by changing its material color
  */
 export function highlightBody(bodyId: number, color?: [number, number, number]): void {
-  // This would modify rendering materials
-  // Implementation depends on mujoco rendering API
   console.debug('Highlight body:', bodyId, color);
 }
 
 /**
- * Render the current state to canvas
+ * Initialize Three.js scene for rendering
+ */
+export function initThreeScene(canvas: HTMLCanvasElement): ThreeScene | null {
+  try {
+    // Dispose old scene if exists
+    if (currentScene) {
+      currentScene.dispose();
+    }
+
+    // Create new ThreeScene
+    currentScene = new ThreeScene(canvas);
+
+    // If model is already loaded, create scene
+    if (mujocoModule && currentModel && currentData) {
+      currentScene.createScene(mujocoModule, currentModel, currentData as MuJoCoSimulation);
+    }
+
+    return currentScene;
+  } catch (error) {
+    console.error('Failed to initialize ThreeScene:', error);
+    return null;
+  }
+}
+
+/**
+ * Start Three.js rendering loop
+ */
+export function startRendering(): void {
+  if (currentScene) {
+    currentScene.start();
+  }
+}
+
+/**
+ * Stop Three.js rendering loop
+ */
+export function stopRendering(): void {
+  if (currentScene) {
+    currentScene.stop();
+  }
+}
+
+/**
+ * Render the current state (legacy function - now uses ThreeScene)
  */
 export function render(canvas: HTMLCanvasElement): void {
-  if (!currentModel || !currentData) {
-    renderFallback(canvas);
-    return;
-  }
-
-  // If mujoco is available, use it for rendering
-  if (mujocoModule && currentRenderer) {
-    // Use mujoco renderer
-    try {
-      currentRenderer.render(currentScene, currentData);
-    } catch (error) {
-      console.error('Render error:', error);
-      renderFallback(canvas);
-    }
+  // If ThreeScene is available and has model loaded, it's already rendering
+  if (currentScene && currentModel && currentData) {
     return;
   }
 
@@ -297,6 +565,9 @@ function renderFallback(canvas: HTMLCanvasElement): void {
  */
 export function setCamera(config: Partial<CameraConfig>): void {
   currentConfig = { ...currentConfig, ...config };
+  if (currentScene) {
+    currentScene.setCamera(config);
+  }
 }
 
 /**
@@ -310,8 +581,13 @@ export function getCamera(): CameraConfig {
  * Get all body names
  */
 export function getBodyNames(): string[] {
-  if (!currentModel) return [];
-  return currentModel.bodyNames || [];
+  if (!currentModel || !currentModel.nbody) return [];
+  const names: string[] = [];
+  for (let i = 0; i < currentModel.nbody; i++) {
+    const name = getBodyName(i);
+    names.push(name || `body_${i}`);
+  }
+  return names;
 }
 
 /**
@@ -330,10 +606,11 @@ export function getModelInfo(): { nq: number; nv: number; nbody: number } | null
  * Dispose of MuJoCo resources
  */
 export function dispose(): void {
+  if (currentScene) {
+    currentScene.clearScene();
+  }
   currentModel = null;
   currentData = null;
-  currentScene = null;
-  currentRenderer = null;
 }
 
 /**

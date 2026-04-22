@@ -74,6 +74,9 @@ export const modelApi = {
   getRobotMJCF: (robotName: string) =>
     client.get(`/model/mjcf/${robotName}`).then(res => res.data),
 
+  getRobotMJCFWithMeshes: (robotName: string) =>
+    client.get(`/model/mjcf/${robotName}/with-meshes`).then(res => res.data),
+
   getAlignPreview: (sourceFile: string, robotName: string, generatorType: string, retargetConfig: RetargetConfig) =>
     client.post<AlignPreviewResponse>('/model/align-preview', retargetConfig, {
       params: { source_file: sourceFile, robot_name: robotName, generator_type: generatorType }
