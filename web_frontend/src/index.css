@@ -217,6 +217,27 @@ body {
   border-radius: 3px;
 }
 
+.minimized-panel-restore {
+  position: absolute;
+  top: 80px;
+  left: 10px;
+  z-index: var(--z-panel);
+  height: 32px;
+  padding: 0 var(--spacing-md);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.minimized-panel-restore:hover {
+  background: var(--color-bg-hover);
+}
+
 /* Panel Resize Handle */
 .rnd-resize-handle {
   background: transparent !important;

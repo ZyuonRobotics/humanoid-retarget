@@ -211,22 +211,24 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
           }}
         />
 
-        {/* Grid pattern */}
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundImage: `
-              linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)
-            `,
-            backgroundSize: '50px 50px',
-            pointerEvents: 'none'
-          }}
-        />
+        {/* Grid pattern - only show when no 3D model is loaded */}
+        {!alignData && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundImage: `
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)
+              `,
+              backgroundSize: '50px 50px',
+              pointerEvents: 'none'
+            }}
+          />
+        )}
 
         {loading ? (
           <div

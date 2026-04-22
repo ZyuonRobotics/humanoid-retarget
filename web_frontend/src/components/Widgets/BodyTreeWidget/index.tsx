@@ -37,7 +37,7 @@ const BodyTreeWidget: React.FC<{ bodyTree: BodyTree }> = ({ bodyTree }) => {
     }
 
     if (isTreeNodeArray(bodyTree.human)) {
-      return <Tree treeData={bodyTree.human.map(transformToDataNode)} defaultExpandAll />;
+      return <Tree treeData={bodyTree.human.map(transformToDataNode)} />;
     }
 
     if (isHumanBodyInfo(bodyTree.human)) {
@@ -56,7 +56,7 @@ const BodyTreeWidget: React.FC<{ bodyTree: BodyTree }> = ({ bodyTree }) => {
     <div>
       <Card size="small" title={t('configPanel.card.robotBodies')} style={{ marginBottom: 8 }}>
         {bodyTree.robot && bodyTree.robot.length > 0 ? (
-          <Tree treeData={bodyTree.robot.map(transformToDataNode)} defaultExpandAll />
+          <Tree treeData={bodyTree.robot.map(transformToDataNode)} />
         ) : (
           <div className="text-secondary">{t('configPanel.loading')}</div>
         )}

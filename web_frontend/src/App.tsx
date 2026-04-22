@@ -69,9 +69,10 @@ const AppContent: React.FC = () => {
             <DraggablePanel
               title={t('configPanel.tabs.robotSettings')}
               defaultX={40}
-              defaultY={100}
+              defaultY={220}
               defaultWidth={510}
-              defaultHeight={480}
+              defaultHeight={300}
+              minimizedIndex={0}
             >
               <BaseSettingsWidget config={config} onChange={setConfig} />
             </DraggablePanel>
@@ -82,9 +83,10 @@ const AppContent: React.FC = () => {
             <DraggablePanel
               title={t('configPanel.tabs.humanSettings')}
               defaultX={40}
-              defaultY={600}
+              defaultY={550}
               defaultWidth={510}
               defaultHeight={400}
+              minimizedIndex={1}
             >
               <HumanSettingsWidget config={config} onChange={setConfig} />
             </DraggablePanel>
@@ -94,10 +96,11 @@ const AppContent: React.FC = () => {
           <ErrorBoundary>
             <DraggablePanel
               title={t('configPanel.tabs.retargetingParams')}
-              defaultX={560}
-              defaultY={250}
+              defaultX={containerWidth - 520}
+              defaultY={500}
               defaultWidth={510}
-              defaultHeight={540}
+              defaultHeight={400}
+              minimizedIndex={2}
             >
               <TrackersWidget config={config} onChange={setConfig} />
             </DraggablePanel>
@@ -107,10 +110,11 @@ const AppContent: React.FC = () => {
           <ErrorBoundary>
             <DraggablePanel
               title={t('configPanel.tabs.bodyTree')}
-              defaultX={containerWidth - 450}
-              defaultY={60}
+              defaultX={containerWidth - 460}
+              defaultY={220}
               defaultWidth={450}
               defaultHeight="calc(100vh - 80px)"
+              minimizedIndex={3}
             >
               <BodyTreeWidget bodyTree={bodyTree} />
             </DraggablePanel>

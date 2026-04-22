@@ -12,6 +12,7 @@ interface DraggablePanelProps {
   defaultHeight?: number | string;
   minWidth?: number | string;
   minHeight?: number | string;
+  minimizedIndex?: number;
 }
 
 const DraggablePanel: React.FC<DraggablePanelProps> = ({
@@ -23,12 +24,34 @@ const DraggablePanel: React.FC<DraggablePanelProps> = ({
   defaultHeight = 320,
   minWidth = 280,
   minHeight = 200,
+  minimizedIndex = 0,
 }) => {
   const [isMaximized, setIsMaximized] = React.useState(false);
+  const [isMinimized, setIsMinimized] = React.useState(false);
+  const panelId = `panel-${title.replace(/\s+/g, '-')}`;
+  const topOffset = 10 + minimizedIndex * 40;
 
   const handleMaximize = () => {
     setIsMaximized(!isMaximized);
   };
+
+  const handleMinimize = () => {
+    setIsMinimized(!isMinimized);
+  };
+
+  if (isMinimized) {
+    return (
+      <Button
+        className="minimized-panel-restore"
+        style={{ top: `${topOffset}px` }}
+        type="text"
+        size="small"
+        onClick={handleMinimize}
+      >
+        {title}
+      </Button>
+    );
+  }
 
   return (
     <Rnd
@@ -62,16 +85,11 @@ const DraggablePanel: React.FC<DraggablePanelProps> = ({
               type="text"
               size="small"
               icon={<MinusOutlined />}
-              onClick={() => {
-                const element = document.getElementById(`panel-${title.replace(/\s+/g, '-')}`);
-                if (element) {
-                  element.style.display = 'none';
-                }
-              }}
+              onClick={handleMinimize}
             />
           </div>
         </div>
-        <div className="draggable-panel-content" id={`panel-${title.replace(/\s+/g, '-')}`} style={{ flex: 1, overflow: 'auto' }}>
+        <div className="draggable-panel-content" id={panelId} style={{ flex: 1, overflow: 'auto' }}>
           {children}
         </div>
       </div>
