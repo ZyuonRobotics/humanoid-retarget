@@ -71,8 +71,41 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
           // Update camera lookat based on global body ratio
           const lookatY = data.globalBodyRatio * 0.5;
           setCamera({ lookat: [0, 0, lookatY] });
+          setAlignData(data);
+
+          // Create Three.js scene after alignData is set (canvas becomes available after re-render)
+          const createSceneIfReady = () => {
+            const canvas = canvasRef.current;
+            if (!canvas) return false;
+            if (!threeSceneRef.current) {
+              threeSceneRef.current = initThreeScene(canvas);
+            }
+            if (threeSceneRef.current && mujocoModule && currentModel && currentData) {
+              console.log('fetchPreview: calling createScene for combined model, model nbody=', (currentModel as any).nbody);
+              threeSceneRef.current.createScene(mujocoModule, currentModel, currentData as any);
+              startRendering();
+              console.log('fetchPreview: createScene done for combined model, startRendering called');
+              return true;
+            } else {
+              console.log('fetchPreview: createScene skipped for combined model, threeSceneRef=', !!threeSceneRef.current, 'mujocoModule=', !!mujocoModule, 'currentModel=', !!currentModel, 'currentData=', !!currentData);
+            }
+            return false;
+          };
+
+          // Try to create scene immediately (canvas might be available after setAlignData)
+          if (!createSceneIfReady()) {
+            // If canvas wasn't ready, set a timeout to retry
+            setTimeout(() => {
+              if (createSceneIfReady()) {
+                console.log('fetchPreview: createScene succeeded for combined model on retry');
+              } else {
+                console.log('fetchPreview: createScene failed for combined model even on retry');
+              }
+            }, 100);
+          }
+        } else {
+          setAlignData(null);
         }
-        setAlignData(data);
       } else {
         // Load robot only model
         const robotData = await modelApi.getRobotMJCFWithMeshes(selectedRobot);

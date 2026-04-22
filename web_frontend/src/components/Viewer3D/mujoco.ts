@@ -251,14 +251,21 @@ export async function loadAlignPreview(
       .replace(/texturedir="[^"]*"/, 'texturedir="/working"');
     mujocoModule.FS.writeFile(xmlPath, modifiedXml);
 
-    // Load model
-    if (mujocoModule.Model?.load_from_xml) {
-      currentModel = await mujocoModule.Model.load_from_xml(xmlPath);
-      const state = new mujocoModule.State!(currentModel);
-      currentData = new mujocoModule.Simulation!(currentModel, state);
-    } else if (mujocoModule.MjModel?.loadFromXML) {
+    // Load model - use consistent MjModel/MjData API
+    if (mujocoModule.MjModel?.loadFromXML) {
       currentModel = await mujocoModule.MjModel.loadFromXML(xmlPath);
-      currentData = new mujocoModule.MjData!(currentModel);
+    } else if (mujocoModule.Model?.load_from_xml) {
+      currentModel = await mujocoModule.Model.load_from_xml(xmlPath);
+    }
+    if (!currentModel) {
+      throw new Error('Failed to load model');
+    }
+
+    // Create data using MjData constructor (consistent with loadRobotModel)
+    if (mujocoModule.MjData) {
+      currentData = new mujocoModule.MjData(currentModel) as any;
+    } else {
+      throw new Error('MjData constructor not found');
     }
 
     // Set initial qpos
@@ -266,9 +273,9 @@ export async function loadAlignPreview(
       for (let i = 0; i < Math.min(response.qpos.length, currentData.qpos.length); i++) {
         currentData.qpos[i] = response.qpos[i];
       }
-      // Forward to apply qpos
-      if (currentData.forward) {
-        currentData.forward();
+      // Forward to apply qpos using mj_forward
+      if (mujocoModule.mj_forward && currentModel && currentData) {
+        mujocoModule.mj_forward(currentModel, currentData as any);
       }
     }
 
@@ -309,16 +316,22 @@ export async function initMuJoCo(xmlString: string, qpos?: number[]): Promise<bo
 
     // Load model (compatible with old and new API)
     try {
-      if (mujocoModule.Model?.load_from_xml) {
-        currentModel = await mujocoModule.Model.load_from_xml(xmlPath);
-        const state = new mujocoModule.State!(currentModel);
-        currentData = new mujocoModule.Simulation!(currentModel, state);
-      }
-      else if (mujocoModule.MjModel?.loadFromXML) {
+      if (mujocoModule.MjModel?.loadFromXML) {
         currentModel = await mujocoModule.MjModel.loadFromXML(xmlPath);
-        currentData = new mujocoModule.MjData!(currentModel);
+      } else if (mujocoModule.Model?.load_from_xml) {
+        currentModel = await mujocoModule.Model.load_from_xml(xmlPath);
       } else {
         throw new Error('Cannot find MuJoCo model loading method');
+      }
+      if (!currentModel) {
+        throw new Error('Failed to load model');
+      }
+
+      // Create data using MjData constructor (same as loadRobotModel)
+      if (mujocoModule.MjData) {
+        currentData = new mujocoModule.MjData(currentModel) as any;
+      } else {
+        throw new Error('MjData constructor not found');
       }
     } catch (loadError) {
       console.error('MuJoCo model loading error:', loadError);
@@ -326,13 +339,13 @@ export async function initMuJoCo(xmlString: string, qpos?: number[]): Promise<bo
     }
 
     // Set initial qpos if provided
-    if (qpos && currentData.qpos) {
+    if (qpos && currentData) {
       for (let i = 0; i < Math.min(qpos.length, currentData.qpos.length); i++) {
         currentData.qpos[i] = qpos[i];
       }
       // Forward to apply qpos
-      if (currentData.forward) {
-        currentData.forward();
+      if (mujocoModule.mj_forward && currentModel && currentData) {
+        mujocoModule.mj_forward(currentModel, currentData as any);
       }
     }
 

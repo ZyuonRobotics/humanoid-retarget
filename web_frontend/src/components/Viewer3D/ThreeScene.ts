@@ -23,6 +23,7 @@ export class ThreeScene {
   private simulation: MuJoCoSimulation | null = null;
   private bodies: Map<number, THREE.Group> = new Map();
   private mujocoRoot: THREE.Group | null = null;
+  private worldBodyMeshes: THREE.Mesh[] = [];
   // Instance ID for debugging
   private instanceId: number = ThreeScene.nextInstanceId++;
   private static nextInstanceId = 0;
@@ -274,6 +275,12 @@ export class ThreeScene {
       }
 
       bodyGroup.add(mesh);
+
+      // Track world body meshes for centerModel calculation but don't render them
+      if (bodyId === 0) {
+        mesh.visible = false;
+        this.worldBodyMeshes.push(mesh);
+      }
     }
 
     // Update initial body positions from simulation before centering
@@ -336,7 +343,9 @@ export class ThreeScene {
 
     // Find minimum y position (ground level)
     let minY = Infinity;
-    for (let b = 0; b < this.model.nbody; b++) {
+
+    // Check regular body groups
+    for (let b = 1; b < this.model.nbody; b++) {
       const bodyGroup = this.bodies.get(b);
       if (bodyGroup) {
         bodyGroup.updateMatrixWorld(true);
@@ -345,6 +354,20 @@ export class ThreeScene {
         if (worldPos.y < minY) {
           minY = worldPos.y;
         }
+      }
+    }
+
+    // Also check world body meshes (for ground reference)
+    for (const mesh of this.worldBodyMeshes) {
+      mesh.updateMatrixWorld(true);
+      const worldPos = new THREE.Vector3();
+      mesh.getWorldPosition(worldPos);
+      // Account for geometry bottom - world body geom is centered at y=0
+      const geomBottom = worldPos.y - (mesh.geometry.boundingBox
+        ? mesh.geometry.boundingBox.min.y * mesh.scale.y
+        : 0);
+      if (geomBottom < minY) {
+        minY = geomBottom;
       }
     }
 
@@ -463,6 +486,7 @@ export class ThreeScene {
       this.mujocoRoot = null;
     }
     this.bodies.clear();
+    this.worldBodyMeshes = [];
     this.model = null;
     this.simulation = null;
   }
