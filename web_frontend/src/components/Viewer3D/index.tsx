@@ -17,6 +17,9 @@ import {
   currentData,
 } from './mujoco';
 
+// Module-level cache so robot mesh data is not re-fetched across re-renders or config changes
+const robotDataCache = new Map<string, { xml: string; meshes: Record<string, string>; body_names: string[] }>();
+
 interface Viewer3DProps {
   sourceFile?: string;
 }
@@ -26,6 +29,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const threeSceneRef = useRef<any>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const [alignData, setAlignData] = useState<AlignPreviewData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -59,9 +63,18 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
     lastY: 0
   });
 
+  // Keep a ref so fetchPreview can read the latest config without it being a dep
+  const configRef = useRef(config);
+  useEffect(() => { configRef.current = config; }, [config]);
+
   // Initialize Three.js scene when canvas becomes available
   // Debounced fetch for model (robot only, human only, or robot+human)
   const fetchPreview = useCallback(async () => {
+    // Cancel any previous in-flight request
+    abortControllerRef.current?.abort();
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     // Nothing to show
     if (!showRobot && !showHuman) {
       dispose();
@@ -93,6 +106,15 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
     setLoading(true);
     setError(null);
 
+    // Helper: get robot MJCF+meshes, using cache to avoid repeated heavy fetches
+    const getRobotData = async (robotName: string) => {
+      const cached = robotDataCache.get(robotName);
+      if (cached) return cached;
+      const data = await modelApi.getRobotMJCFWithMeshes(robotName);
+      robotDataCache.set(robotName, data);
+      return data;
+    };
+
     // Shared helper: build Three scene once the model is loaded
     const bootScene = () => {
       const createSceneIfReady = () => {
@@ -118,9 +140,10 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
         // Combined human+robot preview. Robot meshes are referenced by the
         // combined XML, so fetch them alongside the align preview.
         const [data, robotData] = await Promise.all([
-          fetchAlignPreview(sourceFile!, selectedRobot!, generatorType!, config),
-          modelApi.getRobotMJCFWithMeshes(selectedRobot!),
+          fetchAlignPreview(sourceFile!, selectedRobot!, generatorType!, configRef.current),
+          getRobotData(selectedRobot!),
         ]);
+        if (abortController.signal.aborted) return;
         if (data) {
           await initMuJoCo(data.xml, data.qpos, robotData.meshes || {});
           const lookatY = data.globalBodyRatio * 0.5;
@@ -131,8 +154,9 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
           setAlignData(null);
         }
       } else if (showRobot) {
-        // Robot only
-        const robotData = await modelApi.getRobotMJCFWithMeshes(selectedRobot!);
+        // Robot only — use cache to avoid re-fetching unchanged mesh data
+        const robotData = await getRobotData(selectedRobot!);
+        if (abortController.signal.aborted) return;
         await loadRobotModel(selectedRobot!, robotData.xml, robotData.meshes || {});
         setAlignData({
           xml: robotData.xml,
@@ -144,7 +168,8 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
         bootScene();
       } else if (showHuman) {
         // Human only — parametric bodies, no mesh files required
-        const data = await fetchHumanPreview(sourceFile!, generatorType!, config);
+        const data = await fetchHumanPreview(sourceFile!, generatorType!, configRef.current);
+        if (abortController.signal.aborted) return;
         if (data) {
           await initMuJoCo(data.xml, data.qpos);
           const lookatY = data.globalBodyRatio * 0.5;
@@ -156,21 +181,36 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
         }
       }
     } catch (err) {
+      if (abortController.signal.aborted) return;
       setError(err instanceof Error ? err.message : 'Failed to load preview');
       setAlignData(null);
     } finally {
-      setLoading(false);
+      if (!abortController.signal.aborted) {
+        setLoading(false);
+      }
     }
-  }, [sourceFile, selectedRobot, generatorType, config, showRobot, showHuman]);
+  }, [sourceFile, selectedRobot, generatorType, showRobot, showHuman]);
 
-  // Fetch preview when config or source changes
+  // Re-fetch when non-config things change (robot switch, toggle, file change)
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
       fetchPreview();
-    }, 300); // Debounce 300ms
+    }, 300);
 
     return () => clearTimeout(debounceTimer);
   }, [fetchPreview]);
+
+  // Re-fetch when config changes, but only if human data is involved
+  const showHumanRef = useRef(showHuman);
+  showHumanRef.current = showHuman;
+  useEffect(() => {
+    if (!showHumanRef.current) return; // robot-only view is config-independent
+    const debounceTimer = setTimeout(() => {
+      fetchPreview();
+    }, 300);
+
+    return () => clearTimeout(debounceTimer);
+  }, [config, fetchPreview]);
 
   // Handle body picking on click
   const handleClick = useCallback((_e: React.MouseEvent) => {

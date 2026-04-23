@@ -5,6 +5,7 @@ import io
 import json
 import os
 import tempfile
+from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
@@ -189,7 +190,12 @@ async def get_robot_mjcf(robot_name: str):
 @router.get("/mjcf/{robot_name}/with-meshes")
 async def get_robot_mjcf_with_meshes(robot_name: str):
     """Get MJCF XML for a robot with mesh files encoded as base64."""
-    import base64
+    return _get_robot_mjcf_with_meshes_cached(robot_name)
+
+
+@lru_cache(maxsize=32)
+def _get_robot_mjcf_with_meshes_cached(robot_name: str):
+    """Cached implementation — robot mesh data is static per robot."""
 
     from hurodes.generators import MJCFHumanoidGenerator
     from hurodes import HumanoidRobot
