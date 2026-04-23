@@ -82,6 +82,11 @@ export const modelApi = {
       params: { source_file: sourceFile, robot_name: robotName, generator_type: generatorType }
     }).then(res => res.data),
 
+  getHumanPreview: (sourceFile: string, generatorType: string, retargetConfig: RetargetConfig) =>
+    client.post<AlignPreviewResponse>('/model/human-preview', retargetConfig, {
+      params: { source_file: sourceFile, generator_type: generatorType }
+    }).then(res => res.data),
+
   getFrameData: (outputName: string, frameId: number) =>
     client.get(`/model/frame/${outputName}/${frameId}`).then(res => res.data),
 

@@ -171,20 +171,25 @@ export async function loadRobotModel(
     // Clear any existing model
     dispose();
 
-    // Write XML to VFS
-    const xmlPath = '/working/robot.xml';
-    // Modify meshdir to point to /working since files are in VFS, not filesystem
-    const modifiedXml = xml
-      .replace(/meshdir="[^"]*"/, 'meshdir="/working"')
-      .replace(/texturedir="[^"]*"/, 'texturedir="/working"');
-    mujocoModule.FS.writeFile(xmlPath, modifiedXml);
-
-    // Write mesh files to VFS
+    // Write mesh files to VFS first
     for (const [filename, base64Data] of Object.entries(meshes)) {
       const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
       const meshPath = `/working/${filename}`;
+      if (mujocoModule.FS.analyzePath(meshPath).exists) {
+        mujocoModule.FS.unlink(meshPath);
+      }
       mujocoModule.FS.writeFile(meshPath, binaryData);
     }
+
+    // Write XML to VFS
+    const xmlPath = '/working/robot.xml';
+    const modifiedXml = xml
+      .replace(/meshdir="[^"]*"/, 'meshdir="/working"')
+      .replace(/texturedir="[^"]*"/, 'texturedir="/working"');
+    if (mujocoModule.FS.analyzePath(xmlPath).exists) {
+      mujocoModule.FS.unlink(xmlPath);
+    }
+    mujocoModule.FS.writeFile(xmlPath, modifiedXml);
 
     // Load model
     if (mujocoModule.Model?.load_from_xml) {
@@ -294,7 +299,11 @@ export async function loadAlignPreview(
 /**
  * Initialize MuJoCo with XML string and optional initial qpos
  */
-export async function initMuJoCo(xmlString: string, qpos?: number[]): Promise<boolean> {
+export async function initMuJoCo(
+  xmlString: string,
+  qpos?: number[],
+  meshes?: Record<string, string>
+): Promise<boolean> {
   try {
     await initMuJoCoModule();
 
@@ -306,12 +315,27 @@ export async function initMuJoCo(xmlString: string, qpos?: number[]): Promise<bo
     // Clear any existing model
     dispose();
 
+    // Write mesh files to VFS first (XML may reference them)
+    if (meshes) {
+      for (const [filename, base64Data] of Object.entries(meshes)) {
+        const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+        const meshPath = `/working/${filename}`;
+        if (mujocoModule.FS.analyzePath(meshPath).exists) {
+          mujocoModule.FS.unlink(meshPath);
+        }
+        mujocoModule.FS.writeFile(meshPath, binaryData);
+      }
+    }
+
     // Write XML to VFS
     const xmlPath = '/working/model.xml';
     // Modify meshdir to point to /working since files are in VFS, not filesystem
     const modifiedXml = xmlString
       .replace(/meshdir="[^"]*"/, 'meshdir="/working"')
       .replace(/texturedir="[^"]*"/, 'texturedir="/working"');
+    if (mujocoModule.FS.analyzePath(xmlPath).exists) {
+      mujocoModule.FS.unlink(xmlPath);
+    }
     mujocoModule.FS.writeFile(xmlPath, modifiedXml);
 
     // Load model (compatible with old and new API)
@@ -622,8 +646,46 @@ export function dispose(): void {
   if (currentScene) {
     currentScene.clearScene();
   }
+  currentScene = null;
+
+  // Release WASM-side allocations to prevent heap growth across reloads
+  try {
+    const d = currentData as any;
+    if (d && typeof d.delete === 'function') d.delete();
+    else if (d && typeof d.free === 'function') d.free();
+  } catch (e) {
+    console.warn('Failed to delete MjData:', e);
+  }
+  try {
+    const m = currentModel as any;
+    if (m && typeof m.delete === 'function') m.delete();
+    else if (m && typeof m.free === 'function') m.free();
+  } catch (e) {
+    console.warn('Failed to delete MjModel:', e);
+  }
   currentModel = null;
   currentData = null;
+
+  // Clean VFS: remove any files left in /working so repeated loads
+  // don't keep accumulating mesh/xml bytes in the WASM heap.
+  if (mujocoModule) {
+    try {
+      const entries = mujocoModule.FS.readdir('/working');
+      for (const name of entries) {
+        if (name === '.' || name === '..') continue;
+        const p = `/working/${name}`;
+        try {
+          const st = mujocoModule.FS.stat(p);
+          if (mujocoModule.FS.isDir(st.mode)) continue;
+          mujocoModule.FS.unlink(p);
+        } catch {
+          // ignore individual file errors
+        }
+      }
+    } catch (e) {
+      // /working may not exist yet
+    }
+  }
 }
 
 /**
@@ -655,6 +717,28 @@ export async function fetchAlignPreview(
     };
   } catch (error) {
     console.error('Failed to fetch align preview:', error);
+    return null;
+  }
+}
+
+/**
+ * Fetch human-only preview from backend
+ */
+export async function fetchHumanPreview(
+  sourceFile: string,
+  generatorType: string,
+  retargetConfig: any
+): Promise<AlignPreviewData | null> {
+  try {
+    const response = await modelApi.getHumanPreview(sourceFile, generatorType, retargetConfig);
+    return {
+      xml: response.xml,
+      qpos: response.qpos,
+      bodyNames: response.body_names,
+      globalBodyRatio: response.global_body_ratio
+    };
+  } catch (error) {
+    console.error('Failed to fetch human preview:', error);
     return null;
   }
 }

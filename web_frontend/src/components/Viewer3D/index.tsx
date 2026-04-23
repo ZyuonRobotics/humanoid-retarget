@@ -4,11 +4,11 @@ import { modelApi } from '../../api/client';
 import {
   initMuJoCo,
   fetchAlignPreview,
+  fetchHumanPreview,
   loadRobotModel,
   dispose,
   AlignPreviewData,
   setCamera,
-  getBodyPosition,
   highlightBody,
   initThreeScene,
   startRendering,
@@ -30,8 +30,24 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
   const [alignData, setAlignData] = useState<AlignPreviewData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedBody, setSelectedBody] = useState<{ id: number; name: string } | null>(null);
-  const [bodyInfo, setBodyInfo] = useState<{ name: string; position: [number, number, number] } | null>(null);
+
+  // Independent visibility toggles. When both are false nothing is shown;
+  // when both are true the combined human+robot preview is shown.
+  const [showRobot, setShowRobot] = useState(false);
+  const [showHuman, setShowHuman] = useState(false);
+
+  // Determine which toggles are currently enabled
+  const canShowRobot = !!selectedRobot;
+  const canShowHuman = !!sourceFile && !!generatorType;
+
+  const toggleRobot = () => {
+    if (!canShowRobot) return;
+    setShowRobot(v => !v);
+  };
+  const toggleHuman = () => {
+    if (!canShowHuman) return;
+    setShowHuman(v => !v);
+  };
 
   // Camera state
   const [camera, setCameraState] = useState({
@@ -44,8 +60,19 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
   });
 
   // Initialize Three.js scene when canvas becomes available
-  // Debounced fetch for model (robot only or robot+human)
+  // Debounced fetch for model (robot only, human only, or robot+human)
   const fetchPreview = useCallback(async () => {
+    // Nothing to show
+    if (!showRobot && !showHuman) {
+      dispose();
+      if (threeSceneRef.current) {
+        threeSceneRef.current.dispose();
+        threeSceneRef.current = null;
+      }
+      setAlignData(null);
+      return;
+    }
+
     // Clean up previous model/scene before loading new one
     dispose();
     if (threeSceneRef.current) {
@@ -53,7 +80,12 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
       threeSceneRef.current = null;
     }
 
-    if (!selectedRobot) {
+    // Guard: each enabled toggle needs its own prerequisites
+    if (showRobot && !selectedRobot) {
+      setAlignData(null);
+      return;
+    }
+    if (showHuman && (!sourceFile || !generatorType)) {
       setAlignData(null);
       return;
     }
@@ -61,94 +93,67 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
     setLoading(true);
     setError(null);
 
+    // Shared helper: build Three scene once the model is loaded
+    const bootScene = () => {
+      const createSceneIfReady = () => {
+        const canvas = canvasRef.current;
+        if (!canvas) return false;
+        if (!threeSceneRef.current) {
+          threeSceneRef.current = initThreeScene(canvas);
+        }
+        if (threeSceneRef.current && mujocoModule && currentModel && currentData) {
+          threeSceneRef.current.createScene(mujocoModule, currentModel, currentData as any);
+          startRendering();
+          return true;
+        }
+        return false;
+      };
+      if (!createSceneIfReady()) {
+        setTimeout(() => { createSceneIfReady(); }, 100);
+      }
+    };
+
     try {
-      if (sourceFile && generatorType) {
-        // Load robot + human combined model
-        const data = await fetchAlignPreview(sourceFile, selectedRobot, generatorType, config);
+      if (showRobot && showHuman) {
+        // Combined human+robot preview. Robot meshes are referenced by the
+        // combined XML, so fetch them alongside the align preview.
+        const [data, robotData] = await Promise.all([
+          fetchAlignPreview(sourceFile!, selectedRobot!, generatorType!, config),
+          modelApi.getRobotMJCFWithMeshes(selectedRobot!),
+        ]);
         if (data) {
-          // Initialize MuJoCo with the fetched data
-          await initMuJoCo(data.xml, data.qpos);
-          // Update camera lookat based on global body ratio
+          await initMuJoCo(data.xml, data.qpos, robotData.meshes || {});
           const lookatY = data.globalBodyRatio * 0.5;
           setCamera({ lookat: [0, 0, lookatY] });
           setAlignData(data);
-
-          // Create Three.js scene after alignData is set (canvas becomes available after re-render)
-          const createSceneIfReady = () => {
-            const canvas = canvasRef.current;
-            if (!canvas) return false;
-            if (!threeSceneRef.current) {
-              threeSceneRef.current = initThreeScene(canvas);
-            }
-            if (threeSceneRef.current && mujocoModule && currentModel && currentData) {
-              console.log('fetchPreview: calling createScene for combined model, model nbody=', (currentModel as any).nbody);
-              threeSceneRef.current.createScene(mujocoModule, currentModel, currentData as any);
-              startRendering();
-              console.log('fetchPreview: createScene done for combined model, startRendering called');
-              return true;
-            } else {
-              console.log('fetchPreview: createScene skipped for combined model, threeSceneRef=', !!threeSceneRef.current, 'mujocoModule=', !!mujocoModule, 'currentModel=', !!currentModel, 'currentData=', !!currentData);
-            }
-            return false;
-          };
-
-          // Try to create scene immediately (canvas might be available after setAlignData)
-          if (!createSceneIfReady()) {
-            // If canvas wasn't ready, set a timeout to retry
-            setTimeout(() => {
-              if (createSceneIfReady()) {
-                console.log('fetchPreview: createScene succeeded for combined model on retry');
-              } else {
-                console.log('fetchPreview: createScene failed for combined model even on retry');
-              }
-            }, 100);
-          }
+          bootScene();
         } else {
           setAlignData(null);
         }
-      } else {
-        // Load robot only model
-        const robotData = await modelApi.getRobotMJCFWithMeshes(selectedRobot);
-        await loadRobotModel(selectedRobot, robotData.xml, robotData.meshes || {});
-
-        // Now create the scene - canvas must be available after setAlignData triggers re-render
-        const createSceneIfReady = () => {
-          const canvas = canvasRef.current;
-          if (!canvas) return false;
-          if (!threeSceneRef.current) {
-            threeSceneRef.current = initThreeScene(canvas);
-          }
-          if (threeSceneRef.current && mujocoModule && currentModel && currentData) {
-            console.log('fetchPreview: calling createScene, model nbody=', (currentModel as any).nbody);
-            threeSceneRef.current.createScene(mujocoModule, currentModel, currentData as any);
-            startRendering();
-            console.log('fetchPreview: createScene done, startRendering called');
-            return true;
-          } else {
-            console.log('fetchPreview: createScene skipped, threeSceneRef=', !!threeSceneRef.current, 'mujocoModule=', !!mujocoModule, 'currentModel=', !!currentModel, 'currentData=', !!currentData);
-          }
-          return false;
-        };
-
+      } else if (showRobot) {
+        // Robot only
+        const robotData = await modelApi.getRobotMJCFWithMeshes(selectedRobot!);
+        await loadRobotModel(selectedRobot!, robotData.xml, robotData.meshes || {});
         setAlignData({
           xml: robotData.xml,
           qpos: [],
           bodyNames: robotData.body_names || [],
-          globalBodyRatio: 1.0
+          globalBodyRatio: 1.0,
         });
-
-        // Try to create scene immediately (canvas might be available after setAlignData)
-        if (!createSceneIfReady()) {
-          // If canvas wasn't ready, set a timeout to retry
-          setTimeout(() => {
-            if (createSceneIfReady()) {
-              console.log('fetchPreview: createScene succeeded on retry');
-            } else {
-              console.log('fetchPreview: createScene failed even on retry');
-            }
-          }, 100);
-        }
         setCamera({ lookat: [0, 0, 0.5] });
+        bootScene();
+      } else if (showHuman) {
+        // Human only — parametric bodies, no mesh files required
+        const data = await fetchHumanPreview(sourceFile!, generatorType!, config);
+        if (data) {
+          await initMuJoCo(data.xml, data.qpos);
+          const lookatY = data.globalBodyRatio * 0.5;
+          setCamera({ lookat: [0, 0, lookatY] });
+          setAlignData(data);
+          bootScene();
+        } else {
+          setAlignData(null);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load preview');
@@ -156,7 +161,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
     } finally {
       setLoading(false);
     }
-  }, [sourceFile, selectedRobot, generatorType, config]);
+  }, [sourceFile, selectedRobot, generatorType, config, showRobot, showHuman]);
 
   // Fetch preview when config or source changes
   useEffect(() => {
@@ -175,15 +180,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
     // For now, just highlight clicked position
     // Actual body picking would require raycasting in Three.js
     const bodyId = Math.floor(Math.random() * alignData.bodyNames.length); // Placeholder
-    const bodyName = alignData.bodyNames[bodyId];
-
-    setSelectedBody({ id: bodyId, name: bodyName });
     highlightBody(bodyId, [1, 0.5, 0]); // Orange highlight
-
-    const position = getBodyPosition(bodyId);
-    if (position) {
-      setBodyInfo({ name: bodyName, position });
-    }
   }, [alignData]);
 
   return (
@@ -342,6 +339,66 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
         )}
       </div>
 
+      {/* Display toggles: robot / human (independently toggleable) */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 12,
+          right: 12,
+          display: 'flex',
+          gap: 8,
+          zIndex: 10
+        }}
+      >
+        {/* Robot */}
+        <button
+          onClick={toggleRobot}
+          disabled={!canShowRobot}
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 8,
+            border: showRobot ? '2px solid #3b82f6' : '2px solid rgba(255,255,255,0.2)',
+            background: showRobot ? 'rgba(59,130,246,0.3)' : 'rgba(0,0,0,0.4)',
+            color: canShowRobot ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.3)',
+            cursor: canShowRobot ? 'pointer' : 'not-allowed',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 16,
+            opacity: canShowRobot ? 1 : 0.5,
+            transition: 'all 0.2s ease'
+          }}
+          title="机器人"
+        >
+          🤖
+        </button>
+
+        {/* Human */}
+        <button
+          onClick={toggleHuman}
+          disabled={!canShowHuman}
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 8,
+            border: showHuman ? '2px solid #3b82f6' : '2px solid rgba(255,255,255,0.2)',
+            background: showHuman ? 'rgba(59,130,246,0.3)' : 'rgba(0,0,0,0.4)',
+            color: canShowHuman ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.3)',
+            cursor: canShowHuman ? 'pointer' : 'not-allowed',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 16,
+            opacity: canShowHuman ? 1 : 0.5,
+            transition: 'all 0.2s ease'
+          }}
+          title="人体"
+        >
+          🧍
+        </button>
+      </div>
+
       {/* Camera controls info */}
       <div
         style={{
@@ -356,48 +413,6 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
       >
         Drag: Orbit | Scroll: Zoom | Click: Select Body
       </div>
-
-      {/* Body info panel */}
-      {selectedBody && bodyInfo && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 8,
-            right: 8,
-            background: 'rgba(0,0,0,0.7)',
-            border: '1px solid rgba(255,255,255,0.2)',
-            borderRadius: 8,
-            padding: '12px 16px',
-            color: 'white',
-            fontSize: 12,
-            fontFamily: 'monospace',
-            minWidth: 180
-          }}
-        >
-          <div style={{ fontWeight: 'bold', marginBottom: 8, color: '#3a7bd5' }}>
-            {bodyInfo.name}
-          </div>
-          <div style={{ color: 'rgba(255,255,255,0.7)' }}>
-            Position: {bodyInfo.position.map(v => v.toFixed(3)).join(', ')}
-          </div>
-          <div style={{ marginTop: 8 }}>
-            <button
-              onClick={() => { setSelectedBody(null); setBodyInfo(null); }}
-              style={{
-                background: 'rgba(255,255,255,0.1)',
-                border: 'none',
-                borderRadius: 4,
-                padding: '4px 8px',
-                color: 'white',
-                cursor: 'pointer',
-                fontSize: 11
-              }}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Status bar */}
       {alignData && (

@@ -1,11 +1,11 @@
 /**
  * ThreeScene - Three.js rendering for MuJoCo models
- * Adapted from robot_viewer's MujocoSimulationManager
+ * Adapted from robot_viewer's SceneManager
  */
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { MuJoCoModule, MuJoCoModel, MuJoCoSimulation, CameraConfig } from './mujoco';
+import { MuJoCoModule, MuJoCoModel, MuJoCoSimulation } from './mujoco';
 import {
   transformMeshVerticesM2T,
   transformMeshNormalsM2T
@@ -24,21 +24,26 @@ export class ThreeScene {
   private bodies: Map<number, THREE.Group> = new Map();
   private mujocoRoot: THREE.Group | null = null;
   private worldBodyMeshes: THREE.Mesh[] = [];
+
+  // On-demand rendering flags
+  private _dirty = false;
+  private _renderingPaused = false;
+
+  // Lights and ground
+  private directionalLight: THREE.DirectionalLight | null = null;
+  private groundPlane: THREE.Mesh | null = null;
+  private referenceGrid: THREE.GridHelper | null = null;
+
   // Instance ID for debugging
   private instanceId: number = ThreeScene.nextInstanceId++;
   private static nextInstanceId = 0;
 
-  // Camera config
-  private cameraConfig: CameraConfig = {
-    azimuth: 0,
-    elevation: -30,
-    distance: 3,
-    lookat: [0, 0, 0.5]
-  };
-
   // Animation
   private animationFrameId: number | null = null;
   private isRunning = false;
+
+  // Render loop
+  private _renderLoopId: number | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     console.log(`ThreeScene[${this.instanceId}]: constructor called`);
@@ -46,13 +51,14 @@ export class ThreeScene {
 
     // Create scene
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x1a1a2e);
+    this.scene.background = new THREE.Color(0x505050);
 
-    // Create camera
+    // Create camera (FOV 75 like robot_viewer)
     const width = canvas.clientWidth;
     const height = canvas.clientHeight;
-    this.camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
-    this.updateCameraFromConfig();
+    this.camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+    this.camera.position.set(2, 2, 2);
+    this.camera.lookAt(0, 0, 0);
 
     // Create renderer
     this.renderer = new THREE.WebGLRenderer({
@@ -64,24 +70,86 @@ export class ThreeScene {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-    // Create controls
+    // Create controls (exactly like robot_viewer)
     this.controls = new OrbitControls(this.camera, canvas);
-    this.controls.enableDamping = true;
-    this.controls.dampingFactor = 0.05;
+    this.controls.enableDamping = false;
     this.controls.enablePan = true;
+    this.controls.panSpeed = 1.0;
     this.controls.enableZoom = true;
     this.controls.enableRotate = true;
+    this.controls.screenSpacePanning = true;
+    this.controls.target.set(0, 0, 0);
+
+    // Mark as needing render on controls change
+    this.controls.addEventListener('change', () => this.redraw());
+
+    // Set mouse buttons to match robot_viewer
+    if (this.controls.mouseButtons) {
+      this.controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+      this.controls.mouseButtons.MIDDLE = THREE.MOUSE.DOLLY;
+      this.controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
+    }
 
     // Setup lights
     this.setupLights();
 
     // Setup ground plane
-    this.setupGround();
+    this.setupGroundPlane();
 
     // Handle resize
     this.handleResize = this.handleResize.bind(this);
     window.addEventListener('resize', this.handleResize);
+
+    // Start continuous render loop
+    this.startRenderLoop();
+
+    // Render immediately to show initial scene
+    this.redraw();
   }
+
+  // ==================== Render Loop ====================
+
+  /**
+   * Start continuous render loop (borrowed from urdf-loaders implementation)
+   */
+  startRenderLoop() {
+    const renderLoop = () => {
+      // Only render when needed (controlled by _dirty flag)
+      if (this._dirty) {
+        this.renderer.render(this.scene, this.camera);
+        this._dirty = false;
+      }
+      this._renderLoopId = requestAnimationFrame(renderLoop);
+    };
+    renderLoop();
+  }
+
+  stopRenderLoop() {
+    if (this._renderLoopId) {
+      cancelAnimationFrame(this._renderLoopId);
+      this._renderLoopId = null;
+    }
+  }
+
+  /**
+   * Mark scene as needing re-render (on-demand rendering)
+   */
+  redraw() {
+    this._dirty = true;
+  }
+
+  /**
+   * Render immediately (for scenes requiring immediate update)
+   */
+  render() {
+    if (this._renderingPaused) {
+      return;
+    }
+    this.renderer.render(this.scene, this.camera);
+    this._dirty = false;
+  }
+
+  // ==================== Lights & Environment ====================
 
   private setupLights(): void {
     // Ambient light
@@ -89,18 +157,18 @@ export class ThreeScene {
     this.scene.add(ambient);
 
     // Directional light (sun)
-    const directional = new THREE.DirectionalLight(0xffffff, 0.8);
-    directional.position.set(5, 10, 5);
-    directional.castShadow = true;
-    directional.shadow.mapSize.width = 2048;
-    directional.shadow.mapSize.height = 2048;
-    directional.shadow.camera.near = 0.5;
-    directional.shadow.camera.far = 50;
-    directional.shadow.camera.left = -10;
-    directional.shadow.camera.right = 10;
-    directional.shadow.camera.top = 10;
-    directional.shadow.camera.bottom = -10;
-    this.scene.add(directional);
+    this.directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    this.directionalLight.position.set(5, 10, 5);
+    this.directionalLight.castShadow = true;
+    this.directionalLight.shadow.mapSize.width = 2048;
+    this.directionalLight.shadow.mapSize.height = 2048;
+    this.directionalLight.shadow.camera.near = 0.5;
+    this.directionalLight.shadow.camera.far = 50;
+    this.directionalLight.shadow.camera.left = -10;
+    this.directionalLight.shadow.camera.right = 10;
+    this.directionalLight.shadow.camera.top = 10;
+    this.directionalLight.shadow.camera.bottom = -10;
+    this.scene.add(this.directionalLight);
 
     // Fill light
     const fill = new THREE.DirectionalLight(0xffffff, 0.3);
@@ -108,49 +176,42 @@ export class ThreeScene {
     this.scene.add(fill);
   }
 
-  private setupGround(): void {
+  private setupGroundPlane(): void {
     // Ground plane
     const groundGeometry = new THREE.PlaneGeometry(20, 20);
     const groundMaterial = new THREE.MeshPhongMaterial({
       color: 0x2a2a4a,
       depthWrite: true
     });
-    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = 0;
-    ground.receiveShadow = true;
-    this.scene.add(ground);
+    this.groundPlane = new THREE.Mesh(groundGeometry, groundMaterial);
+    this.groundPlane.rotation.x = -Math.PI / 2;
+    this.groundPlane.position.y = 0;
+    this.groundPlane.receiveShadow = true;
+    this.scene.add(this.groundPlane);
 
     // Grid helper
-    const gridHelper = new THREE.GridHelper(20, 20, 0x444466, 0x333355);
-    gridHelper.position.y = 0.001;
-    this.scene.add(gridHelper);
+    this.referenceGrid = new THREE.GridHelper(20, 20, 0x444466, 0x333355);
+    this.referenceGrid.position.y = 0.001;
+    this.scene.add(this.referenceGrid);
   }
 
   private handleResize(): void {
     const width = this.canvas.clientWidth;
     const height = this.canvas.clientHeight;
 
+    if (width === 0 || height === 0 || !isFinite(width) || !isFinite(height)) {
+      return;
+    }
+
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(width, height);
+    this.renderer.setSize(width, height, true);
+    this.renderer.setPixelRatio(window.devicePixelRatio);
+
+    this.render();
   }
 
-  public setCamera(config: Partial<CameraConfig>): void {
-    this.cameraConfig = { ...this.cameraConfig, ...config };
-    this.updateCameraFromConfig();
-  }
-
-  private updateCameraFromConfig(): void {
-    const { azimuth, elevation, distance, lookat } = this.cameraConfig;
-    const azimuthRad = (azimuth * Math.PI) / 180;
-    const elevationRad = (elevation * Math.PI) / 180;
-
-    this.camera.position.x = lookat[0] + distance * Math.cos(elevationRad) * Math.sin(azimuthRad);
-    this.camera.position.y = lookat[1] + distance * Math.sin(elevationRad);
-    this.camera.position.z = lookat[2] + distance * Math.cos(elevationRad) * Math.cos(azimuthRad);
-    this.camera.lookAt(new THREE.Vector3(lookat[0], lookat[1], lookat[2]));
-  }
+  // ==================== Model Loading ====================
 
   /**
    * Create scene from MuJoCo model
@@ -158,7 +219,7 @@ export class ThreeScene {
   public createScene(mujoco: MuJoCoModule, model: MuJoCoModel, simulation: MuJoCoSimulation): void {
     console.log(`ThreeScene[${this.instanceId}]: createScene called, model nbody=${model.nbody}`);
 
-    // Clear old scene first (before setting new model/simulation)
+    // Clear old scene first
     this.clearScene();
 
     // Store model and simulation
@@ -341,67 +402,113 @@ export class ThreeScene {
       return;
     }
 
-    // Find minimum y position (ground level)
-    let minY = Infinity;
-
-    // Check regular body groups
-    for (let b = 1; b < this.model.nbody; b++) {
-      const bodyGroup = this.bodies.get(b);
-      if (bodyGroup) {
-        bodyGroup.updateMatrixWorld(true);
-        const worldPos = new THREE.Vector3();
-        bodyGroup.getWorldPosition(worldPos);
-        if (worldPos.y < minY) {
-          minY = worldPos.y;
-        }
-      }
-    }
-
-    // Also check world body meshes (for ground reference)
-    for (const mesh of this.worldBodyMeshes) {
-      mesh.updateMatrixWorld(true);
-      const worldPos = new THREE.Vector3();
-      mesh.getWorldPosition(worldPos);
-      // Account for geometry bottom - world body geom is centered at y=0
-      const geomBottom = worldPos.y - (mesh.geometry.boundingBox
-        ? mesh.geometry.boundingBox.min.y * mesh.scale.y
-        : 0);
-      if (geomBottom < minY) {
-        minY = geomBottom;
-      }
-    }
-
-    console.log(`ThreeScene[${this.instanceId}]: centerModel, minY=${minY}, mujocoRoot.position.y before=${this.mujocoRoot.position.y}`);
-    if (isFinite(minY) && minY !== 0) {
-      this.mujocoRoot.position.y = -minY;
-    }
-    console.log(`ThreeScene[${this.instanceId}]: centerModel, mujocoRoot.position.y after=${this.mujocoRoot.position.y}`);
-
-    // Auto-fit camera to model
-    this.fitCameraToModel();
+    // Update environment and fit camera
+    this.updateEnvironment(true);
   }
 
   /**
-   * Fit camera to show entire model
+   * Update environment (adjust ground position and shadows, update camera focus)
+   * @param fitCamera - Whether to auto-adjust camera view
    */
-  private fitCameraToModel(): void {
-    if (!this.mujocoRoot) return;
+  private updateEnvironment(fitCamera: boolean): void {
+    const model = this.model;
+    if (!model || !this.mujocoRoot) {
+      return;
+    }
 
-    // Calculate bounding box
-    const box = new THREE.Box3().setFromObject(this.mujocoRoot);
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
+    // Force update world matrix
+    this.mujocoRoot.updateMatrixWorld(true);
 
-    // Set camera distance based on model size
+    // Calculate model's bounding box in scene global coordinate system
+    const bboxGlobal = new THREE.Box3();
+    bboxGlobal.setFromObject(this.mujocoRoot, true);
+
+    if (bboxGlobal.isEmpty()) {
+      return;
+    }
+
+    const center = bboxGlobal.getCenter(new THREE.Vector3());
+    const size = bboxGlobal.getSize(new THREE.Vector3());
+    const minY = bboxGlobal.min.y;
+
+    // Update ground position to model lowest point
+    if (this.groundPlane) {
+      this.groundPlane.position.y = minY;
+    }
+
+    // Update grid position
+    if (this.referenceGrid) {
+      this.referenceGrid.position.y = minY + 0.001;
+      this.referenceGrid.updateMatrixWorld(true);
+    }
+
+    // If camera adjustment needed, perform auto-zoom and positioning
+    if (fitCamera) {
+      this.fitCameraToModel(bboxGlobal, center, size);
+    }
+
+    // Update directional light shadow camera
+    const dirLight = this.directionalLight;
+    if (dirLight && dirLight.castShadow) {
+      // Use bounding sphere to set shadow camera range
+      const sphere = bboxGlobal.getBoundingSphere(new THREE.Sphere());
+      const minmax = sphere.radius;
+
+      const cam = dirLight.shadow.camera;
+      cam.left = cam.bottom = -minmax;
+      cam.right = cam.top = minmax;
+
+      // Make directional light follow model center
+      const offset = dirLight.position.clone().sub(dirLight.target.position);
+      dirLight.target.position.copy(center);
+      dirLight.position.copy(center).add(offset);
+
+      cam.updateProjectionMatrix();
+    }
+
+    this.redraw();
+  }
+
+  /**
+   * Auto-adjust camera position to fit model size
+   * View angle: oblique from side-back (looking at model from side-back)
+   */
+  private fitCameraToModel(_bbox: THREE.Box3, center: THREE.Vector3, size: THREE.Vector3): void {
+    // Calculate model's maximum dimension
     const maxDim = Math.max(size.x, size.y, size.z);
-    const distance = maxDim * 2.5;
 
-    this.camera.position.set(center.x + distance * 0.5, center.y + distance * 0.3, center.z + distance);
-    this.camera.lookAt(center);
+    if (maxDim < 0.001) {
+      return;
+    }
 
-    // Update camera config
-    this.cameraConfig.distance = distance;
-    this.cameraConfig.lookat = [center.x, center.y, center.z];
+    // Calculate appropriate camera distance (based on FOV and model size)
+    const fov = this.camera.fov * (Math.PI / 180);
+    const distanceMultiplier = 1.8; // robot model uses 1.8x
+    const distance = maxDim / (2 * Math.tan(fov / 2)) * distanceMultiplier;
+
+    // Side-back oblique view:
+    // - From right-back (X positive + Z negative)
+    // - Slightly looking down (Y positive)
+    // Standard oblique angle: horizontal 135 degrees (back-side), vertical about 35 degrees
+    const horizontalAngle = Math.PI * 3 / 4;  // 135 degrees (right-back)
+    const verticalAngle = Math.PI / 6;        // 30 degrees (slightly looking down)
+
+    // Calculate camera position (relative to model center)
+    const cameraOffset = new THREE.Vector3(
+      distance * Math.cos(verticalAngle) * Math.sin(horizontalAngle),
+      distance * Math.sin(verticalAngle),
+      -distance * Math.cos(verticalAngle) * Math.cos(horizontalAngle)
+    );
+
+    // Set camera position and target
+    this.camera.position.copy(center).add(cameraOffset);
+    this.controls.target.copy(center);
+
+    // Update controls and camera
+    this.controls.update();
+    this.camera.updateProjectionMatrix();
+
+    this.redraw();
   }
 
   /**
@@ -435,9 +542,8 @@ export class ThreeScene {
     }
   }
 
-  /**
-   * Update simulation and render
-   */
+  // ==================== Animation Loop ====================
+
   private update = (): void => {
     if (!this.isRunning) return;
 
@@ -451,8 +557,11 @@ export class ThreeScene {
       this.updateBodiesFromSimulation();
     }
 
-    // Render
-    this.renderer.render(this.scene, this.camera);
+    // Render (on-demand via _dirty flag)
+    if (this._dirty) {
+      this.renderer.render(this.scene, this.camera);
+      this._dirty = false;
+    }
   };
 
   /**
@@ -496,8 +605,24 @@ export class ThreeScene {
    */
   public dispose(): void {
     this.stop();
+    this.stopRenderLoop();
     window.removeEventListener('resize', this.handleResize);
     this.controls.dispose();
     this.renderer.dispose();
+  }
+
+  /**
+   * Update - called externally to update controls
+   */
+  public updateControls(): void {
+    this.controls.update();
+  }
+
+  public setCamera(config: { lookat?: [number, number, number] }): void {
+    if (config.lookat) {
+      this.controls.target.set(config.lookat[0], config.lookat[2], -config.lookat[1]);
+      this.controls.update();
+      this.redraw();
+    }
   }
 }
