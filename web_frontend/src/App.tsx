@@ -88,7 +88,7 @@ const AppContent: React.FC = () => {
               defaultHeight={400}
               minimizedIndex={1}
             >
-              <HumanSettingsWidget config={config} onChange={setConfig} />
+              <HumanSettingsWidget config={config} onChange={setConfig} bodyTree={bodyTree} />
             </DraggablePanel>
           </ErrorBoundary>
 

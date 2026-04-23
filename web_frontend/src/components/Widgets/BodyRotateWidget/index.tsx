@@ -1,18 +1,58 @@
-import React from 'react';
-import { Card, Button, InputNumber, Row, Col, Input } from 'antd';
-import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import React, { useMemo } from 'react';
+import { Card, Button, InputNumber, Row, Col, Select } from 'antd';
+import { DeleteOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { RetargetConfig } from '../../../types/config';
+import { RetargetConfig, BodyTree } from '../../../types/config';
 import { useConfig } from '../../../hooks/useConfig';
 
 interface HumanSettingsWidgetProps {
   config: RetargetConfig;
   onChange: (config: RetargetConfig) => void;
+  bodyTree: BodyTree;
 }
 
-const HumanSettingsWidget: React.FC<HumanSettingsWidgetProps> = ({ config, onChange }) => {
+interface TreeNodeLocal {
+  name: string;
+  children?: TreeNodeLocal[];
+}
+
+function isTreeNodeArray(human: BodyTree['human']): human is TreeNodeLocal[] {
+  if (!human) return false;
+  if (Array.isArray(human)) return true;
+  return false;
+}
+
+function flattenBodyNames(nodes: TreeNodeLocal[]): string[] {
+  const names: string[] = [];
+  for (const node of nodes) {
+    names.push(node.name);
+    if (node.children) {
+      names.push(...flattenBodyNames(node.children));
+    }
+  }
+  return names;
+}
+
+const HumanSettingsWidget: React.FC<HumanSettingsWidgetProps> = ({ config, onChange, bodyTree }) => {
   const { t } = useTranslation();
   const { updateConfig, addBodyRotate, removeBodyRotate, updateBodyRotate, addRelativeBodyRatio, removeRelativeBodyRatio, updateRelativeBodyRatio } = useConfig(config, onChange);
+
+  const humanBodyNames = useMemo(() => {
+    if (isTreeNodeArray(bodyTree.human)) {
+      return flattenBodyNames(bodyTree.human);
+    }
+    return [];
+  }, [bodyTree.human]);
+
+  const availableRotateBodies = useMemo(
+    () => humanBodyNames.filter((name) => !config.body_rotate_dict[name]),
+    [humanBodyNames, config.body_rotate_dict]
+  );
+
+  const availableRatioBodies = useMemo(
+    () => humanBodyNames.filter((name) => !config.relative_body_ratio_dict[name]),
+    [humanBodyNames, config.relative_body_ratio_dict]
+  );
 
   return (
     <div>
@@ -36,10 +76,7 @@ const HumanSettingsWidget: React.FC<HumanSettingsWidgetProps> = ({ config, onCha
             style={{ marginBottom: 8 }}
           >
             <Row gutter={8}>
-              <Col span={6}>
-                <Input placeholder={t('configPanel.bodyName')} value={key} disabled />
-              </Col>
-              <Col span={6}>
+              <Col span={8}>
                 <InputNumber
                   style={{ width: '100%' }}
                   placeholder={t('configPanel.label.x')}
@@ -47,7 +84,7 @@ const HumanSettingsWidget: React.FC<HumanSettingsWidgetProps> = ({ config, onCha
                   onChange={(v) => updateBodyRotate(key, [v || 0, value[1], value[2]])}
                 />
               </Col>
-              <Col span={6}>
+              <Col span={8}>
                 <InputNumber
                   style={{ width: '100%' }}
                   placeholder={t('configPanel.label.y')}
@@ -55,7 +92,7 @@ const HumanSettingsWidget: React.FC<HumanSettingsWidgetProps> = ({ config, onCha
                   onChange={(v) => updateBodyRotate(key, [value[0], v || 0, value[2]])}
                 />
               </Col>
-              <Col span={6}>
+              <Col span={8}>
                 <InputNumber
                   style={{ width: '100%' }}
                   placeholder={t('configPanel.label.z')}
@@ -66,9 +103,19 @@ const HumanSettingsWidget: React.FC<HumanSettingsWidgetProps> = ({ config, onCha
             </Row>
           </Card>
         ))}
-        <Button type="dashed" icon={<PlusOutlined />} onClick={addBodyRotate} block>
-          {t('configPanel.button.addBodyRotation')}
-        </Button>
+        <Row gutter={8}>
+          <Col span={24}>
+            <Select
+              style={{ width: '100%' }}
+              placeholder={t('configPanel.bodyName')}
+              onChange={(value) => {
+                addBodyRotate(value);
+              }}
+              options={availableRotateBodies.map((name) => ({ value: name, label: name }))}
+              disabled={availableRotateBodies.length === 0}
+            />
+          </Col>
+        </Row>
       </div>
 
       {/* Global Body Ratio Section */}
@@ -134,10 +181,7 @@ const HumanSettingsWidget: React.FC<HumanSettingsWidgetProps> = ({ config, onCha
             style={{ marginBottom: 8 }}
           >
             <Row gutter={8}>
-              <Col span={6}>
-                <Input placeholder={t('configPanel.bodyName')} value={key} disabled />
-              </Col>
-              <Col span={6}>
+              <Col span={8}>
                 <InputNumber
                   style={{ width: '100%' }}
                   step={0.01}
@@ -147,7 +191,7 @@ const HumanSettingsWidget: React.FC<HumanSettingsWidgetProps> = ({ config, onCha
                   onChange={(v) => updateRelativeBodyRatio(key, [v || 1, value[1], value[2]])}
                 />
               </Col>
-              <Col span={6}>
+              <Col span={8}>
                 <InputNumber
                   style={{ width: '100%' }}
                   step={0.01}
@@ -157,7 +201,7 @@ const HumanSettingsWidget: React.FC<HumanSettingsWidgetProps> = ({ config, onCha
                   onChange={(v) => updateRelativeBodyRatio(key, [value[0], v || 1, value[2]])}
                 />
               </Col>
-              <Col span={6}>
+              <Col span={8}>
                 <InputNumber
                   style={{ width: '100%' }}
                   step={0.01}
@@ -170,9 +214,19 @@ const HumanSettingsWidget: React.FC<HumanSettingsWidgetProps> = ({ config, onCha
             </Row>
           </Card>
         ))}
-        <Button type="dashed" icon={<PlusOutlined />} onClick={addRelativeBodyRatio} block>
-          {t('configPanel.button.addRelativeBodyRatio')}
-        </Button>
+        <Row gutter={8}>
+          <Col span={24}>
+            <Select
+              style={{ width: '100%' }}
+              placeholder={t('configPanel.bodyName')}
+              onChange={(value) => {
+                addRelativeBodyRatio(value);
+              }}
+              options={availableRatioBodies.map((name) => ({ value: name, label: name }))}
+              disabled={availableRatioBodies.length === 0}
+            />
+          </Col>
+        </Row>
       </div>
     </div>
   );
