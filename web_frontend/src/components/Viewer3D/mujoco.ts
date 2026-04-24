@@ -729,6 +729,51 @@ export interface AlignPreviewData {
   globalBodyRatio: number;
 }
 
+// Pre-computed player motion data (all frame transforms)
+export interface PlayerMotionData {
+  robotName: string;
+  motionFile: string;
+  frameNum: number;
+  frameRate: number;
+  bodyNames: string[];
+  nbody: number;
+  xpos: number[][][];  // [frame][body][3]
+  xquat: number[][][]; // [frame][body][4]
+}
+
+let playerMotionData: PlayerMotionData | null = null;
+let playerCurrentFrame = 0;
+
+/**
+ * Set player motion data (pre-computed all frame transforms from backend)
+ */
+export function setPlayerMotionData(data: PlayerMotionData): void {
+  playerMotionData = data;
+  playerCurrentFrame = 0;
+}
+
+/**
+ * Get player motion data
+ */
+export function getPlayerMotionData(): PlayerMotionData | null {
+  return playerMotionData;
+}
+
+/**
+ * Set current frame for player playback
+ */
+export function setPlayerCurrentFrame(frame: number): void {
+  if (!playerMotionData) return;
+  playerCurrentFrame = Math.max(0, Math.min(frame, playerMotionData.frameNum - 1));
+}
+
+/**
+ * Get current frame index for player playback
+ */
+export function getPlayerCurrentFrame(): number {
+  return playerCurrentFrame;
+}
+
 /**
  * Fetch align preview from backend
  */
@@ -771,5 +816,66 @@ export async function fetchHumanPreview(
   } catch (error) {
     console.error('Failed to fetch human preview:', error);
     return null;
+  }
+}
+
+/**
+ * Load player motion data from backend (pre-computed all frame transforms)
+ */
+export async function loadPlayerMotion(
+  robotName: string,
+  motionFile: string
+): Promise<PlayerMotionData | null> {
+  try {
+    const response = await modelApi.getPlayerMotionData(robotName, motionFile);
+    // Use camelCase frameRate if available, otherwise fall back to snake_case
+    const frameRate = response.frameRate || response.frame_rate;
+    const data: PlayerMotionData = {
+      robotName: response.robot_name,
+      motionFile: response.motion_file,
+      frameNum: response.frame_num,
+      frameRate: frameRate,
+      bodyNames: response.body_names,
+      nbody: response.nbody,
+      xpos: response.body_transforms.xpos,
+      xquat: response.body_transforms.xquat
+    };
+    setPlayerMotionData(data);
+    return data;
+  } catch (error) {
+    console.error('Failed to load player motion:', error);
+    return null;
+  }
+}
+
+/**
+ * Update body positions from pre-computed player motion data
+ * Called during animation playback when using player mode
+ */
+export function updateBodiesFromPlayerMotion(frame: number, bodies: Map<number, any>): void {
+  if (!playerMotionData) return;
+
+  const frameIdx = Math.max(0, Math.min(frame, playerMotionData.frameNum - 1));
+
+  for (let b = 0; b < playerMotionData.nbody; b++) {
+    const bodyGroup = bodies.get(b);
+    if (!bodyGroup) continue;
+
+    // Get position from pre-computed xpos
+    // MuJoCo: (x, y, z) → three.js: (x, z, -y)
+    bodyGroup.position.set(
+      playerMotionData.xpos[frameIdx][b][0],
+      playerMotionData.xpos[frameIdx][b][2],
+      -playerMotionData.xpos[frameIdx][b][1]
+    );
+
+    // Get rotation from pre-computed xquat
+    // MuJoCo quaternion (w, x, y, z) → three.js quaternion (x, y, z, w)
+    bodyGroup.quaternion.set(
+      playerMotionData.xquat[frameIdx][b][1],
+      playerMotionData.xquat[frameIdx][b][3],
+      -playerMotionData.xquat[frameIdx][b][2],
+      playerMotionData.xquat[frameIdx][b][0]
+    );
   }
 }

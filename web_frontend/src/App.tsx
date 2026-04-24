@@ -65,6 +65,12 @@ const AppContent: React.FC = () => {
           setActivePanel(panel);
           setIsPlaying(false);
           setPlaybackFrame({ current: 0, total: 0 });
+          setPlayerMotion(null);
+        }}
+        onPlayerMotionClear={() => {
+          setPlayerMotion(null);
+          setIsPlaying(false);
+          setPlaybackFrame({ current: 0, total: 0 });
         }}
         theme={theme}
         onThemeChange={setTheme}
@@ -81,6 +87,8 @@ const AppContent: React.FC = () => {
           sourceFile={selectedMotion}
           activePanel={activePanel}
           playerMotion={playerMotion}
+          playing={isPlaying}
+          onFrameChange={(current, total) => setPlaybackFrame(prev => ({ ...prev, current, total }))}
         />
       </div>
 
@@ -184,8 +192,13 @@ const AppContent: React.FC = () => {
                   style={{ flex: 1 }}
                   tooltip={{ formatter: (v) => `${v} / ${playbackFrame.total - 1}` }}
                   onChange={(value) => {
-                    // Update playback frame immediately
+                    // Update local state immediately for responsive UI
                     setPlaybackFrame(prev => ({ ...prev, current: value }));
+                    // Also seek the ThreeScene player to this frame
+                    const seekHandler = (window as any).__playerSeekHandler;
+                    if (seekHandler) {
+                      seekHandler(value);
+                    }
                   }}
                 />
                 <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, whiteSpace: 'nowrap' }}>

@@ -11,6 +11,16 @@ import {
   transformMeshNormalsM2T
 } from './coord';
 
+export interface PlayerMotionUpdate {
+  xpos: number[][][];
+  xquat: number[][][];
+  frameNum: number;
+  frameRate: number;
+  nbody: number;
+}
+
+export type PlayerFrameCallback = (frame: number) => void;
+
 export class ThreeScene {
   private canvas: HTMLCanvasElement;
   private scene: THREE.Scene;
@@ -44,6 +54,12 @@ export class ThreeScene {
 
   // Render loop
   private _renderLoopId: number | null = null;
+
+  // Player motion data (pre-computed from backend)
+  private playerMotionUpdate: PlayerMotionUpdate | null = null;
+  private playerCurrentFrame = 0;
+  private playerLastTime = 0;
+  private playerFrameCallback: PlayerFrameCallback | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     console.log(`ThreeScene[${this.instanceId}]: constructor called`);
@@ -144,11 +160,15 @@ export class ThreeScene {
 
   /**
    * Mark scene as needing re-render (on-demand rendering)
-   * Also updates body positions from simulation before rendering
+   * Also updates body positions from simulation or player motion before rendering
    */
   redraw() {
-    // Update body positions from simulation data before marking dirty
-    this.updateBodiesFromSimulation();
+    // Update body positions from simulation or player motion
+    if (this.playerMotionUpdate) {
+      this.updateBodiesFromPlayerMotion();
+    } else {
+      this.updateBodiesFromSimulation();
+    }
     this._dirty = true;
   }
 
@@ -569,8 +589,28 @@ export class ThreeScene {
     // Update controls
     this.controls.update();
 
-    // Update body positions from simulation
-    if (this.model && this.simulation) {
+    // Update body positions from simulation or player motion
+    if (this.playerMotionUpdate) {
+      // Advance frame based on elapsed time
+      const currentTime = performance.now();
+      if (this.playerLastTime > 0) {
+        const elapsed = (currentTime - this.playerLastTime) / 1000; // seconds
+        const frameRate = this.playerMotionUpdate.frameRate || 30;
+        const frameAdvance = Math.floor(elapsed * frameRate);
+        if (frameAdvance > 0) {
+          this.playerCurrentFrame = (this.playerCurrentFrame + frameAdvance) % this.playerMotionUpdate.frameNum;
+          this.playerLastTime = currentTime;
+        }
+        this.updateBodiesFromPlayerMotion();
+        this._dirty = true;
+        // Notify frame change
+        if (this.playerFrameCallback) {
+          this.playerFrameCallback(this.playerCurrentFrame);
+        }
+      } else {
+        this.playerLastTime = currentTime;
+      }
+    } else if (this.model && this.simulation) {
       this.updateBodiesFromSimulation();
     }
 
@@ -641,5 +681,94 @@ export class ThreeScene {
       this.controls.update();
       this.redraw();
     }
+  }
+
+  /**
+   * Set pre-computed player motion data for animation playback
+   * @param autostart if true, immediately starts the animation loop (default: true)
+   */
+  public setPlayerMotion(update: PlayerMotionUpdate, autostart = true): void {
+    this.playerMotionUpdate = update;
+    this.playerCurrentFrame = 0;
+    if (autostart) {
+      this.start();
+    }
+  }
+
+  /**
+   * Set current frame for player motion playback
+   */
+  public setPlayerFrame(frame: number): void {
+    if (!this.playerMotionUpdate) return;
+    this.playerCurrentFrame = Math.max(0, Math.min(frame, this.playerMotionUpdate.frameNum - 1));
+    this.redraw();
+  }
+
+  /**
+   * Get current player frame
+   */
+  public getPlayerFrame(): number {
+    return this.playerCurrentFrame;
+  }
+
+  /**
+   * Pause player motion animation
+   */
+  public pausePlayer(): void {
+    this.stop();
+  }
+
+  /**
+   * Resume player motion animation
+   */
+  public resumePlayer(): void {
+    if (this.playerMotionUpdate) {
+      this.playerLastTime = performance.now(); // Initialize to now so elapsed is computed correctly
+      this.start();
+    }
+  }
+
+  /**
+   * Check if player animation is currently running
+   */
+  public isPlayerRunning(): boolean {
+    return this.isRunning && !!this.playerMotionUpdate;
+  }
+
+  /**
+   * Update body positions from pre-computed player motion data
+   */
+  private updateBodiesFromPlayerMotion(): void {
+    if (!this.playerMotionUpdate || !this.simulation) return;
+
+    const frameIdx = this.playerCurrentFrame;
+    const { xpos, xquat, nbody } = this.playerMotionUpdate;
+
+    for (let b = 0; b < nbody; b++) {
+      const bodyGroup = this.bodies.get(b);
+      if (!bodyGroup) continue;
+
+      // MuJoCo: (x, y, z) → three.js: (x, z, -y)
+      bodyGroup.position.set(
+        xpos[frameIdx][b][0],
+        xpos[frameIdx][b][2],
+        -xpos[frameIdx][b][1]
+      );
+
+      // MuJoCo quaternion (w, x, y, z) → three.js quaternion (x, y, z, w)
+      bodyGroup.quaternion.set(
+        xquat[frameIdx][b][1],
+        xquat[frameIdx][b][3],
+        -xquat[frameIdx][b][2],
+        xquat[frameIdx][b][0]
+      );
+    }
+  }
+
+  /**
+   * Set callback for frame changes (called on every frame update during playback)
+   */
+  public setPlayerFrameCallback(callback: PlayerFrameCallback | null): void {
+    this.playerFrameCallback = callback;
   }
 }

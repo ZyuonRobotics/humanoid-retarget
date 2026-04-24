@@ -38,6 +38,7 @@ type ThemeType = 'dark' | 'light' | 'ocean' | 'forest' | 'sunset';
 interface TopBarProps {
   activePanel: string;
   onPanelChange: (panel: string) => void;
+  onPlayerMotionClear?: () => void;
   theme: ThemeType;
   onThemeChange: (theme: ThemeType) => void;
   onPlayerMotionChange?: (type: 'robot' | 'human', robotName: string, motionFile: string, generatorType?: string) => void;
@@ -46,6 +47,7 @@ interface TopBarProps {
 const TopBar: React.FC<TopBarProps> = ({
   activePanel,
   onPanelChange,
+  onPlayerMotionClear,
   theme,
   onThemeChange,
   onPlayerMotionChange,
@@ -88,14 +90,14 @@ const TopBar: React.FC<TopBarProps> = ({
 
   // Load retargeted motions when entering player mode
   useEffect(() => {
-    if (activePanel === 'player') {
+    if (activePanel === 'player' && selectedRobot) {
       setRetargetedLoading(true);
-      modelApi.listRetargetedMotions()
+      modelApi.listRetargetedMotions(selectedRobot)
         .then(setRetargetedMotions)
         .catch(console.error)
         .finally(() => setRetargetedLoading(false));
     }
-  }, [activePanel]);
+  }, [activePanel, selectedRobot]);
   useEffect(() => {
     if (fileSelectorOpen && !motionTree) {
       loadMotionTree();
@@ -230,14 +232,27 @@ const TopBar: React.FC<TopBarProps> = ({
           <Button
             type={activePanel === 'retargeter' ? 'primary' : 'text'}
             icon={<SettingOutlined />}
-            onClick={() => onPanelChange('retargeter')}
+            onClick={() => {
+              onPanelChange('retargeter');
+              setPlayerMotionType('robot');
+              setSelectedRobotMotion('');
+              setSelectedHumanMotion('');
+              onPlayerMotionClear?.();
+            }}
           >
             {t('menu.retargeter')}
           </Button>
           <Button
             type={activePanel === 'player' ? 'primary' : 'text'}
             icon={<PlayCircleOutlined />}
-            onClick={() => onPanelChange('player')}
+            onClick={() => {
+              onPanelChange('player');
+              setSelectedMotionFile('');
+              setMotionTree(null);
+              setColumns([]);
+              setSelectedRobot('');
+              onPlayerMotionClear?.();
+            }}
           >
             {t('menu.player')}
           </Button>

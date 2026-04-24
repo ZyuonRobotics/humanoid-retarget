@@ -52,6 +52,23 @@ export interface MotionTreeNode {
   subdirs: Record<string, MotionTreeNode>;
 }
 
+// Player motion data types
+export interface PlayerBodyTransforms {
+  xpos: number[][][];  // [frame][body][3]
+  xquat: number[][][]; // [frame][body][4]
+}
+
+export interface PlayerMotionResponse {
+  robot_name: string;
+  motion_file: string;
+  frame_num: number;
+  frame_rate: number;
+  frameRate?: number;  // camelCase variant from backend
+  body_names: string[];
+  nbody: number;
+  body_transforms: PlayerBodyTransforms;
+}
+
 // Model API
 export const modelApi = {
   listMotions: (generatorType: string) =>
@@ -68,8 +85,8 @@ export const modelApi = {
       params: { motion_file: motionFile, robot_name: robotName, generator_type: generatorType, config_name: configName, output_name: outputName }
     }).then(res => res.data),
 
-  getRetargetedMotion: (outputName: string) =>
-    client.get(`/model/retarget/${outputName}`).then(res => res.data),
+  getRetargetedMotion: (robotName: string, outputName: string) =>
+    client.get(`/model/retarget/${robotName}/${outputName}`).then(res => res.data),
 
   getRobotMJCF: (robotName: string) =>
     client.get(`/model/mjcf/${robotName}`).then(res => res.data),
@@ -87,8 +104,11 @@ export const modelApi = {
       params: { source_file: sourceFile, generator_type: generatorType }
     }).then(res => res.data),
 
-  getFrameData: (outputName: string, frameId: number) =>
-    client.get(`/model/frame/${outputName}/${frameId}`).then(res => res.data),
+  getFrameData: (robotName: string, outputName: string, frameId: number) =>
+    client.get(`/model/frame/${robotName}/${outputName}/${frameId}`).then(res => res.data),
+
+  getPlayerMotionData: (robotName: string, motionFile: string) =>
+    client.get<PlayerMotionResponse>(`/model/player/${robotName}/motion/${motionFile}`).then(res => res.data),
 
   uploadMotion: (file: File, generatorType: string = 'bvh') => {
     const formData = new FormData();
@@ -98,8 +118,8 @@ export const modelApi = {
     }).then(res => res.data);
   },
 
-  listRetargetedMotions: () =>
-    client.get<string[]>('/model/retargeted').then(res => res.data),
+  listRetargetedMotions: (robotName: string) =>
+    client.get<string[]>(`/model/retargeted/${robotName}`).then(res => res.data),
 };
 
 export default client;

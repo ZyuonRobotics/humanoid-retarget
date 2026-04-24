@@ -15,6 +15,7 @@ import {
   mujocoModule,
   currentModel,
   currentData,
+  loadPlayerMotion,
 } from './mujoco';
 
 // Module-level cache so robot mesh data is not re-fetched across re-renders or config changes
@@ -29,9 +30,12 @@ interface Viewer3DProps {
     motionFile: string;
     generatorType?: string;
   } | null;
+  // Playback control props
+  playing?: boolean;
+  onFrameChange?: (frame: number, total: number) => void;
 }
 
-const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMotion }) => {
+const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMotion, playing = false, onFrameChange }) => {
   const { selectedRobot, config, generatorType } = useConfigContext();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -41,6 +45,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
   const [alignData, setAlignData] = useState<AlignPreviewData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [playerModelLoaded, setPlayerModelLoaded] = useState(false);
 
   // Independent visibility toggles. When both are false nothing is shown;
   // when both are true the combined human+robot preview is shown.
@@ -90,24 +95,121 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
     return false;
   }, []);
 
-  // Player mode: clear models when entering player mode
+  // Clear models when switching between retargeter and player modes
   useEffect(() => {
-    if (activePanel === 'player') {
-      setShowRobot(false);
-      setShowHuman(false);
-      setAlignData(null);
-      dispose();
-    }
+    setShowRobot(false);
+    setShowHuman(false);
+    setAlignData(null);
+    setPlayerModelLoaded(false);
+    dispose();
   }, [activePanel]);
 
-  // Player mode: placeholder for future implementation
-  // Currently only UI controls are implemented, 3D playback will be added later
+  // Player mode: load and display robot motion
   useEffect(() => {
     if (activePanel !== 'player' || !playerMotion) return;
 
-    console.log('Player mode selected:', playerMotion);
-    // TODO: Implement 3D model loading and playback
+    const loadPlayer = async () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        // Load player motion data from backend (pre-computed all frame transforms)
+        const motionData = await loadPlayerMotion(playerMotion.robotName, playerMotion.motionFile);
+        if (!motionData) {
+          setError('Failed to load motion data');
+          return;
+        }
+
+        // Clear previous scene and create new ThreeScene
+        dispose();
+        if (threeSceneRef.current) {
+          threeSceneRef.current.dispose();
+          threeSceneRef.current = null;
+        }
+
+        // Initialize MuJoCo with robot model
+        // If not cached, fetch robot data automatically (no need to manually click "Show Robot")
+        let robotCached = robotDataCache.get(playerMotion.robotName);
+        if (!robotCached) {
+          try {
+            const data = await modelApi.getRobotMJCFWithMeshes(playerMotion.robotName);
+            robotCached = data;
+            robotDataCache.set(playerMotion.robotName, data);
+          } catch (err) {
+            setError('Failed to load robot data');
+            return;
+          }
+        }
+
+        await initMuJoCo(robotCached.xml, [], robotCached.meshes || {});
+
+        // Create Three.js scene
+        threeSceneRef.current = initThreeScene(canvas);
+        if (threeSceneRef.current && mujocoModule && currentModel && currentData) {
+          threeSceneRef.current.createScene(mujocoModule, currentModel, currentData as any);
+
+          // Set player motion data for animation (don't autostart, let playing prop control it)
+          threeSceneRef.current.setPlayerMotion({
+            xpos: motionData.xpos,
+            xquat: motionData.xquat,
+            frameNum: motionData.frameNum,
+            frameRate: motionData.frameRate,
+            nbody: motionData.nbody
+          }, false);
+
+          // Set up frame change callback to update slider
+          threeSceneRef.current.setPlayerFrameCallback((frame: number) => {
+            onFrameChange?.(frame, motionData.frameNum);
+          });
+
+          // Report frame info to parent
+          onFrameChange?.(0, motionData.frameNum);
+
+          // Set camera to look at robot
+          setCamera({ lookat: [0, 0, 0.5] });
+
+          // Mark player model as loaded to hide grid
+          setPlayerModelLoaded(true);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load player motion');
+        setPlayerModelLoaded(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPlayer();
   }, [playerMotion, activePanel]);
+
+  // Player mode: control animation based on playing prop
+  useEffect(() => {
+    if (!threeSceneRef.current || activePanel !== 'player' || !playerMotion) return;
+
+    if (playing) {
+      threeSceneRef.current.resumePlayer();
+    } else {
+      threeSceneRef.current.pausePlayer();
+    }
+  }, [playing, activePanel, playerMotion]);
+
+  // Player mode: handle seek (drag slider to change frame)
+  useEffect(() => {
+    if (!threeSceneRef.current || activePanel !== 'player' || !playerMotion) return;
+
+    const handleSeek = (frame: number) => {
+      if (threeSceneRef.current) {
+        threeSceneRef.current.setPlayerFrame(frame);
+        onFrameChange?.(frame, threeSceneRef.current.getPlayerFrame());
+      }
+    };
+
+    // Store seek handler for external access via window
+    (window as any).__playerSeekHandler = handleSeek;
+  }, [activePanel, playerMotion, onFrameChange]);
 
   // Determine which toggles are currently enabled
   const canShowRobot = !!selectedRobot;
@@ -327,7 +429,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
         />
 
         {/* Grid pattern - only show when no 3D model is loaded */}
-        {!alignData && (
+        {!alignData && !playerModelLoaded && (
           <div
             style={{
               position: 'absolute',

@@ -122,7 +122,8 @@ async def retarget_motion(
     if output_name is None:
         output_name = motion_path.stem + "_" + robot_name
 
-    output_path = Path(RETARGETING_PATH) / f"{output_name}.npz"
+    output_path = Path(RETARGETING_PATH) / robot_name / f"{output_name}.npz"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
         retargeter = Retargeter(
@@ -145,10 +146,10 @@ async def retarget_motion(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/retarget/{output_name}")
-async def get_retargeted_motion(output_name: str):
+@router.get("/retarget/{robot_name}/{output_name}")
+async def get_retargeted_motion(robot_name: str, output_name: str):
     """Get retargeted motion data."""
-    output_path = Path(RETARGETING_PATH) / f"{output_name}.npz"
+    output_path = Path(RETARGETING_PATH) / robot_name / f"{output_name}.npz"
 
     if not output_path.exists():
         raise HTTPException(status_code=404, detail="Retargeted motion not found")
@@ -164,14 +165,15 @@ async def get_retargeted_motion(output_name: str):
     }
 
 
-@router.get("/retargeted")
-async def list_retargeted_motions():
-    """List all retargeted motion files from retargeted directory."""
-    if not Path(RETARGETING_PATH).exists():
+@router.get("/retargeted/{robot_name}")
+async def list_retargeted_motions(robot_name: str):
+    """List all retargeted motion files for a specific robot."""
+    robot_dir = Path(RETARGETING_PATH) / robot_name
+    if not robot_dir.exists():
         return []
 
     motions = []
-    for f in Path(RETARGETING_PATH).glob("*.npz"):
+    for f in robot_dir.glob("*.npz"):
         motions.append(f.stem)
 
     return sorted(motions)
@@ -414,10 +416,10 @@ async def get_human_preview(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/frame/{output_name}/{frame_id}")
-async def get_frame_data(output_name: str, frame_id: int):
+@router.get("/frame/{robot_name}/{output_name}/{frame_id}")
+async def get_frame_data(robot_name: str, output_name: str, frame_id: int):
     """Get frame data for visualization."""
-    output_path = Path(RETARGETING_PATH) / f"{output_name}.npz"
+    output_path = Path(RETARGETING_PATH) / robot_name / f"{output_name}.npz"
 
     if not output_path.exists():
         raise HTTPException(status_code=404, detail="Retargeted motion not found")
@@ -432,3 +434,39 @@ async def get_frame_data(output_name: str, frame_id: int):
         "qpos": data["qpos"][frame_id].tolist(),
         "qvel": data["qvel"][frame_id].tolist() if "qvel" in data else None
     }
+
+
+@router.get("/player/{robot_name}/motion/{motion_file}")
+async def get_player_motion_data(robot_name: str, motion_file: str):
+    """Pre-compute all frame body transforms for player motion.
+
+    Returns body positions and quaternions for every frame so the frontend
+    can render by just updating mesh transforms without re-computing physics.
+    """
+    from humanoid_retargeting.motion_player import RobotMotionPlayer
+    from hurodes import HumanoidRobot
+
+    motion_path = Path(RETARGETING_PATH) / robot_name / f"{motion_file}.npz"
+    if not motion_path.exists():
+        raise HTTPException(status_code=404, detail="Motion file not found")
+
+    try:
+        robot = HumanoidRobot.from_name(robot_name)
+        player = RobotMotionPlayer(robot_name=robot_name, view=False)
+        player.load(source_file_path=str(motion_path), hrdf=robot.hrdf)
+
+        body_transforms = player.get_all_frame_body_transforms()
+
+        return {
+            "robot_name": robot_name,
+            "motion_file": motion_file,
+            "frame_num": int(player.frame_num),
+            "frame_rate": float(player.frame_rate),
+            "body_names": list(player.generator.all_body_names),
+            "nbody": int(player.model.nbody),
+            "body_transforms": body_transforms,
+            "frameRate": float(player.frame_rate),
+        }
+    except Exception as e:
+        logger.error(f"Failed to get player motion data: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
