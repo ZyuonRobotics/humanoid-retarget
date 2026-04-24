@@ -3,8 +3,20 @@
     "title": "人形重定向"
   },
   "menu": {
-    "configuration": "配置",
-    "3dViewer": "3D 查看器"
+    "retargeter": "重定向器",
+    "player": "播放器"
+  },
+  "player": {
+    "robotMotion": "机器人动作",
+    "humanMotion": "人体动作",
+    "selectRobot": "选择机器人",
+    "selectRobotMotion": "选择机器人动作",
+    "selectMotionFormat": "选择动作格式",
+    "selectHumanMotion": "选择人体动作",
+    "noRetargetedMotions": "未找到重定向动作",
+    "noHumanMotions": "未找到人体动作",
+    "play": "播放",
+    "pause": "暂停"
   },
   "robot": {
     "label": "机器人",

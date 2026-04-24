@@ -164,6 +164,19 @@ async def get_retargeted_motion(output_name: str):
     }
 
 
+@router.get("/retargeted")
+async def list_retargeted_motions():
+    """List all retargeted motion files from retargeted directory."""
+    if not Path(RETARGETING_PATH).exists():
+        return []
+
+    motions = []
+    for f in Path(RETARGETING_PATH).glob("*.npz"):
+        motions.append(f.stem)
+
+    return sorted(motions)
+
+
 @router.get("/mjcf/{robot_name}")
 async def get_robot_mjcf(robot_name: str):
     """Get MJCF XML for a robot."""

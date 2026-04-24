@@ -54,8 +54,16 @@ export class ThreeScene {
     this.scene.background = new THREE.Color(0x505050);
 
     // Create camera (FOV 75 like robot_viewer)
-    const width = canvas.clientWidth;
-    const height = canvas.clientHeight;
+    let width = canvas.clientWidth;
+    let height = canvas.clientHeight;
+
+    // Fallback to reasonable defaults if canvas has no size yet
+    if (width === 0 || height === 0) {
+      console.warn('ThreeScene: canvas has zero size, using defaults');
+      width = 800;
+      height = 600;
+    }
+
     this.camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
     this.camera.position.set(2, 2, 2);
     this.camera.lookAt(0, 0, 0);
@@ -105,6 +113,9 @@ export class ThreeScene {
 
     // Render immediately to show initial scene
     this.redraw();
+
+    // Trigger a resize after a short delay to ensure proper sizing
+    setTimeout(() => this.handleResize(), 100);
   }
 
   // ==================== Render Loop ====================
@@ -133,8 +144,11 @@ export class ThreeScene {
 
   /**
    * Mark scene as needing re-render (on-demand rendering)
+   * Also updates body positions from simulation before rendering
    */
   redraw() {
+    // Update body positions from simulation data before marking dirty
+    this.updateBodiesFromSimulation();
     this._dirty = true;
   }
 
@@ -540,6 +554,9 @@ export class ThreeScene {
         this.simulation.xquat[b * 4 + 0]
       );
     }
+
+    // Mark scene as dirty so it will be rendered
+    this._dirty = true;
   }
 
   // ==================== Animation Loop ====================

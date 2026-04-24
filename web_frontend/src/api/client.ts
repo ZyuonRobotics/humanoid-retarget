@@ -97,6 +97,9 @@ export const modelApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     }).then(res => res.data);
   },
+
+  listRetargetedMotions: () =>
+    client.get<string[]>('/model/retargeted').then(res => res.data),
 };
 
 export default client;

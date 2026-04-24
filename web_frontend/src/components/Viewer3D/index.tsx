@@ -22,9 +22,16 @@ const robotDataCache = new Map<string, { xml: string; meshes: Record<string, str
 
 interface Viewer3DProps {
   sourceFile?: string;
+  activePanel?: string;
+  playerMotion?: {
+    type: 'robot' | 'human';
+    robotName: string;
+    motionFile: string;
+    generatorType?: string;
+  } | null;
 }
 
-const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
+const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMotion }) => {
   const { selectedRobot, config, generatorType } = useConfigContext();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -39,6 +46,68 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
   // when both are true the combined human+robot preview is shown.
   const [showRobot, setShowRobot] = useState(false);
   const [showHuman, setShowHuman] = useState(false);
+
+  // Keep a ref so fetchPreview can read the latest config without it being a dep
+  const configRef = useRef(config);
+  useEffect(() => { configRef.current = config; }, [config]);
+
+  // Shared bootScene function - creates Three.js scene from loaded MuJoCo model
+  // MUST be defined before any useEffect that uses it
+  const bootScene = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      console.warn('bootScene: canvas not available');
+      return false;
+    }
+    if (!threeSceneRef.current) {
+      console.log('bootScene: creating new ThreeScene');
+      threeSceneRef.current = initThreeScene(canvas);
+      if (!threeSceneRef.current) {
+        console.error('bootScene: failed to create ThreeScene');
+        return false;
+      }
+    }
+    console.log('bootScene: checking scene creation conditions', {
+      hasThreeScene: !!threeSceneRef.current,
+      hasMujocoModule: !!mujocoModule,
+      hasCurrentModel: !!currentModel,
+      hasCurrentData: !!currentData,
+      modelNbody: currentModel?.nbody
+    });
+    if (threeSceneRef.current && mujocoModule && currentModel && currentData) {
+      console.log('bootScene: creating scene with model nbody=', currentModel.nbody);
+      try {
+        threeSceneRef.current.createScene(mujocoModule, currentModel, currentData as any);
+        startRendering();
+        console.log('bootScene: scene created and rendering started');
+        return true;
+      } catch (err) {
+        console.error('bootScene: failed to create scene:', err);
+        return false;
+      }
+    }
+    console.warn('bootScene: missing required objects for scene creation');
+    return false;
+  }, []);
+
+  // Player mode: clear models when entering player mode
+  useEffect(() => {
+    if (activePanel === 'player') {
+      setShowRobot(false);
+      setShowHuman(false);
+      setAlignData(null);
+      dispose();
+    }
+  }, [activePanel]);
+
+  // Player mode: placeholder for future implementation
+  // Currently only UI controls are implemented, 3D playback will be added later
+  useEffect(() => {
+    if (activePanel !== 'player' || !playerMotion) return;
+
+    console.log('Player mode selected:', playerMotion);
+    // TODO: Implement 3D model loading and playback
+  }, [playerMotion, activePanel]);
 
   // Determine which toggles are currently enabled
   const canShowRobot = !!selectedRobot;
@@ -62,10 +131,6 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
     lastX: 0,
     lastY: 0
   });
-
-  // Keep a ref so fetchPreview can read the latest config without it being a dep
-  const configRef = useRef(config);
-  useEffect(() => { configRef.current = config; }, [config]);
 
   // Initialize Three.js scene when canvas becomes available
   // Debounced fetch for model (robot only, human only, or robot+human)
@@ -115,26 +180,6 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
       return data;
     };
 
-    // Shared helper: build Three scene once the model is loaded
-    const bootScene = () => {
-      const createSceneIfReady = () => {
-        const canvas = canvasRef.current;
-        if (!canvas) return false;
-        if (!threeSceneRef.current) {
-          threeSceneRef.current = initThreeScene(canvas);
-        }
-        if (threeSceneRef.current && mujocoModule && currentModel && currentData) {
-          threeSceneRef.current.createScene(mujocoModule, currentModel, currentData as any);
-          startRendering();
-          return true;
-        }
-        return false;
-      };
-      if (!createSceneIfReady()) {
-        setTimeout(() => { createSceneIfReady(); }, 100);
-      }
-    };
-
     try {
       if (showRobot && showHuman) {
         // Combined human+robot preview. Robot meshes are referenced by the
@@ -149,7 +194,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
           const lookatY = data.globalBodyRatio * 0.5;
           setCamera({ lookat: [0, 0, lookatY] });
           setAlignData(data);
-          bootScene();
+          setTimeout(() => bootScene(), 100);
         } else {
           setAlignData(null);
         }
@@ -165,7 +210,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
           globalBodyRatio: 1.0,
         });
         setCamera({ lookat: [0, 0, 0.5] });
-        bootScene();
+        setTimeout(() => bootScene(), 100);
       } else if (showHuman) {
         // Human only — parametric bodies, no mesh files required
         const data = await fetchHumanPreview(sourceFile!, generatorType!, configRef.current);
@@ -175,7 +220,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
           const lookatY = data.globalBodyRatio * 0.5;
           setCamera({ lookat: [0, 0, lookatY] });
           setAlignData(data);
-          bootScene();
+          setTimeout(() => bootScene(), 100);
         } else {
           setAlignData(null);
         }
@@ -189,7 +234,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
         setLoading(false);
       }
     }
-  }, [sourceFile, selectedRobot, generatorType, showRobot, showHuman]);
+  }, [sourceFile, selectedRobot, generatorType, showRobot, showHuman, bootScene]);
 
   // Re-fetch when non-config things change (robot switch, toggle, file change)
   useEffect(() => {
@@ -333,7 +378,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
           >
             {error}
           </div>
-        ) : !alignData ? (
+        ) : !alignData && activePanel !== 'player' ? (
           <div
             style={{
               position: 'absolute',
@@ -365,79 +410,85 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile }) => {
               {sourceFile ? 'Loading motion preview...' : '3D Preview: '}{selectedRobot || 'Select a robot'}
             </div>
           </div>
-        ) : (
+        ) : null}
+
+        {/* Canvas - always render in player mode or when alignData exists */}
+        {(activePanel === 'player' || alignData) && (
           <canvas
             ref={canvasRef}
-            width={800}
-            height={600}
             onClick={handleClick}
             style={{
               background: 'transparent',
               borderRadius: 8,
+              width: '100%',
+              height: '100%',
+              display: 'block',
             }}
           />
         )}
       </div>
 
-      {/* Display toggles: robot / human (independently toggleable) */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 12,
-          right: 12,
-          display: 'flex',
-          gap: 8,
-          zIndex: 10
-        }}
-      >
-        {/* Robot */}
-        <button
-          onClick={toggleRobot}
-          disabled={!canShowRobot}
+      {/* Display toggles: robot / human (only show in retargeter mode) */}
+      {activePanel !== 'player' && (
+        <div
           style={{
-            width: 36,
-            height: 36,
-            borderRadius: 8,
-            border: showRobot ? '2px solid #3b82f6' : '2px solid rgba(255,255,255,0.2)',
-            background: showRobot ? 'rgba(59,130,246,0.3)' : 'rgba(0,0,0,0.4)',
-            color: canShowRobot ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.3)',
-            cursor: canShowRobot ? 'pointer' : 'not-allowed',
+            position: 'absolute',
+            top: 12,
+            right: 12,
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 16,
-            opacity: canShowRobot ? 1 : 0.5,
-            transition: 'all 0.2s ease'
+            gap: 8,
+            zIndex: 10
           }}
-          title="机器人"
         >
-          🤖
-        </button>
+          {/* Robot */}
+          <button
+            onClick={toggleRobot}
+            disabled={!canShowRobot}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 8,
+              border: showRobot ? '2px solid #3b82f6' : '2px solid rgba(255,255,255,0.2)',
+              background: showRobot ? 'rgba(59,130,246,0.3)' : 'rgba(0,0,0,0.4)',
+              color: canShowRobot ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.3)',
+              cursor: canShowRobot ? 'pointer' : 'not-allowed',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 16,
+              opacity: canShowRobot ? 1 : 0.5,
+              transition: 'all 0.2s ease'
+            }}
+            title="机器人"
+          >
+            🤖
+          </button>
 
-        {/* Human */}
-        <button
-          onClick={toggleHuman}
-          disabled={!canShowHuman}
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 8,
-            border: showHuman ? '2px solid #3b82f6' : '2px solid rgba(255,255,255,0.2)',
-            background: showHuman ? 'rgba(59,130,246,0.3)' : 'rgba(0,0,0,0.4)',
-            color: canShowHuman ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.3)',
-            cursor: canShowHuman ? 'pointer' : 'not-allowed',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 16,
-            opacity: canShowHuman ? 1 : 0.5,
-            transition: 'all 0.2s ease'
-          }}
-          title="人体"
-        >
-          🧍
-        </button>
-      </div>
+          {/* Human */}
+          <button
+            onClick={toggleHuman}
+            disabled={!canShowHuman}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 8,
+              border: showHuman ? '2px solid #3b82f6' : '2px solid rgba(255,255,255,0.2)',
+              background: showHuman ? 'rgba(59,130,246,0.3)' : 'rgba(0,0,0,0.4)',
+              color: canShowHuman ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.3)',
+              cursor: canShowHuman ? 'pointer' : 'not-allowed',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 16,
+              opacity: canShowHuman ? 1 : 0.5,
+              transition: 'all 0.2s ease'
+            }}
+            title="人体"
+          >
+            🧍
+          </button>
+        </div>
+      )}
 
       {/* Camera controls info */}
       <div

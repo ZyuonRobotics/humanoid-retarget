@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Button, Space, Upload } from 'antd';
-import { PlayCircleOutlined, UploadOutlined } from '@ant-design/icons';
+import { Button, Space, Upload, Slider } from 'antd';
+import { PlayCircleOutlined, PauseCircleOutlined, UploadOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 
 import TopBar from './components/TopBar';
@@ -20,13 +20,23 @@ const AppContent: React.FC = () => {
   const { t } = useTranslation();
   const { selectedMotion, uploadMotion, handleRetarget } = useMotionContext();
   const { loading, bodyTree, config, setConfig } = useConfigContext();
-  const [activePanel, setActivePanel] = useState<string>('config');
+  const [activePanel, setActivePanel] = useState<string>('retargeter');
   const [theme, setTheme] = useState<ThemeType>(() => {
     const saved = localStorage.getItem('theme');
     return (saved as ThemeType) || 'dark';
   });
   const [containerWidth, setContainerWidth] = useState<number>(window.innerWidth);
   const appContainerRef = useRef<HTMLDivElement>(null);
+
+  // Player mode state
+  const [playerMotion, setPlayerMotion] = useState<{
+    type: 'robot' | 'human';
+    robotName: string;
+    motionFile: string;
+    generatorType?: string;
+  } | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackFrame, setPlaybackFrame] = useState({ current: 0, total: 0 });
 
   // Get container width for rightmost positioning
   useEffect(() => {
@@ -51,18 +61,31 @@ const AppContent: React.FC = () => {
       {/* Top Bar */}
       <TopBar
         activePanel={activePanel}
-        onPanelChange={setActivePanel}
+        onPanelChange={(panel) => {
+          setActivePanel(panel);
+          setIsPlaying(false);
+          setPlaybackFrame({ current: 0, total: 0 });
+        }}
         theme={theme}
         onThemeChange={setTheme}
+        onPlayerMotionChange={(type, robotName, motionFile, generatorType) => {
+          setIsPlaying(false);
+          setPlaybackFrame({ current: 0, total: 0 });
+          setPlayerMotion({ type, robotName, motionFile, generatorType });
+        }}
       />
 
       {/* 3D Background */}
       <div className="viewer-3d-background">
-        <Viewer3D sourceFile={selectedMotion} />
+        <Viewer3D
+          sourceFile={selectedMotion}
+          activePanel={activePanel}
+          playerMotion={playerMotion}
+        />
       </div>
 
       {/* Floating Panels */}
-      {activePanel === 'config' && (
+      {activePanel === 'retargeter' && (
         <>
           {/* Base Settings Panel - Top Left */}
           <ErrorBoundary>
@@ -147,6 +170,40 @@ const AppContent: React.FC = () => {
             </Space>
           </div>
         </>
+      )}
+
+      {activePanel === 'player' && (
+        <div className="action-buttons-bottom">
+          <Space direction="vertical" style={{ width: '100%', alignItems: 'center' }}>
+            {playbackFrame.total > 0 && (
+              <div style={{ width: 400, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <Slider
+                  min={0}
+                  max={playbackFrame.total - 1}
+                  value={playbackFrame.current}
+                  style={{ flex: 1 }}
+                  tooltip={{ formatter: (v) => `${v} / ${playbackFrame.total - 1}` }}
+                  onChange={(value) => {
+                    // Update playback frame immediately
+                    setPlaybackFrame(prev => ({ ...prev, current: value }));
+                  }}
+                />
+                <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, whiteSpace: 'nowrap' }}>
+                  {playbackFrame.current} / {playbackFrame.total - 1}
+                </span>
+              </div>
+            )}
+            <Button
+              type="primary"
+              size="large"
+              icon={isPlaying ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
+              onClick={() => setIsPlaying(v => !v)}
+              disabled={!playerMotion}
+            >
+              {isPlaying ? t('player.pause') : t('player.play')}
+            </Button>
+          </Space>
+        </div>
       )}
     </div>
   );

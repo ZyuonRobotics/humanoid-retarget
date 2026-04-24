@@ -305,18 +305,22 @@ export async function initMuJoCo(
   meshes?: Record<string, string>
 ): Promise<boolean> {
   try {
+    console.log('initMuJoCo: starting initialization');
     await initMuJoCoModule();
 
     if (!mujocoModule) {
-      console.warn('mujoco not loaded, cannot initialize');
+      console.error('initMuJoCo: mujoco module not loaded');
       return false;
     }
+
+    console.log('initMuJoCo: mujoco module loaded');
 
     // Clear any existing model
     dispose();
 
     // Write mesh files to VFS first (XML may reference them)
     if (meshes) {
+      console.log('initMuJoCo: writing', Object.keys(meshes).length, 'mesh files to VFS');
       for (const [filename, base64Data] of Object.entries(meshes)) {
         const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
         const meshPath = `/working/${filename}`;
@@ -337,45 +341,72 @@ export async function initMuJoCo(
       mujocoModule.FS.unlink(xmlPath);
     }
     mujocoModule.FS.writeFile(xmlPath, modifiedXml);
+    console.log('initMuJoCo: XML written to VFS, length=', modifiedXml.length);
+    console.log('initMuJoCo: XML preview:', modifiedXml.substring(0, 500));
 
     // Load model (compatible with old and new API)
     try {
-      if (mujocoModule.MjModel?.loadFromXML) {
-        currentModel = await mujocoModule.MjModel.loadFromXML(xmlPath);
-      } else if (mujocoModule.Model?.load_from_xml) {
-        currentModel = await mujocoModule.Model.load_from_xml(xmlPath);
-      } else {
-        throw new Error('Cannot find MuJoCo model loading method');
+      console.log('initMuJoCo: loading model from XML');
+
+      // Try to get more detailed error information
+      try {
+        // Try loading from XML string directly first (might give better error messages)
+        if ((mujocoModule.MjModel as any)?.from_xml_string) {
+          console.log('initMuJoCo: trying MjModel.from_xml_string');
+          currentModel = (mujocoModule.MjModel as any).from_xml_string(modifiedXml) as any;
+        } else if (mujocoModule.MjModel?.loadFromXML) {
+          console.log('initMuJoCo: trying MjModel.loadFromXML');
+          currentModel = await mujocoModule.MjModel.loadFromXML(xmlPath);
+        } else if ((mujocoModule as any).Model?.load_from_xml) {
+          console.log('initMuJoCo: trying Model.load_from_xml');
+          currentModel = await (mujocoModule as any).Model.load_from_xml(xmlPath);
+        } else {
+          throw new Error('Cannot find MuJoCo model loading method');
+        }
+      } catch (e: any) {
+        // Try to extract error message from MuJoCo
+        console.error('initMuJoCo: raw error:', e);
+        console.error('initMuJoCo: error type:', typeof e);
+        console.error('initMuJoCo: error keys:', Object.keys(e));
+        if (e.message) console.error('initMuJoCo: error message:', e.message);
+        if (e.toString) console.error('initMuJoCo: error toString:', e.toString());
+        throw e;
       }
+
       if (!currentModel) {
-        throw new Error('Failed to load model');
+        throw new Error('Failed to load model - loadFromXML returned null');
       }
+      console.log('initMuJoCo: model loaded, nbody=', currentModel.nbody);
 
       // Create data using MjData constructor (same as loadRobotModel)
       if (mujocoModule.MjData) {
         currentData = new mujocoModule.MjData(currentModel) as any;
+        console.log('initMuJoCo: MjData created');
       } else {
         throw new Error('MjData constructor not found');
       }
     } catch (loadError) {
-      console.error('MuJoCo model loading error:', loadError);
+      console.error('initMuJoCo: model loading error:', loadError);
       throw loadError;
     }
 
     // Set initial qpos if provided
     if (qpos && currentData) {
+      console.log('initMuJoCo: setting initial qpos, length=', qpos.length);
       for (let i = 0; i < Math.min(qpos.length, currentData.qpos.length); i++) {
         currentData.qpos[i] = qpos[i];
       }
       // Forward to apply qpos
       if (mujocoModule.mj_forward && currentModel && currentData) {
         mujocoModule.mj_forward(currentModel, currentData as any);
+        console.log('initMuJoCo: mj_forward called');
       }
     }
 
+    console.log('initMuJoCo: initialization complete');
     return true;
   } catch (error) {
-    console.error('Failed to initialize MuJoCo:', error);
+    console.error('initMuJoCo: Failed to initialize MuJoCo:', error);
     return false;
   }
 }

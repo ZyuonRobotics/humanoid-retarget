@@ -40,6 +40,7 @@ interface TopBarProps {
   onPanelChange: (panel: string) => void;
   theme: ThemeType;
   onThemeChange: (theme: ThemeType) => void;
+  onPlayerMotionChange?: (type: 'robot' | 'human', robotName: string, motionFile: string, generatorType?: string) => void;
 }
 
 const TopBar: React.FC<TopBarProps> = ({
@@ -47,6 +48,7 @@ const TopBar: React.FC<TopBarProps> = ({
   onPanelChange,
   theme,
   onThemeChange,
+  onPlayerMotionChange,
 }) => {
   const { t, i18n } = useTranslation();
   const {
@@ -70,13 +72,30 @@ const TopBar: React.FC<TopBarProps> = ({
   const [isCreatingConfig, setIsCreatingConfig] = useState(false);
   const [newConfigName, setNewConfigName] = useState('');
 
+  // Player mode state
+  const [playerMotionType, setPlayerMotionType] = useState<'robot' | 'human'>('robot');
+  const [selectedRobotMotion, setSelectedRobotMotion] = useState<string>('');
+  const [selectedHumanFormat, setSelectedHumanFormat] = useState<'smpl' | 'bvh'>('bvh');
+  const [selectedHumanMotion, setSelectedHumanMotion] = useState<string>('');
+  const [retargetedMotions, setRetargetedMotions] = useState<string[]>([]);
+  const [retargetedLoading, setRetargetedLoading] = useState(false);
+
   // File selector popover state
   const [fileSelectorOpen, setFileSelectorOpen] = useState(false);
   const [motionTree, setMotionTree] = useState<Record<string, MotionTreeNode> | null>(null);
   const [columns, setColumns] = useState<ColumnData[]>([]);
   const [treeLoading, setTreeLoading] = useState(false);
 
-  // Load motion tree when file selector opens
+  // Load retargeted motions when entering player mode
+  useEffect(() => {
+    if (activePanel === 'player') {
+      setRetargetedLoading(true);
+      modelApi.listRetargetedMotions()
+        .then(setRetargetedMotions)
+        .catch(console.error)
+        .finally(() => setRetargetedLoading(false));
+    }
+  }, [activePanel]);
   useEffect(() => {
     if (fileSelectorOpen && !motionTree) {
       loadMotionTree();
@@ -85,8 +104,10 @@ const TopBar: React.FC<TopBarProps> = ({
 
   // Initialize columns when motionTree or generatorType changes
   useEffect(() => {
-    if (motionTree && motionTree[generatorType]) {
-      const rootNode = motionTree[generatorType];
+    // Use selectedHumanFormat in player mode, generatorType in retargeter mode
+    const currentGenType = activePanel === 'player' ? selectedHumanFormat : generatorType;
+    if (motionTree && motionTree[currentGenType]) {
+      const rootNode = motionTree[currentGenType];
       const rootColumn: ColumnData = {
         path: [],
         folders: Object.entries(rootNode.subdirs).map(([name, node]) => ({
@@ -98,7 +119,7 @@ const TopBar: React.FC<TopBarProps> = ({
       };
       setColumns([rootColumn]);
     }
-  }, [motionTree, generatorType]);
+  }, [motionTree, generatorType, selectedHumanFormat, activePanel]);
 
   const loadMotionTree = async () => {
     setTreeLoading(true);
@@ -131,9 +152,20 @@ const TopBar: React.FC<TopBarProps> = ({
   };
 
   const handleFileClick = (file: MotionFileInfo) => {
-    setSelectedMotionFile(file.relative_path);
-    setSelectedMotion(file.relative_path);
-    loadBodyTree(file.relative_path);
+    if (activePanel === 'player') {
+      // Player mode: only update player-specific state
+      if (playerMotionType === 'human') {
+        setSelectedHumanMotion(file.relative_path);
+        if (onPlayerMotionChange) {
+          onPlayerMotionChange('human', selectedRobot, file.relative_path, selectedHumanFormat);
+        }
+      }
+    } else {
+      // Retargeter mode: update retargeter state
+      setSelectedMotionFile(file.relative_path);
+      setSelectedMotion(file.relative_path);
+      loadBodyTree(file.relative_path);
+    }
     setFileSelectorOpen(false);
   };
 
@@ -183,7 +215,7 @@ const TopBar: React.FC<TopBarProps> = ({
   return (
     <>
     <div className="topbar">
-      {/* Row 1: Logo | Config/3D Viewer toggles | Theme & Language */}
+      {/* Row 1: Logo | Retargeter/Player toggles | Theme & Language */}
       <div className="topbar-row">
         <div className="topbar-section">
           <div className="topbar-logo">
@@ -196,18 +228,18 @@ const TopBar: React.FC<TopBarProps> = ({
 
         <div className="topbar-section">
           <Button
-            type={activePanel === 'config' ? 'primary' : 'text'}
+            type={activePanel === 'retargeter' ? 'primary' : 'text'}
             icon={<SettingOutlined />}
-            onClick={() => onPanelChange('config')}
+            onClick={() => onPanelChange('retargeter')}
           >
-            {t('menu.configuration')}
+            {t('menu.retargeter')}
           </Button>
           <Button
-            type={activePanel === 'viewer' ? 'primary' : 'text'}
+            type={activePanel === 'player' ? 'primary' : 'text'}
             icon={<PlayCircleOutlined />}
-            onClick={() => onPanelChange('viewer')}
+            onClick={() => onPanelChange('player')}
           >
-            {t('menu.3dViewer')}
+            {t('menu.player')}
           </Button>
         </div>
 
@@ -225,93 +257,187 @@ const TopBar: React.FC<TopBarProps> = ({
 
       <div className="topbar-row-separator" />
 
-      {/* Row 2: Robot | Generator Type | Motion File */}
-      <div className="topbar-row">
-        <div className="topbar-section">
-          <Select
-            value={selectedRobot}
-            onChange={setSelectedRobot}
-            style={{ width: 140 }}
-            options={robotOptions}
-            suffixIcon={<RobotOutlined />}
-          />
-        </div>
+      {/* Row 2: Conditional based on activePanel */}
+      {activePanel === 'retargeter' && (
+        <>
+          <div className="topbar-row">
+            <div className="topbar-section">
+              <Select
+                value={selectedRobot}
+                onChange={setSelectedRobot}
+                style={{ width: 140 }}
+                options={robotOptions}
+                suffixIcon={<RobotOutlined />}
+              />
+            </div>
 
-        <div className="topbar-section">
-          <Select
-            value={generatorType}
-            onChange={handleGeneratorTypeChange}
-            style={{ width: 100 }}
-            options={[
-              { value: 'bvh', label: 'BVH' },
-              { value: 'smpl', label: 'SMPL' },
-            ]}
-          />
-        </div>
+            <div className="topbar-section">
+              <Select
+                value={generatorType}
+                onChange={handleGeneratorTypeChange}
+                style={{ width: 100 }}
+                options={[
+                  { value: 'bvh', label: 'BVH' },
+                  { value: 'smpl', label: 'SMPL' },
+                ]}
+              />
+            </div>
 
-        <div className="topbar-section">
-          <Button
-            className="motion-file-btn"
-            icon={<FileOutlined />}
-            onClick={() => setFileSelectorOpen(true)}
-          >
-            <span className="motion-file-btn-text">
-              {selectedMotionFile
-                ? selectedMotionFile.split('/').pop()
-                : t('configPanel.selectMotionPlaceholder')}
-            </span>
-          </Button>
-        </div>
-      </div>
+            <div className="topbar-section">
+              <Button
+                className="motion-file-btn"
+                icon={<FileOutlined />}
+                onClick={() => setFileSelectorOpen(true)}
+              >
+                <span className="motion-file-btn-text">
+                  {selectedMotionFile
+                    ? selectedMotionFile.split('/').pop()
+                    : t('configPanel.selectMotionPlaceholder')}
+                </span>
+              </Button>
+            </div>
+          </div>
 
-      <div className="topbar-row-separator" />
+          <div className="topbar-row-separator" />
 
-      {/* Row 3: Config selector | Add | Save | Delete */}
-      <div className="topbar-row">
-        <div className="topbar-section">
-          {isCreatingConfig ? (
-            <Input
-              placeholder={t('configPanel.newConfigPlaceholder')}
-              value={newConfigName}
-              onChange={(e) => setNewConfigName(e.target.value)}
-              onPressEnter={handleCreateConfigLocal}
-              onBlur={() => {
-                if (!newConfigName.trim()) {
-                  setIsCreatingConfig(false);
-                }
-              }}
-              autoFocus
-              style={{ width: 140 }}
-            />
-          ) : (
-            <Select
-              value={selectedConfig || undefined}
-              onChange={setSelectedConfig}
-              style={{ width: 140 }}
-              options={configs.map((c) => ({ value: c, label: c }))}
-              placeholder={t('configPanel.selectConfigPlaceholder')}
-              suffixIcon={<FileTextOutlined />}
-            />
-          )}
-          <Button
-            type="text"
-            icon={isCreatingConfig ? <CheckOutlined /> : <PlusOutlined />}
-            onClick={isCreatingConfig ? handleCreateConfigLocal : () => setIsCreatingConfig(true)}
-            style={{ marginLeft: 4 }}
-          />
-        </div>
+          {/* Row 3: Config selector | Add | Save | Delete */}
+          <div className="topbar-row">
+            <div className="topbar-section">
+              {isCreatingConfig ? (
+                <Input
+                  placeholder={t('configPanel.newConfigPlaceholder')}
+                  value={newConfigName}
+                  onChange={(e) => setNewConfigName(e.target.value)}
+                  onPressEnter={handleCreateConfigLocal}
+                  onBlur={() => {
+                    if (!newConfigName.trim()) {
+                      setIsCreatingConfig(false);
+                    }
+                  }}
+                  autoFocus
+                  style={{ width: 140 }}
+                />
+              ) : (
+                <Select
+                  value={selectedConfig || undefined}
+                  onChange={setSelectedConfig}
+                  style={{ width: 140 }}
+                  options={configs.map((c) => ({ value: c, label: c }))}
+                  placeholder={t('configPanel.selectConfigPlaceholder')}
+                  suffixIcon={<FileTextOutlined />}
+                />
+              )}
+              <Button
+                type="text"
+                icon={isCreatingConfig ? <CheckOutlined /> : <PlusOutlined />}
+                onClick={isCreatingConfig ? handleCreateConfigLocal : () => setIsCreatingConfig(true)}
+                style={{ marginLeft: 4 }}
+              />
+            </div>
 
-        <div className="topbar-divider" />
+            <div className="topbar-divider" />
 
-        <div className="topbar-section">
-          <Button icon={<SaveOutlined />} onClick={saveConfig} loading={saving}>
-            {t('configPanel.save')}
-          </Button>
-          <Button icon={<DeleteOutlined />} onClick={handleDeleteConfig} danger>
-            {t('configPanel.delete')}
-          </Button>
-        </div>
-      </div>
+            <div className="topbar-section">
+              <Button icon={<SaveOutlined />} onClick={saveConfig} loading={saving}>
+                {t('configPanel.save')}
+              </Button>
+              <Button icon={<DeleteOutlined />} onClick={handleDeleteConfig} danger>
+                {t('configPanel.delete')}
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {activePanel === 'player' && (
+        <>
+          <div className="topbar-row">
+            <div className="topbar-section">
+              <Button
+                type={playerMotionType === 'robot' ? 'primary' : 'text'}
+                onClick={() => setPlayerMotionType('robot')}
+              >
+                {t('player.robotMotion')}
+              </Button>
+              <Button
+                type={playerMotionType === 'human' ? 'primary' : 'text'}
+                onClick={() => setPlayerMotionType('human')}
+                style={{ marginLeft: 8 }}
+              >
+                {t('player.humanMotion')}
+              </Button>
+            </div>
+          </div>
+
+          <div className="topbar-row-separator" />
+
+          {/* Row 3: Player motion selectors */}
+          <div className="topbar-row">
+            {playerMotionType === 'robot' ? (
+              <>
+                <div className="topbar-section">
+                  <Select
+                    value={selectedRobot}
+                    onChange={setSelectedRobot}
+                    style={{ width: 140 }}
+                    options={robotOptions}
+                    placeholder={t('player.selectRobot')}
+                    suffixIcon={<RobotOutlined />}
+                  />
+                </div>
+                <div className="topbar-section">
+                  <Select
+                    value={selectedRobotMotion}
+                    onChange={(val) => {
+                      setSelectedRobotMotion(val);
+                      if (onPlayerMotionChange && selectedRobot) {
+                        onPlayerMotionChange('robot', selectedRobot, val);
+                      }
+                    }}
+                    style={{ width: 200 }}
+                    placeholder={retargetedMotions.length === 0 && !retargetedLoading ? t('player.noRetargetedMotions') : t('player.selectRobotMotion')}
+                    loading={retargetedLoading}
+                    options={retargetedMotions.map(m => ({ value: m, label: m }))}
+                    disabled={retargetedMotions.length === 0}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="topbar-section">
+                  <Select
+                    value={selectedHumanFormat}
+                    onChange={(val) => {
+                      setSelectedHumanFormat(val);
+                      setSelectedHumanMotion('');
+                      setMotionTree(null);
+                      setColumns([]);
+                    }}
+                    style={{ width: 100 }}
+                    options={[
+                      { value: 'bvh', label: 'BVH' },
+                      { value: 'smpl', label: 'SMPL' },
+                    ]}
+                  />
+                </div>
+                <div className="topbar-section">
+                  <Button
+                    className="motion-file-btn"
+                    icon={<FileOutlined />}
+                    onClick={() => setFileSelectorOpen(true)}
+                  >
+                    <span className="motion-file-btn-text">
+                      {selectedHumanMotion
+                        ? selectedHumanMotion.split('/').pop()
+                        : t('player.selectHumanMotion')}
+                    </span>
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </>
+      )}
     </div>
 
     {/* File Selector Modal */}
@@ -330,7 +456,7 @@ const TopBar: React.FC<TopBarProps> = ({
                 className="file-selector-breadcrumb-item root"
                 onClick={() => setColumns(prev => prev.slice(0, 1))}
               >
-                {generatorType.toUpperCase()}
+                {(activePanel === 'player' ? selectedHumanFormat : generatorType).toUpperCase()}
               </span>
               {columns.slice(1).map((col, i) => (
                 <React.Fragment key={i}>
@@ -366,7 +492,7 @@ const TopBar: React.FC<TopBarProps> = ({
                   <div key={columnIndex} className="file-selector-column">
                     <div className="file-selector-column-label">
                       {column.path.length === 0
-                        ? generatorType.toUpperCase()
+                        ? (activePanel === 'player' ? selectedHumanFormat : generatorType).toUpperCase()
                         : column.path[column.path.length - 1]}
                     </div>
                     <div className="file-selector-column-content">

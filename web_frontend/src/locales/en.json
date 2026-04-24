@@ -3,8 +3,20 @@
     "title": "Humanoid Retargeting"
   },
   "menu": {
-    "configuration": "Configuration",
-    "3dViewer": "3D Viewer"
+    "retargeter": "Retargeter",
+    "player": "Player"
+  },
+  "player": {
+    "robotMotion": "Robot Motion",
+    "humanMotion": "Human Motion",
+    "selectRobot": "Select Robot",
+    "selectRobotMotion": "Select Robot Motion",
+    "selectMotionFormat": "Select Motion Format",
+    "selectHumanMotion": "Select Human Motion",
+    "noRetargetedMotions": "No retargeted motions found",
+    "noHumanMotions": "No human motions found",
+    "play": "Play",
+    "pause": "Pause"
   },
   "robot": {
     "label": "Robot",

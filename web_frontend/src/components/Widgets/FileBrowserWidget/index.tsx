@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { FolderOutlined, FileOutlined, FolderOpenOutlined } from '@ant-design/icons';
+import React, { useState, useEffect } from 'react';
+import { FolderOutlined, FileOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { modelApi, MotionTreeNode, MotionFileInfo } from '../../../api/client';
 import './index.css';
@@ -64,15 +64,6 @@ const FileBrowserWidget: React.FC<FileBrowserWidgetProps> = ({
     }
   };
 
-  const getNodeAtPath = (path: string[]): MotionTreeNode | null => {
-    if (!motionTree || !motionTree[generatorType]) return null;
-    let node: MotionTreeNode = motionTree[generatorType];
-    for (const folder of path) {
-      if (!node.subdirs[folder]) return null;
-      node = node.subdirs[folder];
-    }
-    return node;
-  };
 
   const handleFolderClick = (columnIndex: number, folder: FolderInfo) => {
     const node = folder.node;
@@ -105,7 +96,7 @@ const FileBrowserWidget: React.FC<FileBrowserWidgetProps> = ({
 
   const getBreadcrumbs = () => {
     const crumbs: { name: string; path: string[] }[] = [{ name: generatorType, path: [] }];
-    columns.forEach((col, index) => {
+    columns.forEach((col) => {
       if (col.path.length > 0) {
         crumbs.push({ name: col.path[col.path.length - 1], path: col.path });
       }

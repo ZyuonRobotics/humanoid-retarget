@@ -24,11 +24,6 @@ function isTreeNodeArray(human: BodyTree['human']): human is TreeNodeLocal[] {
   return false;
 }
 
-function isHumanBodyInfo(human: BodyTree['human']): human is HumanBodyInfo {
-  if (!human) return false;
-  return 'note' in human || 'error' in human;
-}
-
 function flattenTreeNames(nodes: BodyTreeNode[] | TreeNodeLocal[]): string[] {
   const names: string[] = [];
   for (const node of nodes) {
@@ -58,10 +53,7 @@ const BodyTreeSelectorModal: React.FC<BodyTreeSelectorModalProps> = ({
       return flattenTreeNames(bodyTree.human);
     }
 
-    if (isHumanBodyInfo(bodyTree.human) && bodyTree.human.children) {
-      return flattenTreeNames(bodyTree.human.children);
-    }
-
+    // If it's HumanBodyInfo (error/note), return empty array
     return [];
   }, [bodyTree.human]);
 
