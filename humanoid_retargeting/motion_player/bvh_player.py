@@ -85,3 +85,13 @@ class BVHPlayer(HumanoidMotionPlayerBase):
             qpos.append(quat)
 
         self._ref_qpos = np.concatenate(qpos, axis=1)
+    
+    @property
+    def foot_names(self):
+        """Return default foot names for SMPL model"""
+        return ["lFoot", "rFoot"]
+
+    @property
+    def hip_names(self):
+        """Return default hip names for SMPL model"""
+        return ["lThigh", "rThigh"]
