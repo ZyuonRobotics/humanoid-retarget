@@ -1018,6 +1018,17 @@ export class ThreeScene {
       const bodyGroup = this.bodies.get(b);
       if (!bodyGroup) continue;
 
+      // Update simulation data arrays for skin vertex computation
+      // Copy player motion data into simulation.xpos and simulation.xquat
+      this.simulation.xpos[b * 3 + 0] = xpos[frameIdx][b][0];
+      this.simulation.xpos[b * 3 + 1] = xpos[frameIdx][b][1];
+      this.simulation.xpos[b * 3 + 2] = xpos[frameIdx][b][2];
+
+      this.simulation.xquat[b * 4 + 0] = xquat[frameIdx][b][0];
+      this.simulation.xquat[b * 4 + 1] = xquat[frameIdx][b][1];
+      this.simulation.xquat[b * 4 + 2] = xquat[frameIdx][b][2];
+      this.simulation.xquat[b * 4 + 3] = xquat[frameIdx][b][3];
+
       // MuJoCo: (x, y, z) → three.js: (x, z, -y)
       bodyGroup.position.set(
         xpos[frameIdx][b][0],
@@ -1032,6 +1043,11 @@ export class ThreeScene {
         -xquat[frameIdx][b][2],
         xquat[frameIdx][b][0]
       );
+    }
+
+    // Update skin vertices if present (same as updateBodiesFromSimulation)
+    if (this.skinGeometries.length > 0) {
+      this.updateSkinVertices();
     }
   }
 
