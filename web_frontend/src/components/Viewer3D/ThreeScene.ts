@@ -575,7 +575,7 @@ export class ThreeScene {
 
     const center = bboxGlobal.getCenter(new THREE.Vector3());
     const size = bboxGlobal.getSize(new THREE.Vector3());
-    const minY = bboxGlobal.min.y;
+    const minY = 0; 
 
     // Update ground position to model lowest point
     if (this.groundPlane) {

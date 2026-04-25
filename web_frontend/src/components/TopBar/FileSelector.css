@@ -289,3 +289,8 @@
   color: var(--color-text-tertiary);
   font-size: 13px;
 }
+
+/* ── HumanConfig Modal ─────────────────────────────────────────── */
+.human-config-modal .ant-form-item-label > label {
+  color: #ffffff !important;
+}

@@ -280,6 +280,84 @@ async def upload_motion(file: UploadFile = File(...), generator_type: str = "bvh
     }
 
 
+@router.post("/upload/robot-motion/{robot_name}")
+async def upload_robot_motion(robot_name: str, file: UploadFile = File(...)):
+    """Upload a robot retargeted motion file."""
+    from web_backend.core.config import MAX_UPLOAD_SIZE
+
+    # Validate filename - prevent path traversal attacks
+    filename = file.filename or ""
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename: path traversal not allowed")
+
+    # Ensure robot directory exists
+    robot_dir = Path(RETARGETING_PATH) / robot_name
+    robot_dir.mkdir(parents=True, exist_ok=True)
+
+    # Check file size
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_SIZE:
+        raise HTTPException(status_code=400, detail="File too large")
+
+    # Validate file type (must be .npz for robot motions)
+    ext = Path(filename).suffix.lower()
+    if ext != ".npz":
+        raise HTTPException(status_code=400, detail="Invalid file type: only .npz is allowed for robot motions")
+
+    # Save file
+    save_path = robot_dir / filename
+    try:
+        save_path.write_bytes(content)
+    except OSError as e:
+        raise HTTPException(status_code=500, detail="Failed to save uploaded file")
+
+    return {
+        "status": "uploaded",
+        "filename": filename,
+        "path": str(save_path)
+    }
+
+
+@router.post("/upload/human-motion")
+async def upload_human_motion(file: UploadFile = File(...)):
+    """Upload a human motion file. Path is determined by file extension."""
+    from web_backend.core.config import MAX_UPLOAD_SIZE
+
+    # Validate filename - prevent path traversal attacks
+    filename = file.filename or ""
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename: path traversal not allowed")
+
+    # Check file size
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_SIZE:
+        raise HTTPException(status_code=400, detail="File too large")
+
+    # Validate and determine file type by extension
+    ext = Path(filename).suffix.lower()
+    ext_to_gen_type = {".bvh": "bvh", ".npz": "smpl"}
+    if ext not in ext_to_gen_type:
+        raise HTTPException(status_code=400, detail="Invalid file type")
+
+    generator_type = ext_to_gen_type[ext]
+    data_path = Path(GENERATOR_TYPE_TO_DATA_PATH.get(generator_type, DATA_PATH))
+    data_path.mkdir(parents=True, exist_ok=True)
+
+    # Save file
+    save_path = data_path / filename
+    try:
+        save_path.write_bytes(content)
+    except OSError as e:
+        raise HTTPException(status_code=500, detail="Failed to save uploaded file")
+
+    return {
+        "status": "uploaded",
+        "filename": filename,
+        "path": str(save_path),
+        "generator_type": generator_type
+    }
+
+
 @router.post("/align-preview")
 async def get_align_preview(
     source_file: str,
@@ -492,6 +570,9 @@ async def get_human_player_motion_data(generator_type: str, motion_file: str, ge
     from humanoid_retargeting.motion_player import PLAYERS_CLASS
 
     # Get motion file path based on generator type
+    # motion_file may include generator_type prefix (e.g., "smpl/elegant.npz"), strip it if present
+    if motion_file.startswith(f"{generator_type}/"):
+        motion_file = motion_file[len(f"{generator_type}/"):]
     motion_path = Path(GENERATOR_TYPE_TO_DATA_PATH.get(generator_type, DATA_PATH)) / motion_file
     if not motion_path.exists():
         raise HTTPException(status_code=404, detail="Motion file not found")
@@ -512,6 +593,7 @@ async def get_human_player_motion_data(generator_type: str, motion_file: str, ge
 
         # Load motion file
         player.load(source_file_path=str(motion_path))
+        player.apply_adjustments()
 
         # Pre-compute all frame body transforms
         body_transforms = player.get_all_frame_body_transforms()
@@ -538,4 +620,93 @@ async def get_human_player_motion_data(generator_type: str, motion_file: str, ge
         }
     except Exception as e:
         logger.error(f"Failed to get human player motion data: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/player/human/{generator_type}/config/{motion_file:path}")
+async def get_human_player_config(generator_type: str, motion_file: str):
+    """Get HumanConfig for a motion file. Creates default config if none exists."""
+    from humanoid_retargeting.motion_player import PLAYERS_CLASS
+
+    # motion_file may include generator_type prefix (e.g., "smpl/elegant.npz"), strip it if present
+    if motion_file.startswith(f"{generator_type}/"):
+        motion_file = motion_file[len(f"{generator_type}/"):]
+    motion_path = Path(GENERATOR_TYPE_TO_DATA_PATH.get(generator_type, DATA_PATH)) / motion_file
+    if not motion_path.exists():
+        raise HTTPException(status_code=404, detail="Motion file not found")
+
+    try:
+        player_class = PLAYERS_CLASS.get(generator_type)
+        if not player_class:
+            raise HTTPException(status_code=400, detail=f"Unsupported generator type: {generator_type}")
+
+        player = player_class(view=False, global_body_ratio=1.0, relative_body_ratio_dict=None)
+        player.load(source_file_path=str(motion_path))
+
+        # Return HumanConfig as dict
+        return {
+            "height_adjustment": player.human_config.height_adjustment,
+            "hip_names": player.human_config.hip_names,
+            "hip_offset": player.human_config.hip_offset,
+            "foot_names": player.human_config.foot_names,
+            "foot_offset": player.human_config.foot_offset,
+            "joint_adjustments": player.human_config.joint_adjustments,
+        }
+    except Exception as e:
+        logger.error(f"Failed to get human player config: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/player/human/{generator_type}/config/{motion_file:path}")
+async def save_human_player_config(generator_type: str, motion_file: str, config: dict):
+    """Save HumanConfig for a motion file."""
+    from humanoid_retargeting.motion_player import PLAYERS_CLASS
+
+    # motion_file may include generator_type prefix (e.g., "smpl/elegant.npz"), strip it if present
+    if motion_file.startswith(f"{generator_type}/"):
+        motion_file = motion_file[len(f"{generator_type}/"):]
+    motion_path = Path(GENERATOR_TYPE_TO_DATA_PATH.get(generator_type, DATA_PATH)) / motion_file
+    if not motion_path.exists():
+        raise HTTPException(status_code=404, detail="Motion file not found")
+
+    try:
+        player_class = PLAYERS_CLASS.get(generator_type)
+        if not player_class:
+            raise HTTPException(status_code=400, detail=f"Unsupported generator type: {generator_type}")
+
+        player = player_class(view=False, global_body_ratio=1.0, relative_body_ratio_dict=None)
+        player.load(source_file_path=str(motion_path))
+
+        # Update human_config with provided values
+        # If height_adjustment is None, auto-calculate it
+        if "height_adjustment" in config:
+            if config["height_adjustment"] is None:
+                # Auto-calculate height_adjustment
+                player.calculate_height_adjustment(draw_plot=False)
+            else:
+                player.human_config.height_adjustment = config["height_adjustment"]
+        if "hip_names" in config:
+            player.human_config.hip_names = config["hip_names"]
+        if "hip_offset" in config:
+            player.human_config.hip_offset = config["hip_offset"]
+        if "foot_names" in config:
+            player.human_config.foot_names = config["foot_names"]
+        if "foot_offset" in config:
+            player.human_config.foot_offset = config["foot_offset"]
+        if "joint_adjustments" in config:
+            player.human_config.joint_adjustments = config["joint_adjustments"]
+
+        # Save config to yaml file
+        player.save_config(str(motion_path))
+
+        return {"status": "saved", "config": {
+            "height_adjustment": player.human_config.height_adjustment,
+            "hip_names": player.human_config.hip_names,
+            "hip_offset": player.human_config.hip_offset,
+            "foot_names": player.human_config.foot_names,
+            "foot_offset": player.human_config.foot_offset,
+            "joint_adjustments": player.human_config.joint_adjustments,
+        }}
+    except Exception as e:
+        logger.error(f"Failed to save human player config: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

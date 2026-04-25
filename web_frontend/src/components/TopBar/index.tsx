@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Select, Button, Input, Dropdown, Spin } from 'antd';
+import React, { useState, useEffect, useRef } from 'react';
+import { Select, Button, Input, Dropdown, Spin, message, Modal, Form, InputNumber, Space } from 'antd';
 import {
   SettingOutlined,
   PlayCircleOutlined,
@@ -14,11 +14,12 @@ import {
   RightOutlined,
   SaveOutlined,
   DeleteOutlined,
+  UploadOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useConfigContext } from '../../contexts/ConfigContext';
 import { useMotionContext } from '../../contexts/MotionContext';
-import { modelApi, MotionTreeNode, MotionFileInfo } from '../../api/client';
+import { modelApi, MotionTreeNode, MotionFileInfo, HumanConfig } from '../../api/client';
 import './FileSelector.css';
 
 interface FolderInfo {
@@ -82,11 +83,24 @@ const TopBar: React.FC<TopBarProps> = ({
   const [retargetedMotions, setRetargetedMotions] = useState<string[]>([]);
   const [retargetedLoading, setRetargetedLoading] = useState(false);
 
+  // HumanConfig modal state
+  const [humanConfigOpen, setHumanConfigOpen] = useState(false);
+  const [humanConfig, setHumanConfig] = useState<HumanConfig | null>(null);
+  const [humanConfigLoading, setHumanConfigLoading] = useState(false);
+  const [humanConfigSaving, setHumanConfigSaving] = useState(false);
+  const [humanBodyNames, setHumanBodyNames] = useState<string[]>([]);
+
   // File selector popover state
   const [fileSelectorOpen, setFileSelectorOpen] = useState(false);
   const [motionTree, setMotionTree] = useState<Record<string, MotionTreeNode> | null>(null);
   const [columns, setColumns] = useState<ColumnData[]>([]);
   const [treeLoading, setTreeLoading] = useState(false);
+
+  // Upload state
+  const [uploadRobotLoading, setUploadRobotLoading] = useState(false);
+  const [uploadHumanLoading, setUploadHumanLoading] = useState(false);
+  const robotFileInputRef = useRef<HTMLInputElement>(null);
+  const humanFileInputRef = useRef<HTMLInputElement>(null);
 
   // Load retargeted motions when entering player mode
   useEffect(() => {
@@ -207,6 +221,77 @@ const TopBar: React.FC<TopBarProps> = ({
     setSelectedMotion('');
     setMotionTree(null);
     setColumns([]);
+  };
+
+  // Upload robot motion handler
+  const handleUploadRobotMotion = async () => {
+    if (!selectedRobot) {
+      message.warning(t('player.pleaseSelectRobotFirst'));
+      return;
+    }
+    robotFileInputRef.current?.click();
+  };
+
+  const handleRobotFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedRobot) return;
+
+    setUploadRobotLoading(true);
+    try {
+      const result = await modelApi.uploadRobotMotion(selectedRobot, file);
+      if (result.status === 'uploaded') {
+        message.success(t('player.uploadRobotMotionSuccess'));
+        // Refresh the retargeted motions list
+        const motions = await modelApi.listRetargetedMotions(selectedRobot);
+        setRetargetedMotions(motions);
+        setSelectedRobotMotion(result.filename);
+        if (onPlayerMotionChange) {
+          onPlayerMotionChange('robot', selectedRobot, result.filename);
+        }
+      }
+    } catch (error) {
+      message.error(t('player.uploadRobotMotionFailed'));
+    } finally {
+      setUploadRobotLoading(false);
+      if (robotFileInputRef.current) {
+        robotFileInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Upload human motion handler
+  const handleUploadHumanMotion = async () => {
+    humanFileInputRef.current?.click();
+  };
+
+  const handleHumanFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadHumanLoading(true);
+    try {
+      const result = await modelApi.uploadHumanMotion(file);
+      if (result.status === 'uploaded') {
+        message.success(t('player.uploadHumanMotionSuccess'));
+        // Refresh the motion tree
+        setMotionTree(null);
+        setColumns([]);
+        // Use the generator_type returned from backend to properly select the file
+        const genType = result.generator_type || selectedHumanFormat;
+        setSelectedHumanFormat(genType as 'bvh' | 'smpl');
+        setSelectedHumanMotion(result.filename);
+        if (onPlayerMotionChange) {
+          onPlayerMotionChange('human', selectedRobot, result.filename, genType);
+        }
+      }
+    } catch (error) {
+      message.error(t('player.uploadHumanMotionFailed'));
+    } finally {
+      setUploadHumanLoading(false);
+      if (humanFileInputRef.current) {
+        humanFileInputRef.current.value = '';
+      }
+    }
   };
 
   // Convert robots to options - handle both string[] and RobotInfo[]
@@ -416,6 +501,23 @@ const TopBar: React.FC<TopBarProps> = ({
                     disabled={retargetedMotions.length === 0}
                   />
                 </div>
+                <div className="topbar-section">
+                  <Button
+                    icon={<UploadOutlined />}
+                    onClick={handleUploadRobotMotion}
+                    loading={uploadRobotLoading}
+                    disabled={!selectedRobot}
+                  >
+                    {t('player.uploadRobotMotion')}
+                  </Button>
+                  <input
+                    ref={robotFileInputRef}
+                    type="file"
+                    accept=".npz"
+                    style={{ display: 'none' }}
+                    onChange={handleRobotFileChange}
+                  />
+                </div>
               </>
             ) : (
               <>
@@ -448,6 +550,53 @@ const TopBar: React.FC<TopBarProps> = ({
                     </span>
                   </Button>
                 </div>
+                <div className="topbar-section">
+                  <Button
+                    icon={<UploadOutlined />}
+                    onClick={handleUploadHumanMotion}
+                    loading={uploadHumanLoading}
+                  >
+                    {t('player.uploadHumanMotion')}
+                  </Button>
+                  <input
+                    ref={humanFileInputRef}
+                    type="file"
+                    accept=".bvh,.npz"
+                    style={{ display: 'none' }}
+                    onChange={handleHumanFileChange}
+                  />
+                </div>
+                {playerMotionType === 'human' && selectedHumanMotion && (
+                  <div className="topbar-section">
+                    <Button
+                      icon={<SettingOutlined />}
+                      onClick={() => {
+                        // Reset humanConfig and reload for the new motion file
+                        setHumanConfig(null);
+                        setHumanBodyNames([]);
+                        setHumanConfigLoading(true);
+                        setHumanConfigOpen(true);
+                        Promise.all([
+                          modelApi.getHumanPlayerConfig(selectedHumanFormat, selectedHumanMotion),
+                          modelApi.getHumanPlayerMotionData(selectedHumanFormat, selectedHumanMotion, false),
+                        ])
+                          .then(([config, motionData]) => {
+                            setHumanConfig(config);
+                            setHumanBodyNames(motionData.body_names || []);
+                          })
+                          .catch(err => {
+                            console.error('Failed to load HumanConfig:', err);
+                            message.error(t('player.loadHumanConfigFailed'));
+                            setHumanConfigOpen(false);
+                          })
+                          .finally(() => setHumanConfigLoading(false));
+                      }}
+                      loading={humanConfigLoading}
+                    >
+                      {t('player.humanConfig')}
+                    </Button>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -553,7 +702,122 @@ const TopBar: React.FC<TopBarProps> = ({
         </div>
       </div>
     )}
-    </>
+
+    {/* HumanConfig Modal */}
+    <Modal
+      title={t('player.humanConfig')}
+      open={humanConfigOpen}
+      onCancel={() => setHumanConfigOpen(false)}
+      footer={null}
+      width={600}
+      className="human-config-modal"
+    >
+      {humanConfig && (
+        <Form
+          layout="vertical"
+          initialValues={humanConfig}
+          onValuesChange={(_, allValues) => setHumanConfig(allValues as HumanConfig)}
+        >
+          <Form.Item label={t('player.heightAdjustment')} name="height_adjustment">
+            <InputNumber style={{ width: '100%' }} placeholder="Auto calculated" />
+          </Form.Item>
+
+          <Form.Item label={t('player.hipNames')}>
+            <Space direction="horizontal" size="small" style={{ display: 'flex' }}>
+              <Form.Item name={['hip_names', 0]} noStyle>
+                <Select
+                  placeholder={t('player.selectHipName')}
+                  options={humanBodyNames.map(name => ({ value: name, label: name }))}
+                  style={{ width: 280 }}
+                />
+              </Form.Item>
+              <Form.Item name={['hip_names', 1]} noStyle>
+                <Select
+                  placeholder={t('player.selectHipName')}
+                  options={humanBodyNames.map(name => ({ value: name, label: name }))}
+                  style={{ width: 280 }}
+                />
+              </Form.Item>
+            </Space>
+          </Form.Item>
+
+          <Form.Item label={t('player.hipOffset')} name="hip_offset">
+            <InputNumber style={{ width: '100%' }} step={0.01} />
+          </Form.Item>
+
+          <Form.Item label={t('player.footNames')}>
+            <Space direction="horizontal" size="small" style={{ display: 'flex' }}>
+              <Form.Item name={['foot_names', 0]} noStyle>
+                <Select
+                  placeholder={t('player.selectFootName')}
+                  options={humanBodyNames.map(name => ({ value: name, label: name }))}
+                  style={{ width: 280 }}
+                />
+              </Form.Item>
+              <Form.Item name={['foot_names', 1]} noStyle>
+                <Select
+                  placeholder={t('player.selectFootName')}
+                  options={humanBodyNames.map(name => ({ value: name, label: name }))}
+                  style={{ width: 280 }}
+                />
+              </Form.Item>
+            </Space>
+          </Form.Item>
+
+          <Form.Item label={t('player.footOffset')} name="foot_offset">
+            <InputNumber style={{ width: '100%' }} step={0.01} />
+          </Form.Item>
+
+          <Form.Item label={t('player.jointAdjustments')}>
+            <Input.TextArea
+              rows={4}
+              value={JSON.stringify(humanConfig.joint_adjustments || {}, null, 2)}
+              onChange={(e) => {
+                try {
+                  const parsed = JSON.parse(e.target.value);
+                  setHumanConfig({ ...humanConfig, joint_adjustments: parsed });
+                } catch {}
+              }}
+              placeholder='{"joint_name": [x, y, z], ...}'
+            />
+          </Form.Item>
+
+          <Form.Item>
+            <Space>
+              <Button
+                type="primary"
+                icon={<SaveOutlined />}
+                loading={humanConfigSaving}
+                onClick={async () => {
+                  if (!humanConfig || !selectedHumanMotion) return;
+                  setHumanConfigSaving(true);
+                  try {
+                    await modelApi.saveHumanPlayerConfig(selectedHumanFormat, selectedHumanMotion, humanConfig);
+                    message.success(t('player.saveHumanConfigSuccess'));
+                    setHumanConfigOpen(false);
+                    // Trigger reload of motion
+                    if (onPlayerMotionChange) {
+                      onPlayerMotionChange('human', selectedRobot, selectedHumanMotion, selectedHumanFormat);
+                    }
+                  } catch (err) {
+                    console.error('Failed to save HumanConfig:', err);
+                    message.error(t('player.saveHumanConfigFailed'));
+                  } finally {
+                    setHumanConfigSaving(false);
+                  }
+                }}
+              >
+                {t('configPanel.save')}
+              </Button>
+              <Button onClick={() => setHumanConfigOpen(false)}>
+                {t('common.cancel')}
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      )}
+    </Modal>
+  </>
   );
 };
 

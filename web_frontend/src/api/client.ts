@@ -82,6 +82,16 @@ export interface HumanPlayerMotionResponse {
   has_skin: boolean;
 }
 
+// HumanConfig for human motion player
+export interface HumanConfig {
+  height_adjustment: number | null;
+  hip_names: string[] | null;
+  hip_offset: number | null;
+  foot_names: string[] | null;
+  foot_offset: number | null;
+  joint_adjustments: Record<string, number[]>;
+}
+
 // Model API
 export const modelApi = {
   listMotions: (generatorType: string) =>
@@ -128,10 +138,32 @@ export const modelApi = {
       params: { generate_skin: generateSkin }
     }).then(res => res.data),
 
+  getHumanPlayerConfig: (generatorType: string, motionFile: string) =>
+    client.get<HumanConfig>(`/model/player/human/${generatorType}/config/${motionFile}`).then(res => res.data),
+
+  saveHumanPlayerConfig: (generatorType: string, motionFile: string, config: HumanConfig) =>
+    client.post(`/model/player/human/${generatorType}/config/${motionFile}`, config).then(res => res.data),
+
   uploadMotion: (file: File, generatorType: string = 'bvh') => {
     const formData = new FormData();
     formData.append('file', file);
     return client.post(`/model/upload/motion?generator_type=${generatorType}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(res => res.data);
+  },
+
+  uploadRobotMotion: (robotName: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return client.post(`/model/upload/robot-motion/${robotName}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(res => res.data);
+  },
+
+  uploadHumanMotion: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return client.post(`/model/upload/human-motion`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }).then(res => res.data);
   },
