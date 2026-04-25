@@ -958,9 +958,16 @@ export class ThreeScene {
    * @param autostart if true, immediately starts the animation loop (default: true)
    */
   public setPlayerMotion(update: PlayerMotionUpdate, autostart = true): void {
+    console.log('ThreeScene: setPlayerMotion called', {
+      frameNum: update.frameNum,
+      frameRate: update.frameRate,
+      autostart
+    });
     this.playerMotionUpdate = update;
     this.playerCurrentFrame = 0;
+    this.playerLastTime = 0; // Reset to 0, will be initialized on first update
     if (autostart) {
+      this.playerLastTime = performance.now(); // Initialize for autostart
       this.start();
     }
   }
@@ -985,6 +992,7 @@ export class ThreeScene {
    * Pause player motion animation
    */
   public pausePlayer(): void {
+    console.log('ThreeScene: pausePlayer called');
     this.stop();
   }
 
@@ -992,6 +1000,10 @@ export class ThreeScene {
    * Resume player motion animation
    */
   public resumePlayer(): void {
+    console.log('ThreeScene: resumePlayer called', {
+      hasPlayerMotion: !!this.playerMotionUpdate,
+      currentFrame: this.playerCurrentFrame
+    });
     if (this.playerMotionUpdate) {
       this.playerLastTime = performance.now(); // Initialize to now so elapsed is computed correctly
       this.start();

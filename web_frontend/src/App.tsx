@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button, Space, Upload, Slider } from 'antd';
-import { PlayCircleOutlined, PauseCircleOutlined, UploadOutlined } from '@ant-design/icons';
+import { PlayCircleOutlined, PauseCircleOutlined, UploadOutlined, SaveOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 
 import TopBar from './components/TopBar';
@@ -18,7 +18,7 @@ type ThemeType = 'dark' | 'light' | 'ocean' | 'forest' | 'sunset';
 
 const AppContent: React.FC = () => {
   const { t } = useTranslation();
-  const { selectedMotion, uploadMotion, handleRetarget } = useMotionContext();
+  const { selectedMotion, uploadMotion, handleRetarget, handleSaveRetarget, retargetPreviewData, setRetargetPreviewData } = useMotionContext();
   const { loading, bodyTree, config, setConfig } = useConfigContext();
   const [activePanel, setActivePanel] = useState<string>('retargeter');
   const [theme, setTheme] = useState<ThemeType>(() => {
@@ -30,13 +30,19 @@ const AppContent: React.FC = () => {
 
   // Player mode state
   const [playerMotion, setPlayerMotion] = useState<{
-    type: 'robot' | 'human';
+    type: 'robot' | 'human' | 'retarget-preview';
     robotName: string;
     motionFile: string;
     generatorType?: string;
   } | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackFrame, setPlaybackFrame] = useState({ current: 0, total: 0 });
+
+  // Retarget preview mode state - for future use
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_isRetargetPreviewPlaying, setIsRetargetPreviewPlaying] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_retargetPreviewFrame, setRetargetPreviewFrame] = useState({ current: 0, total: 0 });
 
   // Get container width for rightmost positioning
   useEffect(() => {
@@ -50,6 +56,27 @@ const AppContent: React.FC = () => {
     return () => window.removeEventListener('resize', updateWidth);
   }, []);
 
+  // Handle retarget preview - when retargetPreviewData exists, switch to player mode
+  useEffect(() => {
+    if (retargetPreviewData) {
+      console.log('Retarget preview data received, switching to player mode', {
+        robot: retargetPreviewData.robot_name,
+        frameNum: retargetPreviewData.frame_num
+      });
+      // Switch to player mode to show retarget preview
+      setActivePanel('player');
+      setIsPlaying(false);
+      setRetargetPreviewFrame({ current: 0, total: retargetPreviewData.frame_num });
+      setIsRetargetPreviewPlaying(false);
+      // Set player motion to a special retarget-preview type
+      setPlayerMotion({
+        type: 'retarget-preview',
+        robotName: retargetPreviewData.robot_name,
+        motionFile: retargetPreviewData.output_name,
+      });
+    }
+  }, [retargetPreviewData]);
+
   // Apply theme
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -61,11 +88,16 @@ const AppContent: React.FC = () => {
       {/* Top Bar */}
       <TopBar
         activePanel={activePanel}
+        playerMotion={playerMotion}
         onPanelChange={(panel) => {
           setActivePanel(panel);
           setIsPlaying(false);
           setPlaybackFrame({ current: 0, total: 0 });
           setPlayerMotion(null);
+          // Clear retarget preview data when switching panels
+          if (panel !== 'player') {
+            setRetargetPreviewData(null);
+          }
         }}
         onPlayerMotionClear={() => {
           setPlayerMotion(null);
@@ -87,6 +119,7 @@ const AppContent: React.FC = () => {
           sourceFile={selectedMotion}
           activePanel={activePanel}
           playerMotion={playerMotion}
+          retargetPreviewData={retargetPreviewData}
           playing={isPlaying}
           onFrameChange={(current, total) => setPlaybackFrame(prev => ({ ...prev, current, total }))}
         />
@@ -206,15 +239,31 @@ const AppContent: React.FC = () => {
                 </span>
               </div>
             )}
-            <Button
-              type="primary"
-              size="large"
-              icon={isPlaying ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
-              onClick={() => setIsPlaying(v => !v)}
-              disabled={!playerMotion}
-            >
-              {isPlaying ? t('player.pause') : t('player.play')}
-            </Button>
+            <Space>
+              {/* Play/Pause button - always show in player mode */}
+              <Button
+                type={retargetPreviewData ? 'default' : 'primary'}
+                size="large"
+                icon={isPlaying ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
+                onClick={() => setIsPlaying(v => !v)}
+                disabled={!playerMotion}
+              >
+                {isPlaying ? t('player.pause') : t('player.play')}
+              </Button>
+
+              {/* Save button - only show when in retarget preview mode */}
+              {retargetPreviewData && (
+                <Button
+                  type="primary"
+                  size="large"
+                  icon={<SaveOutlined />}
+                  onClick={handleSaveRetarget}
+                  loading={loading}
+                >
+                  {t('button.saveRetarget') || 'Save Retarget'}
+                </Button>
+              )}
+            </Space>
           </Space>
         </div>
       )}

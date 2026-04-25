@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { message } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { modelApi } from '../api/client';
+import { modelApi, RetargetPreviewResponse } from '../api/client';
 import { useConfigContext } from './ConfigContext';
 
 interface MotionContextType {
@@ -10,6 +10,9 @@ interface MotionContextType {
   loading: boolean;
   uploadMotion: (file: File) => Promise<void>;
   handleRetarget: () => Promise<void>;
+  handleSaveRetarget: () => Promise<void>;
+  retargetPreviewData: RetargetPreviewResponse | null;
+  setRetargetPreviewData: (data: RetargetPreviewResponse | null) => void;
 }
 
 const MotionContext = createContext<MotionContextType | undefined>(undefined);
@@ -23,6 +26,7 @@ export const MotionProvider: React.FC<MotionProviderProps> = ({ children }) => {
   const { selectedRobot, generatorType, selectedConfig } = useConfigContext();
   const [selectedMotion, setSelectedMotion] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [retargetPreviewData, setRetargetPreviewData] = useState<RetargetPreviewResponse | null>(null);
 
   const uploadMotion = useCallback(async (file: File) => {
     try {
@@ -47,14 +51,16 @@ export const MotionProvider: React.FC<MotionProviderProps> = ({ children }) => {
     }
     setLoading(true);
     try {
-      const result = await modelApi.retarget(
+      // Call retarget-preview instead of retarget to get preview data without saving
+      const result = await modelApi.retargetPreview(
         selectedMotion,
         selectedRobot,
         generatorType,
         selectedConfig
       );
       if (result.status === 'success') {
-        message.success(t('message.retargetSuccess'));
+        setRetargetPreviewData(result);
+        message.success(t('message.retargetPreviewSuccess') || 'Retarget preview generated successfully');
       } else {
         message.error(t('message.retargetFailed'));
       }
@@ -65,6 +71,27 @@ export const MotionProvider: React.FC<MotionProviderProps> = ({ children }) => {
     }
   }, [selectedMotion, selectedRobot, generatorType, selectedConfig, t]);
 
+  const handleSaveRetarget = useCallback(async () => {
+    if (!retargetPreviewData) {
+      message.warning('No retarget preview to save');
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await modelApi.saveRetarget();
+      if (result.status === 'success') {
+        message.success(t('message.retargetSuccess'));
+        setRetargetPreviewData(null);
+      } else {
+        message.error(t('message.retargetFailed'));
+      }
+    } catch (error) {
+      message.error(t('message.retargetFailed'));
+    } finally {
+      setLoading(false);
+    }
+  }, [retargetPreviewData, t]);
+
   return (
     <MotionContext.Provider
       value={{
@@ -73,6 +100,9 @@ export const MotionProvider: React.FC<MotionProviderProps> = ({ children }) => {
         loading,
         uploadMotion,
         handleRetarget,
+        handleSaveRetarget,
+        retargetPreviewData,
+        setRetargetPreviewData,
       }}
     >
       {children}

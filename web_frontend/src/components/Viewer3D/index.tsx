@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useConfigContext } from '../../contexts/ConfigContext';
-import { modelApi } from '../../api/client';
+import { modelApi, RetargetPreviewResponse } from '../../api/client';
 import {
   initMuJoCo,
   fetchAlignPreview,
@@ -26,17 +26,19 @@ interface Viewer3DProps {
   sourceFile?: string;
   activePanel?: string;
   playerMotion?: {
-    type: 'robot' | 'human';
+    type: 'robot' | 'human' | 'retarget-preview';
     robotName: string;
     motionFile: string;
     generatorType?: string;
   } | null;
+  // Retarget preview data (when retarget completes but not yet saved)
+  retargetPreviewData?: RetargetPreviewResponse | null;
   // Playback control props
   playing?: boolean;
   onFrameChange?: (frame: number, total: number) => void;
 }
 
-const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMotion, playing = false, onFrameChange }) => {
+const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMotion, retargetPreviewData, playing = false, onFrameChange }) => {
   const { selectedRobot, config, generatorType } = useConfigContext();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -130,7 +132,47 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
 
         let motionData = null;
 
-        if (playerMotion.type === 'robot') {
+        if (playerMotion.type === 'retarget-preview') {
+          // Retarget preview mode - requires retargetPreviewData
+          if (!retargetPreviewData) {
+            setLoading(false);
+            return; // No preview data yet, skip loading
+          }
+
+          // Load robot meshes (required for combined human-robot XML)
+          let robotCached = robotDataCache.get(retargetPreviewData.robot_name);
+          if (!robotCached) {
+            try {
+              const data = await modelApi.getRobotMJCFWithMeshes(retargetPreviewData.robot_name);
+              robotCached = data;
+              robotDataCache.set(retargetPreviewData.robot_name, data);
+            } catch (err) {
+              setError('Failed to load robot mesh data');
+              setLoading(false);
+              return;
+            }
+          }
+
+          if (!robotCached) {
+            setError('Failed to load robot mesh data');
+            setLoading(false);
+            return;
+          }
+
+          // Initialize MuJoCo with combined human-robot XML and robot meshes
+          await initMuJoCo(retargetPreviewData.xml, undefined, robotCached.meshes || {});
+
+          motionData = {
+            robotName: retargetPreviewData.robot_name,
+            motionFile: retargetPreviewData.output_name,
+            frameNum: retargetPreviewData.frame_num,
+            frameRate: retargetPreviewData.frame_rate,
+            bodyNames: retargetPreviewData.body_names,
+            nbody: retargetPreviewData.nbody,
+            xpos: retargetPreviewData.body_transforms.xpos,
+            xquat: retargetPreviewData.body_transforms.xquat,
+          };
+        } else if (playerMotion.type === 'robot') {
           // Robot motion playback
           motionData = await loadRobotPlayerMotion(playerMotion.robotName, playerMotion.motionFile);
           if (!motionData) {
@@ -157,7 +199,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
           }
 
           await initMuJoCo(robotCached.xml, undefined, robotCached.meshes || {});
-        } else {
+        } else if (playerMotion.type === 'human') {
           // Human motion playback
           const generatorType = playerMotion.generatorType || 'bvh';
 
@@ -178,12 +220,25 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
 
           // Initialize MuJoCo with human model XML (includes skin if SMPL)
           await initMuJoCo(motionData.xml!);
+        } else {
+          // Unknown playerMotion type, skip loading
+          console.warn('Unknown playerMotion type:', playerMotion.type);
+          return;
         }
 
         // Create Three.js scene
+        console.log('Player mode: creating ThreeScene', {
+          hasCanvas: !!canvas,
+          hasMujocoModule: !!mujocoModule,
+          hasCurrentModel: !!currentModel,
+          hasCurrentData: !!currentData,
+          motionDataFrameNum: motionData?.frameNum
+        });
+
+        // initThreeScene will automatically call createScene if model is loaded
         threeSceneRef.current = initThreeScene(canvas);
-        if (threeSceneRef.current && mujocoModule && currentModel && currentData) {
-          threeSceneRef.current.createScene(mujocoModule, currentModel, currentData as any);
+        if (threeSceneRef.current) {
+          console.log('Player mode: ThreeScene created, setting player motion');
 
           // Set player motion data for animation (don't autostart, let playing prop control it)
           threeSceneRef.current.setPlayerMotion({
@@ -207,6 +262,13 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
 
           // Mark player model as loaded to hide grid
           setPlayerModelLoaded(true);
+
+          // Force initial render to show frame 0
+          threeSceneRef.current.setPlayerFrame(0);
+
+          console.log('Player mode: scene setup complete');
+        } else {
+          console.error('Player mode: failed to create ThreeScene');
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load player motion');
@@ -217,7 +279,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
     };
 
     loadPlayer();
-  }, [playerMotion, activePanel, showSkin]);
+  }, [playerMotion, activePanel, showSkin, retargetPreviewData]);
 
   // Player mode: control animation based on playing prop
   useEffect(() => {

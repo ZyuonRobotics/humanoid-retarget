@@ -38,6 +38,12 @@ type ThemeType = 'dark' | 'light' | 'ocean' | 'forest' | 'sunset';
 
 interface TopBarProps {
   activePanel: string;
+  playerMotion?: {
+    type: 'robot' | 'human' | 'retarget-preview';
+    robotName: string;
+    motionFile: string;
+    generatorType?: string;
+  } | null;
   onPanelChange: (panel: string) => void;
   onPlayerMotionClear?: () => void;
   theme: ThemeType;
@@ -47,6 +53,7 @@ interface TopBarProps {
 
 const TopBar: React.FC<TopBarProps> = ({
   activePanel,
+  playerMotion,
   onPanelChange,
   onPlayerMotionClear,
   theme,
@@ -451,29 +458,50 @@ const TopBar: React.FC<TopBarProps> = ({
 
       {activePanel === 'player' && (
         <>
-          <div className="topbar-row">
-            <div className="topbar-section">
-              <Button
-                type={playerMotionType === 'robot' ? 'primary' : 'text'}
-                onClick={() => setPlayerMotionType('robot')}
-              >
-                {t('player.robotMotion')}
-              </Button>
-              <Button
-                type={playerMotionType === 'human' ? 'primary' : 'text'}
-                onClick={() => setPlayerMotionType('human')}
-                style={{ marginLeft: 8 }}
-              >
-                {t('player.humanMotion')}
-              </Button>
-            </div>
-          </div>
+          {/* Only show Robot/Human toggle if not in retarget-preview mode */}
+          {playerMotion?.type !== 'retarget-preview' && (
+            <>
+              <div className="topbar-row">
+                <div className="topbar-section">
+                  <Button
+                    type={playerMotionType === 'robot' ? 'primary' : 'text'}
+                    onClick={() => setPlayerMotionType('robot')}
+                  >
+                    {t('player.robotMotion')}
+                  </Button>
+                  <Button
+                    type={playerMotionType === 'human' ? 'primary' : 'text'}
+                    onClick={() => setPlayerMotionType('human')}
+                    style={{ marginLeft: 8 }}
+                  >
+                    {t('player.humanMotion')}
+                  </Button>
+                </div>
+              </div>
 
-          <div className="topbar-row-separator" />
+              <div className="topbar-row-separator" />
+            </>
+          )}
 
-          {/* Row 3: Player motion selectors */}
-          <div className="topbar-row">
-            {playerMotionType === 'robot' ? (
+          {/* Show retarget preview info if in retarget-preview mode */}
+          {playerMotion?.type === 'retarget-preview' && (
+            <>
+              <div className="topbar-row">
+                <div className="topbar-section">
+                  <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14 }}>
+                    {t('player.retargetPreview') || 'Retarget Preview'}: {playerMotion.robotName}
+                  </span>
+                </div>
+              </div>
+
+              <div className="topbar-row-separator" />
+            </>
+          )}
+
+          {/* Row 3: Player motion selectors - only show if not in retarget-preview mode */}
+          {playerMotion?.type !== 'retarget-preview' && (
+            <div className="topbar-row">
+              {playerMotionType === 'robot' ? (
               <>
                 <div className="topbar-section">
                   <Select
@@ -600,6 +628,7 @@ const TopBar: React.FC<TopBarProps> = ({
               </>
             )}
           </div>
+          )}
         </>
       )}
     </div>

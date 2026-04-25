@@ -40,6 +40,22 @@ export interface AlignPreviewResponse {
   global_body_ratio: number;
 }
 
+// Retarget preview response
+export interface RetargetPreviewResponse {
+  status: string;
+  output_name: string;
+  robot_name: string;
+  frame_num: number;
+  frame_rate: number;
+  body_names: string[];
+  nbody: number;
+  xml: string;
+  body_transforms: {
+    xpos: number[][][];
+    xquat: number[][][];
+  };
+}
+
 // Motion file tree types
 export interface MotionFileInfo {
   filename: string;
@@ -107,6 +123,14 @@ export const modelApi = {
     client.post('/model/retarget', null, {
       params: { motion_file: motionFile, robot_name: robotName, generator_type: generatorType, config_name: configName, output_name: outputName }
     }).then(res => res.data),
+
+  retargetPreview: (motionFile: string, robotName: string, generatorType: string, configName: string, outputName?: string) =>
+    client.post<RetargetPreviewResponse>('/model/retarget-preview', null, {
+      params: { motion_file: motionFile, robot_name: robotName, generator_type: generatorType, config_name: configName, output_name: outputName }
+    }).then(res => res.data),
+
+  saveRetarget: () =>
+    client.post('/model/save-retarget').then(res => res.data),
 
   getRetargetedMotion: (robotName: string, outputName: string) =>
     client.get(`/model/retarget/${robotName}/${outputName}`).then(res => res.data),

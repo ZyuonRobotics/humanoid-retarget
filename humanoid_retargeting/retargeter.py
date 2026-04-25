@@ -252,6 +252,38 @@ class Retargeter:
             if not self.viewer.is_running():
                 break
 
+    def get_all_frame_body_transforms(self) -> dict:
+        """Pre-compute all body transforms for combined human-robot model.
+
+        Returns:
+            dict: Contains 'xpos' (frame_num, nbody, 3) and 'xquat' (frame_num, nbody, 4)
+        """
+        nbody = self.model.nbody
+        frame_num = self.frame_num
+
+        xpos = np.zeros((frame_num, nbody, 3))
+        xquat = np.zeros((frame_num, nbody, 4))
+
+        # Offset for human model to avoid overlap with robot
+        human_offset = np.array([0.0, 1.0, 0.0])
+
+        for frame_idx in range(frame_num):
+            self.data.qpos[:self.player.model.nq] = self.player.ref_qpos[frame_idx, :]
+            # Apply offset to human model position (first 2 components are x, y)
+            self.data.qpos[:2] += human_offset[:2]
+
+            self.data.qpos[self.player.model.nq:] = self.robot_ref_qpos[frame_idx, :]
+            self.data.qvel[:] = 0
+            mujoco.mj_forward(self.model, self.data)
+
+            xpos[frame_idx] = self.data.xpos.copy()
+            xquat[frame_idx] = self.data.xquat.copy()
+
+        return {
+            "xpos": xpos.tolist(),
+            "xquat": xquat.tolist()
+        }
+
 
     def close(self):
         if self.view:
