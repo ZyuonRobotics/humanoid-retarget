@@ -749,7 +749,8 @@ export interface AlignPreviewData {
 
 // Pre-computed player motion data (all frame transforms)
 export interface PlayerMotionData {
-  robotName: string;
+  robotName?: string;
+  generatorType?: string;
   motionFile: string;
   frameNum: number;
   frameRate: number;
@@ -757,6 +758,8 @@ export interface PlayerMotionData {
   nbody: number;
   xpos: number[][][];  // [frame][body][3]
   xquat: number[][][]; // [frame][body][4]
+  xml?: string;
+  hasSkin?: boolean;
 }
 
 let playerMotionData: PlayerMotionData | null = null;
@@ -840,13 +843,12 @@ export async function fetchHumanPreview(
 /**
  * Load player motion data from backend (pre-computed all frame transforms)
  */
-export async function loadPlayerMotion(
+export async function loadRobotPlayerMotion(
   robotName: string,
   motionFile: string
 ): Promise<PlayerMotionData | null> {
   try {
-    const response = await modelApi.getPlayerMotionData(robotName, motionFile);
-    // Use camelCase frameRate if available, otherwise fall back to snake_case
+    const response = await modelApi.getRobotPlayerMotionData(robotName, motionFile);
     const frameRate = response.frameRate || response.frame_rate;
     const data: PlayerMotionData = {
       robotName: response.robot_name,
@@ -862,6 +864,37 @@ export async function loadPlayerMotion(
     return data;
   } catch (error) {
     console.error('Failed to load player motion:', error);
+    return null;
+  }
+}
+
+/**
+ * Load human player motion data from backend (pre-computed all frame transforms)
+ */
+export async function loadHumanPlayerMotion(
+  generatorType: string,
+  motionFile: string,
+  generateSkin: boolean = true
+): Promise<PlayerMotionData | null> {
+  try {
+    const response = await modelApi.getHumanPlayerMotionData(generatorType, motionFile, generateSkin);
+    const frameRate = response.frameRate || response.frame_rate;
+    const data: PlayerMotionData = {
+      generatorType: response.generator_type,
+      motionFile: response.motion_file,
+      frameNum: response.frame_num,
+      frameRate: frameRate,
+      bodyNames: response.body_names,
+      nbody: response.nbody,
+      xpos: response.body_transforms.xpos,
+      xquat: response.body_transforms.xquat,
+      xml: response.xml,
+      hasSkin: response.has_skin
+    };
+    setPlayerMotionData(data);
+    return data;
+  } catch (error) {
+    console.error('Failed to load human player motion:', error);
     return null;
   }
 }

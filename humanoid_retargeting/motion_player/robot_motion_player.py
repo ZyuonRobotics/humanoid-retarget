@@ -41,31 +41,3 @@ class RobotMotionPlayer(MotionPlayerBase):
 
     def _load(self, source_file_path, **kwargs):
         self.load_motion_file(source_file_path)
-
-    def get_all_frame_body_transforms(self) -> dict:
-        """Pre-compute all body transforms for every frame.
-
-        Returns:
-            dict: Contains 'xpos' (frame_num, nbody, 3) and 'xquat' (frame_num, nbody, 4)
-        """
-        if self._ref_qpos is None:
-            self.load_motion_file()
-
-        nbody = self.model.nbody
-        frame_num = self.frame_num
-
-        xpos = np.zeros((frame_num, nbody, 3))
-        xquat = np.zeros((frame_num, nbody, 4))
-
-        for frame_idx in range(frame_num):
-            self.data.qpos[:] = self._ref_qpos[frame_idx]
-            self.data.qvel[:] = 0
-            mujoco.mj_forward(self.model, self.data)
-
-            xpos[frame_idx] = self.data.xpos.copy()
-            xquat[frame_idx] = self.data.xquat.copy()
-
-        return {
-            "xpos": xpos.tolist(),
-            "xquat": xquat.tolist()
-        }

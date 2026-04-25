@@ -15,7 +15,8 @@ import {
   mujocoModule,
   currentModel,
   currentData,
-  loadPlayerMotion,
+  loadRobotPlayerMotion,
+  loadHumanPlayerMotion,
 } from './mujoco';
 
 // Module-level cache so robot mesh data is not re-fetched across re-renders or config changes
@@ -120,40 +121,64 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
       setError(null);
 
       try {
-        // Load player motion data from backend (pre-computed all frame transforms)
-        const motionData = await loadPlayerMotion(playerMotion.robotName, playerMotion.motionFile);
-        if (!motionData) {
-          setError('Failed to load motion data');
-          return;
-        }
-
-        // Clear previous scene and create new ThreeScene
+        // Clear previous scene and model state BEFORE loading new data
         dispose();
         if (threeSceneRef.current) {
           threeSceneRef.current.dispose();
           threeSceneRef.current = null;
         }
 
-        // Initialize MuJoCo with robot model
-        // If not cached, fetch robot data automatically (no need to manually click "Show Robot")
-        let robotCached = robotDataCache.get(playerMotion.robotName);
-        if (!robotCached) {
-          try {
-            const data = await modelApi.getRobotMJCFWithMeshes(playerMotion.robotName);
-            robotCached = data;
-            robotDataCache.set(playerMotion.robotName, data);
-          } catch (err) {
+        let motionData = null;
+
+        if (playerMotion.type === 'robot') {
+          // Robot motion playback
+          motionData = await loadRobotPlayerMotion(playerMotion.robotName, playerMotion.motionFile);
+          if (!motionData) {
+            setError('Failed to load motion data');
+            return;
+          }
+
+          // Load robot model (with cache)
+          let robotCached = robotDataCache.get(playerMotion.robotName);
+          if (!robotCached) {
+            try {
+              const data = await modelApi.getRobotMJCFWithMeshes(playerMotion.robotName);
+              robotCached = data;
+              robotDataCache.set(playerMotion.robotName, data);
+            } catch (err) {
+              setError('Failed to load robot data');
+              return;
+            }
+          }
+
+          if (!robotCached) {
             setError('Failed to load robot data');
             return;
           }
-        }
 
-        if (!robotCached) {
-          setError('Failed to load robot data');
-          return;
-        }
+          await initMuJoCo(robotCached.xml, undefined, robotCached.meshes || {});
+        } else {
+          // Human motion playback
+          const generatorType = playerMotion.generatorType || 'bvh';
 
-        await initMuJoCo(robotCached.xml, [], robotCached.meshes || {});
+          // Remove generator_type prefix from motion file path if present
+          // e.g., "smpl/elegant.npz" -> "elegant.npz"
+          let motionFilePath = playerMotion.motionFile;
+          const prefix = `${generatorType}/`;
+          if (motionFilePath.startsWith(prefix)) {
+            motionFilePath = motionFilePath.substring(prefix.length);
+          }
+
+          motionData = await loadHumanPlayerMotion(generatorType, motionFilePath, showSkin);
+
+          if (!motionData) {
+            setError('Failed to load human motion data');
+            return;
+          }
+
+          // Initialize MuJoCo with human model XML (includes skin if SMPL)
+          await initMuJoCo(motionData.xml!);
+        }
 
         // Create Three.js scene
         threeSceneRef.current = initThreeScene(canvas);
@@ -177,7 +202,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
           // Report frame info to parent
           onFrameChange?.(0, motionData.frameNum);
 
-          // Set camera to look at robot
+          // Set camera to look at model
           setCamera({ lookat: [0, 0, 0.5] });
 
           // Mark player model as loaded to hide grid
@@ -192,7 +217,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
     };
 
     loadPlayer();
-  }, [playerMotion, activePanel]);
+  }, [playerMotion, activePanel, showSkin]);
 
   // Player mode: control animation based on playing prop
   useEffect(() => {
@@ -628,6 +653,45 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
               👤
             </button>
           )}
+        </div>
+      )}
+
+      {/* Skin toggle for player mode - only show when playing SMPL human motion */}
+      {activePanel === 'player' && playerMotion?.type === 'human' && playerMotion?.generatorType === 'smpl' && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            display: 'flex',
+            gap: 8,
+            zIndex: 10
+          }}
+        >
+          <button
+            onClick={() => {
+              const newShowSkin = !showSkin;
+              setShowSkin(newShowSkin);
+              threeSceneRef.current?.setShowSkin(newShowSkin);
+            }}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 8,
+              border: showSkin ? '2px solid #10b981' : '2px solid rgba(255,255,255,0.2)',
+              background: showSkin ? 'rgba(16,185,129,0.3)' : 'rgba(0,0,0,0.4)',
+              color: 'rgba(255,255,255,0.9)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 16,
+              transition: 'all 0.2s ease'
+            }}
+            title="皮肤"
+          >
+            👤
+          </button>
         </div>
       )}
 

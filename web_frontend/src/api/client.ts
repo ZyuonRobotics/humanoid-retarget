@@ -69,6 +69,19 @@ export interface PlayerMotionResponse {
   body_transforms: PlayerBodyTransforms;
 }
 
+export interface HumanPlayerMotionResponse {
+  generator_type: string;
+  motion_file: string;
+  frame_num: number;
+  frame_rate: number;
+  frameRate?: number;
+  body_names: string[];
+  nbody: number;
+  body_transforms: PlayerBodyTransforms;
+  xml: string;
+  has_skin: boolean;
+}
+
 // Model API
 export const modelApi = {
   listMotions: (generatorType: string) =>
@@ -107,8 +120,13 @@ export const modelApi = {
   getFrameData: (robotName: string, outputName: string, frameId: number) =>
     client.get(`/model/frame/${robotName}/${outputName}/${frameId}`).then(res => res.data),
 
-  getPlayerMotionData: (robotName: string, motionFile: string) =>
-    client.get<PlayerMotionResponse>(`/model/player/${robotName}/motion/${motionFile}`).then(res => res.data),
+  getRobotPlayerMotionData: (robotName: string, motionFile: string) =>
+    client.get<PlayerMotionResponse>(`/model/player/robot/${robotName}/motion/${motionFile}`).then(res => res.data),
+
+  getHumanPlayerMotionData: (generatorType: string, motionFile: string, generateSkin: boolean = true) =>
+    client.get<HumanPlayerMotionResponse>(`/model/player/human/${generatorType}/motion/${motionFile}`, {
+      params: { generate_skin: generateSkin }
+    }).then(res => res.data),
 
   uploadMotion: (file: File, generatorType: string = 'bvh') => {
     const formData = new FormData();

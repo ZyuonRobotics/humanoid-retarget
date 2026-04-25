@@ -144,10 +144,10 @@ class MotionPlayerBase(ABC):
     def get_body_motion_data(self, body_names):
         """
         Play motion_data once and get position, orientation and velocity data for specified bodies
-        
+
         Args:
             body_names (list): List of body names in the MuJoCo model
-            
+
         Returns:
             dict: Dictionary containing position, orientation and velocity data for each body
                 Format: {
@@ -159,27 +159,27 @@ class MotionPlayerBase(ABC):
                     },
                     ...
                 }
-                
+
         Note:
             - trans: Position of body origin in world coordinate system
             - euler: Orientation of body frame relative to world frame (world frame coordinates)
             - lin_vel: Linear velocity in body's local coordinate system
             - ang_vel: Angular velocity in body's local coordinate system
-            
+
             The velocities are in body frame because MuJoCo's data.cvel provides velocities
             in the body's local coordinate system, which is more useful for analyzing body motion.
         """
         # Ensure motion data is loaded
         if self._ref_qpos is None:
             self.load_motion_file()
-        
+
         # Validate body names exist
         for body_name in body_names:
             try:
                 self.model.body(body_name)
             except KeyError:
                 raise ValueError(f"Body '{body_name}' not found in the model")
-        
+
         # Initialize result dictionary
         result = {}
         for body_name in body_names:
@@ -189,19 +189,19 @@ class MotionPlayerBase(ABC):
                 'lin_vel': np.zeros((self.frame_num, 3)),  # linear velocity in body frame
                 'ang_vel': np.zeros((self.frame_num, 3))   # angular velocity in body frame
             }
-        
+
         # Iterate through all frames
         for frame_idx in range(self.frame_num):
             # Sync data to current frame
             self.sync_data(frame_idx)
-            
+
             # Get position, orientation and velocity for each body
             for body_name in body_names:
                 body_id = self.model.body(body_name).id
-                
+
                 result[body_name]['trans'][frame_idx] = self.data.xpos[body_id].copy()
                 result[body_name]['euler'][frame_idx] = Rotation.from_quat(self.data.xquat[body_id][[1, 2, 3, 0]]).as_euler('xyz')
-                
+
         # Calculate linear and angular velocities based on position and orientation
         for body_name in body_names:
             result[body_name]['lin_vel'][:-1] = np.diff(result[body_name]['trans'], axis=0) * self.frame_rate
@@ -210,3 +210,31 @@ class MotionPlayerBase(ABC):
             euler_diff[euler_diff < -np.pi] += 2*np.pi
             result[body_name]['ang_vel'][:-1] = euler_diff * self.frame_rate
         return result
+
+    def get_all_frame_body_transforms(self) -> dict:
+        """Pre-compute all body transforms for every frame.
+
+        Returns:
+            dict: Contains 'xpos' (frame_num, nbody, 3) and 'xquat' (frame_num, nbody, 4)
+        """
+        if self._ref_qpos is None:
+            self.load_motion_file()
+
+        nbody = self.model.nbody
+        frame_num = self.frame_num
+
+        xpos = np.zeros((frame_num, nbody, 3))
+        xquat = np.zeros((frame_num, nbody, 4))
+
+        for frame_idx in range(frame_num):
+            self.data.qpos[:] = self._ref_qpos[frame_idx]
+            self.data.qvel[:] = 0
+            mujoco.mj_forward(self.model, self.data)
+
+            xpos[frame_idx] = self.data.xpos.copy()
+            xquat[frame_idx] = self.data.xquat.copy()
+
+        return {
+            "xpos": xpos.tolist(),
+            "xquat": xquat.tolist()
+        }
