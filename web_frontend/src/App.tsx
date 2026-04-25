@@ -18,8 +18,8 @@ type ThemeType = 'dark' | 'light' | 'ocean' | 'forest' | 'sunset';
 
 const AppContent: React.FC = () => {
   const { t } = useTranslation();
-  const { selectedMotion, uploadMotion, handleRetarget, handleSaveRetarget, retargetPreviewData, setRetargetPreviewData } = useMotionContext();
-  const { loading, bodyTree, config, setConfig } = useConfigContext();
+  const { selectedMotion, uploadMotion, handleRetarget, handleSaveRetarget, retargetPreviewData, setRetargetPreviewData, loading } = useMotionContext();
+  const { bodyTree, config, setConfig } = useConfigContext();
   const [activePanel, setActivePanel] = useState<string>('retargeter');
   const [theme, setTheme] = useState<ThemeType>(() => {
     const saved = localStorage.getItem('theme');
@@ -260,7 +260,7 @@ const AppContent: React.FC = () => {
                   onClick={handleSaveRetarget}
                   loading={loading}
                 >
-                  {t('button.saveRetarget') || 'Save Retarget'}
+                  {t('saveRetarget') || 'Save Retarget'}
                 </Button>
               )}
             </Space>
