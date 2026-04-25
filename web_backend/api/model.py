@@ -285,7 +285,8 @@ async def get_align_preview(
     source_file: str,
     robot_name: str,
     generator_type: str,
-    retarget_config: dict
+    retarget_config: dict,
+    generate_skin: bool = True
 ):
     """Get align preview with combined human-robot MJCF and calibrated initial pose."""
     from humanoid_retargeting.aligner import Aligner
@@ -325,8 +326,11 @@ async def get_align_preview(
             view=False
         )
 
-        # Reload mujoco with provided config
-        aligner.load_mujoco(retarget_config=config)
+        # Store generate_skin parameter for later use
+        aligner.generate_skin = generate_skin
+
+        # Reload mujoco with provided config and generate_skin parameter
+        aligner.load_mujoco(retarget_config=config, generate_skin=generate_skin)
 
         # Get calibrated qpos (this computes the aligned pose)
         qpos = aligner.cali_qpos.tolist()
@@ -345,7 +349,8 @@ async def get_align_preview(
 async def get_human_preview(
     source_file: str,
     generator_type: str,
-    retarget_config: dict
+    retarget_config: dict,
+    generate_skin: bool = True
 ):
     """Get human-only MJCF and calibrated initial pose (no robot)."""
     import mujoco
@@ -391,9 +396,13 @@ async def get_human_preview(
             robot_name=robot_name,
             generator_type=generator_type,
             config_name=None,
-            view=False,
+            view=False
         )
-        aligner.load_mujoco(retarget_config=config)
+
+        # Store generate_skin parameter for later use
+        aligner.generate_skin = generate_skin
+
+        aligner.load_mujoco(retarget_config=config, generate_skin=generate_skin)
 
         # Human-only model from the composite's human generator
         human_xml = aligner.human_generator.xml_str

@@ -80,6 +80,24 @@ export interface MuJoCoModel {
   jnt_pos: Float64Array;
   jnt_axis: Float64Array;
   getOptions?: () => { timestep: number };
+  // Skin data
+  nskin: number;
+  nskinvert: number;
+  nskinface: number;
+  nskinbone: number;
+  nskinbonevert: number;
+  skin_rgba: Float32Array;
+  skin_vert: Float32Array;
+  skin_face: Int32Array;
+  skin_boneadr: Int32Array;
+  skin_bonenum: Int32Array;
+  skin_bonebodyid: Int32Array;
+  skin_bonebindpos: Float32Array;
+  skin_bonebindquat: Float32Array;
+  skin_bonevertadr: Int32Array;
+  skin_bonevertnum: Int32Array;
+  skin_bonevertid: Int32Array;
+  skin_bonevertweight: Float32Array;
 }
 
 export interface MuJoCoData {

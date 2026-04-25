@@ -46,6 +46,7 @@ class Aligner:
         self.generator_type = generator_type
         self.config_name = config_name
         self.view = view
+        self.generate_skin = True 
 
         self.robot_hip_names = None
         self.robot_foot_names = None
@@ -78,8 +79,7 @@ class Aligner:
         self.human_hip_offset = human_config.hip_offset
         self.human_foot_offset = human_config.foot_offset
 
-
-    def load_mujoco(self, retarget_config=None):
+    def load_mujoco(self, retarget_config=None, generate_skin=None):
         if retarget_config is None:
             if self.config_name is None:
                 self.retarget_config = RetargetConfig()
@@ -89,13 +89,21 @@ class Aligner:
                 )
         else:
             self.retarget_config = retarget_config
-
+        
         self.global_body_ratio = self.get_global_body_ratio()
-        self.human_generator = generator_class[self.generator_type].from_source_file_path(
-            source_file_path=self.source_file_path,
-            global_body_ratio=self.global_body_ratio * np.array(self.retarget_config.extra_body_ratio),
-            relative_body_ratio_dict=self.retarget_config.relative_body_ratio_dict
-        )
+
+        generator_kwargs = {
+            'source_file_path': self.source_file_path,
+            'global_body_ratio': self.global_body_ratio * np.array(self.retarget_config.extra_body_ratio),
+            'relative_body_ratio_dict': self.retarget_config.relative_body_ratio_dict
+        }
+
+        if generate_skin is not None:
+            self.generate_skin = generate_skin
+        if self.generator_type == 'smpl' and hasattr(self, 'generate_skin'):
+            generator_kwargs['generate_skin'] = self.generate_skin
+
+        self.human_generator = generator_class[self.generator_type].from_source_file_path(**generator_kwargs)
         self.robot_generator = MJCFHumanoidGenerator.from_robot_name(self.robot_name)
         self.generator = MJCFGeneratorComposite(dict(human=self.human_generator, robot=self.robot_generator))
         self.generator.generate(relative_mesh_path=False)
@@ -115,8 +123,12 @@ class Aligner:
         mujoco.mj_forward(self.model, self.data)
 
     def get_global_body_ratio(self):
+        generator_kwargs = {'source_file_path': self.source_file_path}
+        if self.generator_type == 'smpl':
+            generator_kwargs['generate_skin'] = False
+
         human_length = get_leg_length(
-            generator=generator_class[self.generator_type].from_source_file_path(source_file_path=self.source_file_path),
+            generator=generator_class[self.generator_type].from_source_file_path(**generator_kwargs),
             foot_names=self.human_foot_names,
             hip_names=self.human_hip_names,
             foot_offset=self.human_foot_offset,

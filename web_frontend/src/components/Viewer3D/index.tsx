@@ -52,6 +52,9 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
   const [showRobot, setShowRobot] = useState(false);
   const [showHuman, setShowHuman] = useState(false);
 
+  // Skin visibility toggle for human model
+  const [showSkin, setShowSkin] = useState(true);
+
   // Keep a ref so fetchPreview can read the latest config without it being a dep
   const configRef = useRef(config);
   useEffect(() => { configRef.current = config; }, [config]);
@@ -99,6 +102,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
   useEffect(() => {
     setShowRobot(false);
     setShowHuman(false);
+    setShowSkin(true);
     setAlignData(null);
     setPlayerModelLoaded(false);
     dispose();
@@ -142,6 +146,11 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
             setError('Failed to load robot data');
             return;
           }
+        }
+
+        if (!robotCached) {
+          setError('Failed to load robot data');
+          return;
         }
 
         await initMuJoCo(robotCached.xml, [], robotCached.meshes || {});
@@ -589,6 +598,36 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
           >
             🧍
           </button>
+
+          {/* Skin toggle - only enabled when human is showing and generator type is SMPL */}
+          {generatorType === 'smpl' && (
+            <button
+              onClick={() => {
+                const newShowSkin = !showSkin;
+                setShowSkin(newShowSkin);
+                threeSceneRef.current?.setShowSkin(newShowSkin);
+              }}
+              disabled={!showHuman}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 8,
+                border: showHuman && showSkin ? '2px solid #10b981' : '2px solid rgba(255,255,255,0.2)',
+                background: showHuman && showSkin ? 'rgba(16,185,129,0.3)' : 'rgba(0,0,0,0.4)',
+                color: showHuman ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.3)',
+                cursor: showHuman ? 'pointer' : 'not-allowed',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 16,
+                opacity: showHuman ? 1 : 0.5,
+                transition: 'all 0.2s ease'
+              }}
+              title="皮肤"
+            >
+              👤
+            </button>
+          )}
         </div>
       )}
 

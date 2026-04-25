@@ -61,6 +61,15 @@ export class ThreeScene {
   private playerLastTime = 0;
   private playerFrameCallback: PlayerFrameCallback | null = null;
 
+  // Skin visibility toggle (for humanoid models)
+  private showSkin = true;
+  private skinMeshes: THREE.Mesh[] = [];
+  private skinGeometries: THREE.BufferGeometry[] = [];
+
+  // Track model mode (combined, human-only, or robot-only)
+  private hasRobotPrefix = false;
+  private hasHumanPrefix = false;
+
   constructor(canvas: HTMLCanvasElement) {
     console.log(`ThreeScene[${this.instanceId}]: constructor called`);
     this.canvas = canvas;
@@ -270,6 +279,23 @@ export class ThreeScene {
     const textDecoder = new TextDecoder('utf-8');
     const namesArray = new Uint8Array(model.names);
 
+    // First pass: detect model mode by checking for prefixes
+    this.hasRobotPrefix = false;
+    this.hasHumanPrefix = false;
+    for (let b = 0; b < model.nbody; b++) {
+      const bodyAdr = model.name_bodyadr[b];
+      let endIdx = bodyAdr;
+      while (endIdx < namesArray.length && namesArray[endIdx] !== 0) {
+        endIdx++;
+      }
+      if (bodyAdr < endIdx && bodyAdr < namesArray.length) {
+        const nameBuffer = namesArray.subarray(bodyAdr, endIdx);
+        const bodyName = textDecoder.decode(nameBuffer);
+        if (bodyName.startsWith('robot_')) this.hasRobotPrefix = true;
+        if (bodyName.startsWith('human_')) this.hasHumanPrefix = true;
+      }
+    }
+
     // Iterate through all geoms and create meshes
     for (let g = 0; g < model.ngeom; g++) {
       const group = model.geom_group[g];
@@ -306,6 +332,20 @@ export class ThreeScene {
       }
 
       const bodyGroup = this.bodies.get(bodyId)!;
+
+      // Track if this is a human body based on body name and model mode
+      // - Combined mode (human+robot): human bodies have 'human_' prefix
+      // - Human-only mode: no prefixes, all bodies (except world) are human
+      // - Robot-only mode: bodies may have 'robot_' prefix or no prefix
+      let isHumanBody = false;
+      if (this.hasHumanPrefix) {
+        // Combined mode: explicit human_ prefix
+        isHumanBody = bodyGroup.name.startsWith('human_');
+      } else if (!this.hasRobotPrefix && bodyId > 0) {
+        // Human-only mode: no prefixes at all, all non-world bodies are human
+        isHumanBody = true;
+      }
+      // else: robot-only mode, isHumanBody stays false
 
       // Create geometry
       let geometry: THREE.BufferGeometry;
@@ -371,11 +411,22 @@ export class ThreeScene {
 
       bodyGroup.add(mesh);
 
+      // Track human body meshes (parametric geoms) for visibility toggle
+      // When skin is present, hide parametric geoms
+      if (isHumanBody) {
+        this.skinMeshes.push(mesh);
+      }
+
       // Track world body meshes for centerModel calculation but don't render them
       if (bodyId === 0) {
         mesh.visible = false;
         this.worldBodyMeshes.push(mesh);
       }
+    }
+
+    // Create skin meshes if present
+    if (model.nskin && model.nskin > 0) {
+      this.createSkinMeshes(mujoco, model);
     }
 
     // Update initial body positions from simulation before centering
@@ -425,6 +476,67 @@ export class ThreeScene {
     geometry.computeVertexNormals();
 
     return geometry;
+  }
+
+  /**
+   * Create skin meshes from MuJoCo skin data
+   */
+  private createSkinMeshes(_mujoco: MuJoCoModule, model: MuJoCoModel): void {
+    if (!model.nskin || model.nskin === 0) return;
+
+    console.log(`Creating ${model.nskin} skin mesh(es)`);
+
+    for (let s = 0; s < model.nskin; s++) {
+      const geometry = new THREE.BufferGeometry();
+
+      // Get vertex data (for now assume single skin)
+      const vertNum = model.nskinvert;
+
+      // Create vertex buffer (will be updated by updateSkinVertices)
+      const vertices = new Float32Array(vertNum * 3);
+
+      // Get face data
+      const faceNum = model.nskinface;
+      const faces = new Uint32Array(faceNum * 3);
+      for (let f = 0; f < faceNum * 3; f++) {
+        faces[f] = model.skin_face[f];
+      }
+
+      geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+      geometry.setIndex(new THREE.BufferAttribute(faces, 1));
+
+      // Get skin color
+      const rgba = [
+        model.skin_rgba[s * 4 + 0],
+        model.skin_rgba[s * 4 + 1],
+        model.skin_rgba[s * 4 + 2],
+        model.skin_rgba[s * 4 + 3]
+      ];
+
+      const material = new THREE.MeshPhongMaterial({
+        color: new THREE.Color(rgba[0], rgba[1], rgba[2]),
+        transparent: rgba[3] < 1.0,
+        opacity: rgba[3],
+        shininess: 30,
+        specular: new THREE.Color(0.2, 0.2, 0.2),
+        side: THREE.DoubleSide
+      });
+
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.visible = this.showSkin;
+
+      // Store bone binding info for animation
+      mesh.userData.skinId = s;
+      mesh.userData.boneAdr = model.skin_boneadr[s];
+      mesh.userData.boneNum = model.skin_bonenum[s];
+
+      this.mujocoRoot!.add(mesh);
+      this.skinGeometries.push(geometry);
+
+      console.log(`Skin mesh created: ${vertNum} vertices, ${faceNum} faces, ${mesh.userData.boneNum} bones`);
+    }
   }
 
   /**
@@ -548,6 +660,155 @@ export class ThreeScene {
   /**
    * Update body positions from simulation (called every frame in animation loop)
    */
+  public setShowSkin(show: boolean): void {
+    this.showSkin = show;
+
+    // If we have skin geometries, toggle between skin and parametric geoms
+    if (this.skinGeometries.length > 0) {
+      // Show/hide skin meshes
+      this.mujocoRoot?.children.forEach(child => {
+        if (child instanceof THREE.Mesh && child.userData.skinId !== undefined) {
+          child.visible = show;
+        }
+      });
+
+      // Hide/show parametric geoms (inverse of skin visibility)
+      for (const mesh of this.skinMeshes) {
+        mesh.visible = !show;
+      }
+    } else {
+      // No skin available, just toggle parametric geoms
+      for (const mesh of this.skinMeshes) {
+        mesh.visible = show;
+      }
+    }
+
+    this._dirty = true;
+  }
+
+  public getShowSkin(): boolean {
+    return this.showSkin;
+  }
+
+  /**
+   * Update skin mesh vertices based on bone transforms
+   */
+  private updateSkinVertices(): void {
+    if (!this.model || !this.simulation || this.skinGeometries.length === 0) {
+      return;
+    }
+
+    const model = this.model;
+    const simulation = this.simulation;
+
+    this.mujocoRoot?.children.forEach(child => {
+      if (!(child instanceof THREE.Mesh) || child.userData.skinId === undefined) {
+        return;
+      }
+
+      const geometry = child.geometry as THREE.BufferGeometry;
+      const boneAdr = child.userData.boneAdr;
+      const boneNum = child.userData.boneNum;
+
+      const positionAttr = geometry.getAttribute('position');
+      const positions = positionAttr.array as Float32Array;
+
+      // Initialize all positions to zero for weighted blending
+      positions.fill(0);
+
+      // Apply bone transforms with skinning weights
+      for (let b = 0; b < boneNum; b++) {
+        const boneIdx = boneAdr + b;
+        const bodyId = model.skin_bonebodyid[boneIdx];
+
+        // Get bone bind pose (in MuJoCo coords)
+        const bindPosX = model.skin_bonebindpos[boneIdx * 3 + 0];
+        const bindPosY = model.skin_bonebindpos[boneIdx * 3 + 1];
+        const bindPosZ = model.skin_bonebindpos[boneIdx * 3 + 2];
+
+        const bindQuatW = model.skin_bonebindquat[boneIdx * 4 + 0];
+        const bindQuatX = model.skin_bonebindquat[boneIdx * 4 + 1];
+        const bindQuatY = model.skin_bonebindquat[boneIdx * 4 + 2];
+        const bindQuatZ = model.skin_bonebindquat[boneIdx * 4 + 3];
+
+        // Get current body pose (in MuJoCo coords)
+        const bodyPosX = simulation.xpos[bodyId * 3 + 0];
+        const bodyPosY = simulation.xpos[bodyId * 3 + 1];
+        const bodyPosZ = simulation.xpos[bodyId * 3 + 2];
+
+        const bodyQuatW = simulation.xquat[bodyId * 4 + 0];
+        const bodyQuatX = simulation.xquat[bodyId * 4 + 1];
+        const bodyQuatY = simulation.xquat[bodyId * 4 + 2];
+        const bodyQuatZ = simulation.xquat[bodyId * 4 + 3];
+
+        // Get vertices influenced by this bone
+        const vertAdr = model.skin_bonevertadr[boneIdx];
+        const vertNum = model.skin_bonevertnum[boneIdx];
+
+        for (let v = 0; v < vertNum; v++) {
+          const vertId = model.skin_bonevertid[vertAdr + v];
+          const weight = model.skin_bonevertweight[vertAdr + v];
+
+          if (weight < 0.001) continue;
+
+          // Get original vertex in MuJoCo coords (bind pose)
+          const origX = model.skin_vert[vertId * 3 + 0];
+          const origY = model.skin_vert[vertId * 3 + 1];
+          const origZ = model.skin_vert[vertId * 3 + 2];
+
+          // Transform vertex from bind pose to current pose
+          // 1. Subtract bind position (to bone local space)
+          let localX = origX - bindPosX;
+          let localY = origY - bindPosY;
+          let localZ = origZ - bindPosZ;
+
+          // 2. Apply inverse bind rotation (quaternion conjugate)
+          const invBindQuat = { w: bindQuatW, x: -bindQuatX, y: -bindQuatY, z: -bindQuatZ };
+          const rotated1 = this.rotateByQuat(localX, localY, localZ, invBindQuat);
+
+          // 3. Apply current body rotation
+          const bodyQuat = { w: bodyQuatW, x: bodyQuatX, y: bodyQuatY, z: bodyQuatZ };
+          const rotated2 = this.rotateByQuat(rotated1.x, rotated1.y, rotated1.z, bodyQuat);
+
+          // 4. Add current body position
+          const newX = rotated2.x + bodyPosX;
+          const newY = rotated2.y + bodyPosY;
+          const newZ = rotated2.z + bodyPosZ;
+
+          // Convert to Three.js coords
+          // MuJoCo: (x, y, z) → Three.js: (x, z, -y)
+          const threeX = newX;
+          const threeY = newZ;
+          const threeZ = -newY;
+
+          // Accumulate weighted position
+          positions[vertId * 3 + 0] += threeX * weight;
+          positions[vertId * 3 + 1] += threeY * weight;
+          positions[vertId * 3 + 2] += threeZ * weight;
+        }
+      }
+
+      positionAttr.needsUpdate = true;
+      geometry.computeVertexNormals();
+    });
+  }
+
+  /**
+   * Rotate a point by a quaternion
+   */
+  private rotateByQuat(x: number, y: number, z: number, q: { w: number; x: number; y: number; z: number }): { x: number; y: number; z: number } {
+    // q * v * q^-1
+    const ix = q.w * x + q.y * z - q.z * y;
+    const iy = q.w * y + q.z * x - q.x * z;
+    const iz = q.w * z + q.x * y - q.y * x;
+    const iw = -q.x * x - q.y * y - q.z * z;
+
+    return {
+      x: ix * q.w + iw * -q.x + iy * -q.z - iz * -q.y,
+      y: iy * q.w + iw * -q.y + iz * -q.x - ix * -q.z,
+      z: iz * q.w + iw * -q.z + ix * -q.y - iy * -q.x
+    };
+  }
   private updateBodiesFromSimulation(): void {
     if (!this.model || !this.simulation) {
       return;
@@ -573,6 +834,11 @@ export class ThreeScene {
         -this.simulation.xquat[b * 4 + 2],
         this.simulation.xquat[b * 4 + 0]
       );
+    }
+
+    // Update skin vertices if present
+    if (this.skinGeometries.length > 0) {
+      this.updateSkinVertices();
     }
 
     // Mark scene as dirty so it will be rendered
@@ -653,6 +919,10 @@ export class ThreeScene {
     }
     this.bodies.clear();
     this.worldBodyMeshes = [];
+    this.skinMeshes = [];
+    this.skinGeometries = [];
+    this.hasRobotPrefix = false;
+    this.hasHumanPrefix = false;
     this.model = null;
     this.simulation = null;
   }

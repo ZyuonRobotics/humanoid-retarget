@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Modal, Select, Space, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { BodyTree, BodyTreeNode, HumanBodyInfo } from '../../../types/config';
+import { BodyTree, BodyTreeNode } from '../../../types/config';
 
 const { Text } = Typography;
 
