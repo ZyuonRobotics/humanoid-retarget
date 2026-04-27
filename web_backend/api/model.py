@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File
 
 from humanoid_retargeting import DATA_PATH, RETARGETING_PATH, GENERATOR_TYPE_TO_DATA_PATH, PLAYER_FILE_SUFFIXES
 from humanoid_retargeting.mjcf_generator import generator_class
+from humanoid_retargeting.utils.human_config import HumanConfigNotFoundError
 from web_backend.api.schemas import MotionInfo
 
 logger = logging.getLogger(__name__)
@@ -160,6 +161,8 @@ async def retarget_preview(
             "xml": retargeter.generator.xml_str,
             "body_transforms": body_transforms
         }
+    except HumanConfigNotFoundError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -471,6 +474,8 @@ async def get_align_preview(
             "body_names": aligner.generator.all_body_names,
             "global_body_ratio": aligner.global_body_ratio
         }
+    except HumanConfigNotFoundError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -551,6 +556,8 @@ async def get_human_preview(
         }
     except HTTPException:
         raise
+    except HumanConfigNotFoundError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

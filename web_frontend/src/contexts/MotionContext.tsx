@@ -64,8 +64,15 @@ export const MotionProvider: React.FC<MotionProviderProps> = ({ children }) => {
       } else {
         message.error(t('message.retargetFailed'));
       }
-    } catch (error) {
-      message.error(t('message.retargetFailed'));
+    } catch (error: any) {
+      // Check if it's a 400 error with human config message
+      if (error?.response?.status === 400 && error?.response?.data) {
+        const detail = error.response.data;
+        const msg = typeof detail === 'string' ? detail : (detail?.detail || JSON.stringify(detail));
+        message.error(msg);
+      } else {
+        message.error(t('message.retargetFailed'));
+      }
     } finally {
       setLoading(false);
     }

@@ -12,3 +12,7 @@ class HumanConfig(BaseConfig):
 
     def is_valid(self) -> bool:
         return not self.has_none
+
+class HumanConfigNotFoundError(Exception):
+    """Raised when a motion file doesn't have a corresponding human config."""
+    pass

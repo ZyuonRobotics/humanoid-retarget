@@ -13,7 +13,7 @@ from humanoid_retargeting import CONFIGS_PATH
 from humanoid_retargeting.mjcf_generator import generator_class
 from humanoid_retargeting.utils.retarget_config import RetargetConfig
 from humanoid_retargeting.utils.rot import euler2quat
-from humanoid_retargeting.utils.human_config import HumanConfig
+from humanoid_retargeting.utils.human_config import HumanConfig, HumanConfigNotFoundError
 
 
 def get_leg_length(
@@ -71,9 +71,15 @@ class Aligner:
 
     def load_human_parmas(self):
         human_config_path = Path(self.source_file_path).with_suffix('.yaml')
-        assert human_config_path.exists(), "Human config file not found"
+        if not human_config_path.exists():
+            raise HumanConfigNotFoundError(
+                f"{Path(self.source_file_path).name} needs human config in Player->Human Motion->Human Settings"
+            )
         human_config = HumanConfig.from_yaml(str(human_config_path))
-        assert human_config.is_valid(), "Human play config are not valid"
+        if not human_config.is_valid():
+            raise HumanConfigNotFoundError(
+                f"{Path(self.source_file_path).name} human config is incomplete. Please set hip_names, hip_offset, foot_names, foot_offset in Player->Human Motion->Human Settings"
+            )
         self.human_hip_names = human_config.hip_names
         self.human_foot_names = human_config.foot_names
         self.human_hip_offset = human_config.hip_offset

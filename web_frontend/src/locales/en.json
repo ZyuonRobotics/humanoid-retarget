@@ -37,7 +37,8 @@
     "selectFootName": "Select foot",
     "loadHumanConfigFailed": "Failed to load HumanConfig",
     "saveHumanConfigSuccess": "HumanConfig saved successfully",
-    "saveHumanConfigFailed": "Failed to save HumanConfig"
+    "saveHumanConfigFailed": "Failed to save HumanConfig",
+    "humanConfigRequired": "{{filename}} needs human config in Player->Human Motion->Human Settings"
   },
   "robot": {
     "label": "Robot",

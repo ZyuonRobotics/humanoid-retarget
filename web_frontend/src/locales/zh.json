@@ -37,7 +37,8 @@
     "selectFootName": "选择脚部",
     "loadHumanConfigFailed": "加载人体配置失败",
     "saveHumanConfigSuccess": "人体配置保存成功",
-    "saveHumanConfigFailed": "人体配置保存失败"
+    "saveHumanConfigFailed": "人体配置保存失败",
+    "humanConfigRequired": "{{filename}}需要在播放器->人体动作->人体设置中设置人体配置"
   },
   "robot": {
     "label": "机器人",

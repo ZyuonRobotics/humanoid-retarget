@@ -308,8 +308,15 @@ export async function loadAlignPreview(
       bodyNames: response.body_names,
       globalBodyRatio: response.global_body_ratio
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to load align preview:', error);
+    // Check for human config error (either from axios response or thrown directly)
+    const msg = error?.response?.status === 400 && error?.response?.data
+      ? (typeof error.response.data === 'string' ? error.response.data : error.response.data?.detail)
+      : error?.message;
+    if (msg && msg.includes('needs human config')) {
+      throw new Error(msg);
+    }
     return null;
   }
 }
@@ -812,8 +819,15 @@ export async function fetchAlignPreview(
       bodyNames: response.body_names,
       globalBodyRatio: response.global_body_ratio
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to fetch align preview:', error);
+    // Check for human config error (either from axios response or thrown directly)
+    const msg = error?.response?.status === 400 && error?.response?.data
+      ? (typeof error.response.data === 'string' ? error.response.data : error.response.data?.detail)
+      : error?.message;
+    if (msg && msg.includes('needs human config')) {
+      throw new Error(msg);
+    }
     return null;
   }
 }
@@ -834,8 +848,15 @@ export async function fetchHumanPreview(
       bodyNames: response.body_names,
       globalBodyRatio: response.global_body_ratio
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to fetch human preview:', error);
+    // Check for human config error (either from axios response or thrown directly)
+    const msg = error?.response?.status === 400 && error?.response?.data
+      ? (typeof error.response.data === 'string' ? error.response.data : error.response.data?.detail)
+      : error?.message;
+    if (msg && msg.includes('needs human config')) {
+      throw new Error(msg);
+    }
     return null;
   }
 }
@@ -893,8 +914,15 @@ export async function loadHumanPlayerMotion(
     };
     setPlayerMotionData(data);
     return data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to load human player motion:', error);
+    // Check for human config error (either from axios response or thrown directly)
+    const msg = error?.response?.status === 400 && error?.response?.data
+      ? (typeof error.response.data === 'string' ? error.response.data : error.response.data?.detail)
+      : error?.message;
+    if (msg && msg.includes('needs human config')) {
+      throw new Error(msg);
+    }
     return null;
   }
 }
