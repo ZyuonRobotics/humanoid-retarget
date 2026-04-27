@@ -62,6 +62,11 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
   const configRef = useRef(config);
   useEffect(() => { configRef.current = config; }, [config]);
 
+  // Track previous playerMotion to detect actual changes
+  const prevPlayerMotionRef = useRef<typeof playerMotion>(null);
+  const prevRetargetPreviewDataRef = useRef<typeof retargetPreviewData>(null);
+  const prevShowSkinRef = useRef<boolean>(showSkin);
+
   // Shared bootScene function - creates Three.js scene from loaded MuJoCo model
   // MUST be defined before any useEffect that uses it
   const bootScene = useCallback(() => {
@@ -114,6 +119,47 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
   // Player mode: load and display robot motion
   useEffect(() => {
     if (activePanel !== 'player' || !playerMotion) return;
+
+    const prevPlayerMotion = prevPlayerMotionRef.current;
+    const prevRetargetData = prevRetargetPreviewDataRef.current;
+
+    // For retarget-preview mode, skip reload if only showSkin changed
+    if (playerMotion.type === 'retarget-preview') {
+      // Check if only showSkin changed (playerMotion and retargetPreviewData are the same)
+      if (prevPlayerMotion?.type === 'retarget-preview' &&
+          prevPlayerMotion.robotName === playerMotion.robotName &&
+          prevPlayerMotion.motionFile === playerMotion.motionFile &&
+          prevRetargetData === retargetPreviewData &&
+          threeSceneRef.current) {
+        // Only showSkin changed, just toggle visibility
+        threeSceneRef.current.setShowSkin(showSkin);
+        return;
+      }
+    }
+
+    // For robot mode, skip reload if only showSkin changed (robot has no skin)
+    if (playerMotion.type === 'robot') {
+      if (prevPlayerMotion?.type === 'robot' &&
+          prevPlayerMotion.robotName === playerMotion.robotName &&
+          prevPlayerMotion.motionFile === playerMotion.motionFile &&
+          threeSceneRef.current) {
+        // Only showSkin changed, but robot has no skin, so do nothing
+        return;
+      }
+    }
+
+    // For human mode, check if anything actually changed
+    if (playerMotion.type === 'human') {
+      const prevShowSkin = prevShowSkinRef.current;
+      if (prevPlayerMotion?.type === 'human' &&
+          prevPlayerMotion.generatorType === playerMotion.generatorType &&
+          prevPlayerMotion.motionFile === playerMotion.motionFile &&
+          prevShowSkin === showSkin &&
+          threeSceneRef.current) {
+        // Nothing changed, skip reload
+        return;
+      }
+    }
 
     const loadPlayer = async () => {
       const canvas = canvasRef.current;
@@ -260,6 +306,11 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
           // Set camera to look at model
           setCamera({ lookat: [0, 0, 0.5] });
 
+          // Set initial showSkin state for retarget-preview mode
+          if (playerMotion.type === 'retarget-preview') {
+            threeSceneRef.current.setShowSkin(showSkin);
+          }
+
           // Mark player model as loaded to hide grid
           setPlayerModelLoaded(true);
 
@@ -275,11 +326,15 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
         setPlayerModelLoaded(false);
       } finally {
         setLoading(false);
+        // Update refs after successful load
+        prevPlayerMotionRef.current = playerMotion;
+        prevRetargetPreviewDataRef.current = retargetPreviewData;
+        prevShowSkinRef.current = showSkin;
       }
     };
 
     loadPlayer();
-  }, [playerMotion, activePanel, showSkin, retargetPreviewData]);
+  }, [playerMotion, activePanel, retargetPreviewData, showSkin, onFrameChange, bootScene]);
 
   // Player mode: control animation based on playing prop
   useEffect(() => {
@@ -718,8 +773,11 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
         </div>
       )}
 
-      {/* Skin toggle for player mode - only show when playing SMPL human motion */}
-      {activePanel === 'player' && playerMotion?.type === 'human' && playerMotion?.generatorType === 'smpl' && (
+      {/* Skin toggle for player mode - show for SMPL human motion or retarget-preview with SMPL */}
+      {activePanel === 'player' && (
+        (playerMotion?.type === 'human' && playerMotion?.generatorType === 'smpl') ||
+        (playerMotion?.type === 'retarget-preview' && generatorType === 'smpl')
+      ) && (
         <div
           style={{
             position: 'absolute',
