@@ -30,6 +30,7 @@
     "noHumanMotions": "No human motions found",
     "play": "Play",
     "pause": "Pause",
+    "reload": "Reload",
     "uploadRobotMotion": "Upload Robot Motion",
     "uploadHumanMotion": "Upload Human Motion",
     "pleaseSelectRobotFirst": "Please select a robot first",

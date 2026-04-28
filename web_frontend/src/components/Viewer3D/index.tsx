@@ -30,6 +30,7 @@ interface Viewer3DProps {
     robotName: string;
     motionFile: string;
     generatorType?: string;
+    reloadKey?: number;
   } | null;
   // Retarget preview data (when retarget completes but not yet saved)
   retargetPreviewData?: RetargetPreviewResponse | null;
@@ -154,6 +155,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
       if (prevPlayerMotion?.type === 'human' &&
           prevPlayerMotion.generatorType === playerMotion.generatorType &&
           prevPlayerMotion.motionFile === playerMotion.motionFile &&
+          prevPlayerMotion.reloadKey === playerMotion.reloadKey &&
           prevShowSkin === showSkin &&
           threeSceneRef.current) {
         // Nothing changed, skip reload

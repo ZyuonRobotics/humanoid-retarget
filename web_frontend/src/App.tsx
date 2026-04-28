@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button, Space, Upload, Slider } from 'antd';
-import { PlayCircleOutlined, PauseCircleOutlined, UploadOutlined, SaveOutlined } from '@ant-design/icons';
+import { PlayCircleOutlined, PauseCircleOutlined, UploadOutlined, SaveOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 
 import TopBar from './components/TopBar';
@@ -34,6 +34,7 @@ const AppContent: React.FC = () => {
     robotName: string;
     motionFile: string;
     generatorType?: string;
+    reloadKey?: number;
   } | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackFrame, setPlaybackFrame] = useState({ current: 0, total: 0 });
@@ -250,6 +251,24 @@ const AppContent: React.FC = () => {
               >
                 {isPlaying ? t('player.pause') : t('player.play')}
               </Button>
+
+              {/* Reload button - reload human config and motion */}
+              {playerMotion?.type === 'human' && (
+                <Button
+                  size="large"
+                  icon={<ReloadOutlined />}
+                  onClick={() => {
+                    if (playerMotion) {
+                      // Trigger reload by adding a new reloadKey timestamp
+                      setIsPlaying(false);
+                      setPlaybackFrame({ current: 0, total: 0 });
+                      setPlayerMotion({ ...playerMotion, reloadKey: Date.now() });
+                    }
+                  }}
+                  disabled={!playerMotion}
+                  title={t('player.reload') || 'Reload'}
+                />
+              )}
 
               {/* Save button - only show when in retarget preview mode */}
               {retargetPreviewData && (

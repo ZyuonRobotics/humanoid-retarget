@@ -46,6 +46,7 @@ interface TopBarProps {
     robotName: string;
     motionFile: string;
     generatorType?: string;
+    reloadKey?: number;
   } | null;
   onPanelChange: (panel: string) => void;
   onPlayerMotionClear?: () => void;
@@ -863,7 +864,10 @@ const TopBar: React.FC<TopBarProps> = ({
         <Form
           layout="vertical"
           initialValues={humanConfig}
-          onValuesChange={(_, allValues) => setHumanConfig(allValues as HumanConfig)}
+          onValuesChange={(_, allValues) => setHumanConfig({
+            ...allValues,
+            joint_adjustments: humanConfig.joint_adjustments
+          } as HumanConfig)}
         >
           <Form.Item label={t('player.heightAdjustment')} name="height_adjustment">
             <InputNumber style={{ width: '100%' }} placeholder="Auto calculated" />

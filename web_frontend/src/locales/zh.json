@@ -30,6 +30,7 @@
     "noHumanMotions": "未找到人体动作",
     "play": "播放",
     "pause": "暂停",
+    "reload": "刷新",
     "uploadRobotMotion": "上传机器人动作",
     "uploadHumanMotion": "上传人体动作",
     "pleaseSelectRobotFirst": "请先选择机器人",

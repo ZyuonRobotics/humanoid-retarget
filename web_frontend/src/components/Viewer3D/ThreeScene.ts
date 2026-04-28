@@ -866,16 +866,17 @@ export class ThreeScene {
         if (frameAdvance > 0) {
           this.playerCurrentFrame = (this.playerCurrentFrame + frameAdvance) % this.playerMotionUpdate.frameNum;
           this.playerLastTime = currentTime;
-        }
-        this.updateBodiesFromPlayerMotion();
-        this._dirty = true;
-        // Notify frame change
-        if (this.playerFrameCallback) {
-          this.playerFrameCallback(this.playerCurrentFrame);
+          // Notify frame change
+          if (this.playerFrameCallback) {
+            this.playerFrameCallback(this.playerCurrentFrame);
+          }
         }
       } else {
         this.playerLastTime = currentTime;
       }
+      // Always update bodies and render when player motion is active
+      this.updateBodiesFromPlayerMotion();
+      this._dirty = true;
     } else if (this.model && this.simulation) {
       this.updateBodiesFromSimulation();
     }
