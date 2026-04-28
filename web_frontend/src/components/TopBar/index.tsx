@@ -15,6 +15,8 @@ import {
   SaveOutlined,
   DeleteOutlined,
   UploadOutlined,
+  ToolOutlined,
+  ScissorOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useConfigContext } from '../../contexts/ConfigContext';
@@ -109,6 +111,16 @@ const TopBar: React.FC<TopBarProps> = ({
   const robotFileInputRef = useRef<HTMLInputElement>(null);
   const humanFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Toolbox state
+  const [toolboxOpen, setToolboxOpen] = useState(false);
+  const [selectedTool, setSelectedTool] = useState<string | null>(null);
+
+  // Motion Segmentation tool state
+  const [segmentFormat, setSegmentFormat] = useState<'bvh' | 'smpl'>('smpl');
+  const [segmentMotionFile, setSegmentMotionFile] = useState<string>('');
+  const [splitPosition, setSplitPosition] = useState<string>('');
+  const [splitting, setSplitting] = useState(false);
+
   // Load retargeted motions when entering player mode
   useEffect(() => {
     if (activePanel === 'player' && selectedRobot) {
@@ -127,8 +139,13 @@ const TopBar: React.FC<TopBarProps> = ({
 
   // Initialize columns when motionTree or generatorType changes
   useEffect(() => {
-    // Use selectedHumanFormat in player mode, generatorType in retargeter mode
-    const currentGenType = activePanel === 'player' ? selectedHumanFormat : generatorType;
+    // Use segmentFormat in segmentation tool mode, otherwise use panel-based selection
+    let currentGenType: string;
+    if (selectedTool === 'motionSegmentation') {
+      currentGenType = segmentFormat;
+    } else {
+      currentGenType = activePanel === 'player' ? selectedHumanFormat : generatorType;
+    }
     if (motionTree && motionTree[currentGenType]) {
       const rootNode = motionTree[currentGenType];
       const rootColumn: ColumnData = {
@@ -142,7 +159,7 @@ const TopBar: React.FC<TopBarProps> = ({
       };
       setColumns([rootColumn]);
     }
-  }, [motionTree, generatorType, selectedHumanFormat, activePanel]);
+  }, [motionTree, generatorType, selectedHumanFormat, activePanel, selectedTool, segmentFormat]);
 
   const loadMotionTree = async () => {
     setTreeLoading(true);
@@ -175,7 +192,10 @@ const TopBar: React.FC<TopBarProps> = ({
   };
 
   const handleFileClick = (file: MotionFileInfo) => {
-    if (activePanel === 'player') {
+    if (selectedTool === 'motionSegmentation') {
+      // Segmentation tool mode
+      setSegmentMotionFile(file.relative_path);
+    } else if (activePanel === 'player') {
       // Player mode: only update player-specific state
       if (playerMotionType === 'human') {
         setSelectedHumanMotion(file.relative_path);
@@ -211,6 +231,12 @@ const TopBar: React.FC<TopBarProps> = ({
       { key: 'ocean', label: t('theme.ocean'), onClick: () => onThemeChange('ocean') },
       { key: 'forest', label: t('theme.forest'), onClick: () => onThemeChange('forest') },
       { key: 'sunset', label: t('theme.sunset'), onClick: () => onThemeChange('sunset') },
+    ],
+  };
+
+  const toolboxMenu = {
+    items: [
+      { key: 'motionSegmentation', label: t('toolbox.motionSegmentation') || 'Motion Segmentation', onClick: () => { setSelectedTool('motionSegmentation'); setToolboxOpen(false); } },
     ],
   };
 
@@ -322,9 +348,10 @@ const TopBar: React.FC<TopBarProps> = ({
 
         <div className="topbar-section">
           <Button
-            type={activePanel === 'retargeter' ? 'primary' : 'text'}
+            type={!selectedTool && activePanel === 'retargeter' ? 'primary' : 'text'}
             icon={<SettingOutlined />}
             onClick={() => {
+              setSelectedTool(null);
               onPanelChange('retargeter');
               setPlayerMotionType('robot');
               setSelectedRobotMotion('');
@@ -335,9 +362,10 @@ const TopBar: React.FC<TopBarProps> = ({
             {t('menu.retargeter')}
           </Button>
           <Button
-            type={activePanel === 'player' ? 'primary' : 'text'}
+            type={!selectedTool && activePanel === 'player' ? 'primary' : 'text'}
             icon={<PlayCircleOutlined />}
             onClick={() => {
+              setSelectedTool(null);
               onPanelChange('player');
               setSelectedMotionFile('');
               setMotionTree(null);
@@ -348,6 +376,9 @@ const TopBar: React.FC<TopBarProps> = ({
           >
             {t('menu.player')}
           </Button>
+          <Dropdown menu={toolboxMenu} trigger={['click']} open={toolboxOpen} onOpenChange={setToolboxOpen}>
+            <Button type={selectedTool ? 'primary' : 'text'} icon={<ToolOutlined />}>{t('toolbox.name')}</Button>
+          </Dropdown>
         </div>
 
         <div className="topbar-divider" />
@@ -364,200 +395,26 @@ const TopBar: React.FC<TopBarProps> = ({
 
       <div className="topbar-row-separator" />
 
-      {/* Row 2: Conditional based on activePanel */}
-      {activePanel === 'retargeter' && (
+      {/* Row 2: Tool selection or activePanel content */}
+      {selectedTool ? (
         <>
           <div className="topbar-row">
             <div className="topbar-section">
-              <Select
-                value={selectedRobot}
-                onChange={setSelectedRobot}
-                style={{ width: 140 }}
-                options={robotOptions}
-                suffixIcon={<RobotOutlined />}
-              />
-            </div>
-
-            <div className="topbar-section">
-              <Select
-                value={generatorType}
-                onChange={handleGeneratorTypeChange}
-                style={{ width: 100 }}
-                options={[
-                  { value: 'bvh', label: 'BVH' },
-                  { value: 'smpl', label: 'SMPL' },
-                ]}
-              />
-            </div>
-
-            <div className="topbar-section">
-              <Button
-                className="motion-file-btn"
-                icon={<FileOutlined />}
-                onClick={() => setFileSelectorOpen(true)}
-              >
-                <span className="motion-file-btn-text">
-                  {selectedMotionFile
-                    ? selectedMotionFile.split('/').pop()
-                    : t('configPanel.selectMotionPlaceholder')}
-                </span>
-              </Button>
+              <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14 }}>
+                {t('toolbox.selected') || 'Selected Tool'}: {toolboxMenu.items.find(item => item.key === selectedTool)?.label}
+              </span>
             </div>
           </div>
-
           <div className="topbar-row-separator" />
 
-          {/* Row 3: Config selector | Add | Save | Delete */}
-          <div className="topbar-row">
-            <div className="topbar-section">
-              {isCreatingConfig ? (
-                <Input
-                  placeholder={t('configPanel.newConfigPlaceholder')}
-                  value={newConfigName}
-                  onChange={(e) => setNewConfigName(e.target.value)}
-                  onPressEnter={handleCreateConfigLocal}
-                  onBlur={() => {
-                    if (!newConfigName.trim()) {
-                      setIsCreatingConfig(false);
-                    }
-                  }}
-                  autoFocus
-                  style={{ width: 140 }}
-                />
-              ) : (
-                <Select
-                  value={selectedConfig || undefined}
-                  onChange={setSelectedConfig}
-                  style={{ width: 140 }}
-                  options={configs.map((c) => ({ value: c, label: c }))}
-                  placeholder={t('configPanel.selectConfigPlaceholder')}
-                  suffixIcon={<FileTextOutlined />}
-                />
-              )}
-              <Button
-                type="text"
-                icon={isCreatingConfig ? <CheckOutlined /> : <PlusOutlined />}
-                onClick={isCreatingConfig ? handleCreateConfigLocal : () => setIsCreatingConfig(true)}
-                style={{ marginLeft: 4 }}
-              />
-            </div>
-
-            <div className="topbar-divider" />
-
-            <div className="topbar-section">
-              <Button icon={<SaveOutlined />} onClick={saveConfig} loading={saving}>
-                {t('configPanel.save')}
-              </Button>
-              <Button icon={<DeleteOutlined />} onClick={handleDeleteConfig} danger>
-                {t('configPanel.delete')}
-              </Button>
-            </div>
-          </div>
-        </>
-      )}
-
-      {activePanel === 'player' && (
-        <>
-          {/* Only show Robot/Human toggle if not in retarget-preview mode */}
-          {playerMotion?.type !== 'retarget-preview' && (
+          {/* Row 3: Reserved for tool content */}
+          {selectedTool === 'motionSegmentation' ? (
             <>
               <div className="topbar-row">
                 <div className="topbar-section">
-                  <Button
-                    type={playerMotionType === 'robot' ? 'primary' : 'text'}
-                    onClick={() => setPlayerMotionType('robot')}
-                  >
-                    {t('player.robotMotion')}
-                  </Button>
-                  <Button
-                    type={playerMotionType === 'human' ? 'primary' : 'text'}
-                    onClick={() => setPlayerMotionType('human')}
-                    style={{ marginLeft: 8 }}
-                  >
-                    {t('player.humanMotion')}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="topbar-row-separator" />
-            </>
-          )}
-
-          {/* Show retarget preview info if in retarget-preview mode */}
-          {playerMotion?.type === 'retarget-preview' && (
-            <>
-              <div className="topbar-row">
-                <div className="topbar-section">
-                  <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14 }}>
-                    {t('player.retargetPreview') || 'Retarget Preview'}: {playerMotion.robotName}
-                  </span>
-                </div>
-              </div>
-
-              <div className="topbar-row-separator" />
-            </>
-          )}
-
-          {/* Row 3: Player motion selectors - only show if not in retarget-preview mode */}
-          {playerMotion?.type !== 'retarget-preview' && (
-            <div className="topbar-row">
-              {playerMotionType === 'robot' ? (
-              <>
-                <div className="topbar-section">
                   <Select
-                    value={selectedRobot}
-                    onChange={setSelectedRobot}
-                    style={{ width: 140 }}
-                    options={robotOptions}
-                    placeholder={t('player.selectRobot')}
-                    suffixIcon={<RobotOutlined />}
-                  />
-                </div>
-                <div className="topbar-section">
-                  <Select
-                    value={selectedRobotMotion}
-                    onChange={(val) => {
-                      setSelectedRobotMotion(val);
-                      if (onPlayerMotionChange && selectedRobot) {
-                        onPlayerMotionChange('robot', selectedRobot, val);
-                      }
-                    }}
-                    style={{ width: 200 }}
-                    placeholder={retargetedMotions.length === 0 && !retargetedLoading ? t('player.noRetargetedMotions') : t('player.selectRobotMotion')}
-                    loading={retargetedLoading}
-                    options={retargetedMotions.map(m => ({ value: m, label: m }))}
-                    disabled={retargetedMotions.length === 0}
-                  />
-                </div>
-                <div className="topbar-section">
-                  <Button
-                    icon={<UploadOutlined />}
-                    onClick={handleUploadRobotMotion}
-                    loading={uploadRobotLoading}
-                    disabled={!selectedRobot}
-                  >
-                    {t('player.uploadRobotMotion')}
-                  </Button>
-                  <input
-                    ref={robotFileInputRef}
-                    type="file"
-                    accept=".npz"
-                    style={{ display: 'none' }}
-                    onChange={handleRobotFileChange}
-                  />
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="topbar-section">
-                  <Select
-                    value={selectedHumanFormat}
-                    onChange={(val) => {
-                      setSelectedHumanFormat(val);
-                      setSelectedHumanMotion('');
-                      setMotionTree(null);
-                      setColumns([]);
-                    }}
+                    value={segmentFormat}
+                    onChange={(val) => { setSegmentFormat(val); setSegmentMotionFile(''); setMotionTree(null); setColumns([]); }}
                     style={{ width: 100 }}
                     options={[
                       { value: 'bvh', label: 'BVH' },
@@ -572,62 +429,322 @@ const TopBar: React.FC<TopBarProps> = ({
                     onClick={() => setFileSelectorOpen(true)}
                   >
                     <span className="motion-file-btn-text">
-                      {selectedHumanMotion
-                        ? selectedHumanMotion.split('/').pop()
-                        : t('player.selectHumanMotion')}
+                      {segmentMotionFile
+                        ? segmentMotionFile.split('/').pop()
+                        : t('toolbox.selectMotionFile')}
                     </span>
                   </Button>
                 </div>
                 <div className="topbar-section">
-                  <Button
-                    icon={<UploadOutlined />}
-                    onClick={handleUploadHumanMotion}
-                    loading={uploadHumanLoading}
-                  >
-                    {t('player.uploadHumanMotion')}
-                  </Button>
-                  <input
-                    ref={humanFileInputRef}
-                    type="file"
-                    accept=".bvh,.npz"
-                    style={{ display: 'none' }}
-                    onChange={handleHumanFileChange}
+                  <Input
+                    value={splitPosition}
+                    onChange={(e) => setSplitPosition(e.target.value)}
+                    placeholder={t('toolbox.splitPositions')}
+                    style={{ width: 200 }}
                   />
                 </div>
-                {playerMotionType === 'human' && selectedHumanMotion && (
-                  <div className="topbar-section">
-                    <Button
-                      icon={<SettingOutlined />}
-                      onClick={() => {
-                        // Reset humanConfig and reload for the new motion file
-                        setHumanConfig(null);
-                        setHumanBodyNames([]);
-                        setHumanConfigLoading(true);
-                        setHumanConfigOpen(true);
-                        Promise.all([
-                          modelApi.getHumanPlayerConfig(selectedHumanFormat, selectedHumanMotion),
-                          modelApi.getHumanPlayerMotionData(selectedHumanFormat, selectedHumanMotion, false),
-                        ])
-                          .then(([config, motionData]) => {
-                            setHumanConfig(config);
-                            setHumanBodyNames(motionData.body_names || []);
-                          })
-                          .catch(err => {
-                            console.error('Failed to load HumanConfig:', err);
-                            message.error(t('player.loadHumanConfigFailed'));
-                            setHumanConfigOpen(false);
-                          })
-                          .finally(() => setHumanConfigLoading(false));
+                <div className="topbar-section">
+                  <Button
+                    type="primary"
+                    icon={<ScissorOutlined />}
+                    onClick={async () => {
+                      if (!segmentMotionFile) {
+                        message.warning(t('toolbox.noMotionSelected'));
+                        return;
+                      }
+                      if (!splitPosition.trim()) {
+                        message.warning(t('toolbox.noSplitPositions'));
+                        return;
+                      }
+                      setSplitting(true);
+                      try {
+                        await modelApi.splitMotion(segmentFormat, segmentMotionFile, splitPosition);
+                        message.success(t('toolbox.splitSuccess'));
+                      } catch (error) {
+                        message.error(t('toolbox.splitFailed'));
+                      } finally {
+                        setSplitting(false);
+                      }
+                    }}
+                    loading={splitting}
+                  >
+                    {t('toolbox.split')}
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="topbar-row">
+              <div className="topbar-section" />
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          {activePanel === 'retargeter' && (
+            <>
+              <div className="topbar-row">
+                <div className="topbar-section">
+                  <Select
+                    value={selectedRobot}
+                    onChange={setSelectedRobot}
+                    style={{ width: 140 }}
+                    options={robotOptions}
+                    suffixIcon={<RobotOutlined />}
+                  />
+                </div>
+
+                <div className="topbar-section">
+                  <Select
+                    value={generatorType}
+                    onChange={handleGeneratorTypeChange}
+                    style={{ width: 100 }}
+                    options={[
+                      { value: 'bvh', label: 'BVH' },
+                      { value: 'smpl', label: 'SMPL' },
+                    ]}
+                  />
+                </div>
+
+                <div className="topbar-section">
+                  <Button
+                    className="motion-file-btn"
+                    icon={<FileOutlined />}
+                    onClick={() => setFileSelectorOpen(true)}
+                  >
+                    <span className="motion-file-btn-text">
+                      {selectedMotionFile
+                        ? selectedMotionFile.split('/').pop()
+                        : t('configPanel.selectMotionPlaceholder')}
+                    </span>
+                  </Button>
+                </div>
+              </div>
+
+              <div className="topbar-row-separator" />
+
+              {/* Row 3: Config selector | Add | Save | Delete */}
+              <div className="topbar-row">
+                <div className="topbar-section">
+                  {isCreatingConfig ? (
+                    <Input
+                      placeholder={t('configPanel.newConfigPlaceholder')}
+                      value={newConfigName}
+                      onChange={(e) => setNewConfigName(e.target.value)}
+                      onPressEnter={handleCreateConfigLocal}
+                      onBlur={() => {
+                        if (!newConfigName.trim()) {
+                          setIsCreatingConfig(false);
+                        }
                       }}
-                      loading={humanConfigLoading}
-                    >
-                      {t('player.humanConfig')}
-                    </Button>
+                      autoFocus
+                      style={{ width: 140 }}
+                    />
+                  ) : (
+                    <Select
+                      value={selectedConfig || undefined}
+                      onChange={setSelectedConfig}
+                      style={{ width: 140 }}
+                      options={configs.map((c) => ({ value: c, label: c }))}
+                      placeholder={t('configPanel.selectConfigPlaceholder')}
+                      suffixIcon={<FileTextOutlined />}
+                    />
+                  )}
+                  <Button
+                    type="text"
+                    icon={isCreatingConfig ? <CheckOutlined /> : <PlusOutlined />}
+                    onClick={isCreatingConfig ? handleCreateConfigLocal : () => setIsCreatingConfig(true)}
+                    style={{ marginLeft: 4 }}
+                  />
+                </div>
+
+                <div className="topbar-divider" />
+
+                <div className="topbar-section">
+                  <Button icon={<SaveOutlined />} onClick={saveConfig} loading={saving}>
+                    {t('configPanel.save')}
+                  </Button>
+                  <Button icon={<DeleteOutlined />} onClick={handleDeleteConfig} danger>
+                    {t('configPanel.delete')}
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {activePanel === 'player' && (
+            <>
+              {/* Only show Robot/Human toggle if not in retarget-preview mode */}
+              {playerMotion?.type !== 'retarget-preview' && (
+                <>
+                  <div className="topbar-row">
+                    <div className="topbar-section">
+                      <Button
+                        type={playerMotionType === 'robot' ? 'primary' : 'text'}
+                        onClick={() => setPlayerMotionType('robot')}
+                      >
+                        {t('player.robotMotion')}
+                      </Button>
+                      <Button
+                        type={playerMotionType === 'human' ? 'primary' : 'text'}
+                        onClick={() => setPlayerMotionType('human')}
+                        style={{ marginLeft: 8 }}
+                      >
+                        {t('player.humanMotion')}
+                      </Button>
+                    </div>
                   </div>
+
+                  <div className="topbar-row-separator" />
+                </>
+              )}
+
+              {/* Show retarget preview info if in retarget-preview mode */}
+              {playerMotion?.type === 'retarget-preview' && (
+                <>
+                  <div className="topbar-row">
+                    <div className="topbar-section">
+                      <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14 }}>
+                        {t('player.retargetPreview') || 'Retarget Preview'}: {playerMotion.robotName}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="topbar-row-separator" />
+                </>
+              )}
+
+              {/* Row 3: Player motion selectors - only show if not in retarget-preview mode */}
+              {playerMotion?.type !== 'retarget-preview' && (
+                <div className="topbar-row">
+                  {playerMotionType === 'robot' ? (
+                  <>
+                    <div className="topbar-section">
+                      <Select
+                        value={selectedRobot}
+                        onChange={setSelectedRobot}
+                        style={{ width: 140 }}
+                        options={robotOptions}
+                        placeholder={t('player.selectRobot')}
+                        suffixIcon={<RobotOutlined />}
+                      />
+                    </div>
+                    <div className="topbar-section">
+                      <Select
+                        value={selectedRobotMotion}
+                        onChange={(val) => {
+                          setSelectedRobotMotion(val);
+                          if (onPlayerMotionChange && selectedRobot) {
+                            onPlayerMotionChange('robot', selectedRobot, val);
+                          }
+                        }}
+                        style={{ width: 200 }}
+                        placeholder={retargetedMotions.length === 0 && !retargetedLoading ? t('player.noRetargetedMotions') : t('player.selectRobotMotion')}
+                        loading={retargetedLoading}
+                        options={retargetedMotions.map(m => ({ value: m, label: m }))}
+                        disabled={retargetedMotions.length === 0}
+                      />
+                    </div>
+                    <div className="topbar-section">
+                      <Button
+                        icon={<UploadOutlined />}
+                        onClick={handleUploadRobotMotion}
+                        loading={uploadRobotLoading}
+                        disabled={!selectedRobot}
+                      >
+                        {t('player.uploadRobotMotion')}
+                      </Button>
+                      <input
+                        ref={robotFileInputRef}
+                        type="file"
+                        accept=".npz"
+                        style={{ display: 'none' }}
+                        onChange={handleRobotFileChange}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="topbar-section">
+                      <Select
+                        value={selectedHumanFormat}
+                        onChange={(val) => {
+                          setSelectedHumanFormat(val);
+                          setSelectedHumanMotion('');
+                          setMotionTree(null);
+                          setColumns([]);
+                        }}
+                        style={{ width: 100 }}
+                        options={[
+                          { value: 'bvh', label: 'BVH' },
+                          { value: 'smpl', label: 'SMPL' },
+                        ]}
+                      />
+                    </div>
+                    <div className="topbar-section">
+                      <Button
+                        className="motion-file-btn"
+                        icon={<FileOutlined />}
+                        onClick={() => setFileSelectorOpen(true)}
+                      >
+                        <span className="motion-file-btn-text">
+                          {selectedHumanMotion
+                            ? selectedHumanMotion.split('/').pop()
+                            : t('player.selectHumanMotion')}
+                        </span>
+                      </Button>
+                    </div>
+                    <div className="topbar-section">
+                      <Button
+                        icon={<UploadOutlined />}
+                        onClick={handleUploadHumanMotion}
+                        loading={uploadHumanLoading}
+                      >
+                        {t('player.uploadHumanMotion')}
+                      </Button>
+                      <input
+                        ref={humanFileInputRef}
+                        type="file"
+                        accept=".bvh,.npz"
+                        style={{ display: 'none' }}
+                        onChange={handleHumanFileChange}
+                      />
+                    </div>
+                    {playerMotionType === 'human' && selectedHumanMotion && (
+                      <div className="topbar-section">
+                        <Button
+                          icon={<SettingOutlined />}
+                          onClick={() => {
+                            setHumanConfig(null);
+                            setHumanBodyNames([]);
+                            setHumanConfigLoading(true);
+                            setHumanConfigOpen(true);
+                            Promise.all([
+                              modelApi.getHumanPlayerConfig(selectedHumanFormat, selectedHumanMotion),
+                              modelApi.getHumanPlayerMotionData(selectedHumanFormat, selectedHumanMotion, false),
+                            ])
+                              .then(([config, motionData]) => {
+                                setHumanConfig(config);
+                                setHumanBodyNames(motionData.body_names || []);
+                              })
+                              .catch(err => {
+                                console.error('Failed to load HumanConfig:', err);
+                                message.error(t('player.loadHumanConfigFailed'));
+                                setHumanConfigOpen(false);
+                              })
+                              .finally(() => setHumanConfigLoading(false));
+                          }}
+                          loading={humanConfigLoading}
+                        >
+                          {t('player.humanConfig')}
+                        </Button>
+                      </div>
+                    )}
+                  </>
                 )}
-              </>
-            )}
-          </div>
+                </div>
+              )}
+            </>
           )}
         </>
       )}
@@ -649,7 +766,7 @@ const TopBar: React.FC<TopBarProps> = ({
                 className="file-selector-breadcrumb-item root"
                 onClick={() => setColumns(prev => prev.slice(0, 1))}
               >
-                {(activePanel === 'player' ? selectedHumanFormat : generatorType).toUpperCase()}
+                {(selectedTool === 'motionSegmentation' ? segmentFormat : (activePanel === 'player' ? selectedHumanFormat : generatorType)).toUpperCase()}
               </span>
               {columns.slice(1).map((col, i) => (
                 <React.Fragment key={i}>
@@ -685,7 +802,7 @@ const TopBar: React.FC<TopBarProps> = ({
                   <div key={columnIndex} className="file-selector-column">
                     <div className="file-selector-column-label">
                       {column.path.length === 0
-                        ? (activePanel === 'player' ? selectedHumanFormat : generatorType).toUpperCase()
+                        ? (selectedTool === 'motionSegmentation' ? segmentFormat : (activePanel === 'player' ? selectedHumanFormat : generatorType)).toUpperCase()
                         : column.path[column.path.length - 1]}
                     </div>
                     <div className="file-selector-column-content">

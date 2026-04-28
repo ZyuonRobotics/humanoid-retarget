@@ -6,6 +6,19 @@
     "retargeter": "Retargeter",
     "player": "Player"
   },
+  "toolbox": {
+    "name": "Toolbox",
+    "selected": "Selected Tool",
+    "motionSegmentation": "Motion Segmentation",
+    "motionFormat": "Motion Format",
+    "selectMotionFile": "Select Motion File",
+    "splitPositions": "Split Positions (e.g., 300,400)",
+    "split": "Split",
+    "splitSuccess": "Motion split successfully",
+    "splitFailed": "Failed to split motion",
+    "noMotionSelected": "Please select a motion file first",
+    "noSplitPositions": "Please enter split positions"
+  },
   "player": {
     "robotMotion": "Robot Motion",
     "humanMotion": "Human Motion",

@@ -6,6 +6,19 @@
     "retargeter": "重定向器",
     "player": "播放器"
   },
+  "toolbox": {
+    "name": "工具箱",
+    "selected": "已选工具",
+    "motionSegmentation": "人体动作分割",
+    "motionFormat": "动作格式",
+    "selectMotionFile": "选择动作文件",
+    "splitPositions": "切割位置（例如：300,400）",
+    "split": "切割",
+    "splitSuccess": "动作切割成功",
+    "splitFailed": "动作切割失败",
+    "noMotionSelected": "请先选择动作文件",
+    "noSplitPositions": "请输入切割位置"
+  },
   "player": {
     "robotMotion": "机器人动作",
     "humanMotion": "人体动作",

@@ -769,3 +769,161 @@ async def save_human_player_config(generator_type: str, motion_file: str, config
     except Exception as e:
         logger.error(f"Failed to save human player config: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/split-motion")
+async def split_motion(generator_type: str, motion_file: str, split_indices: str):
+    """Split a motion file into multiple parts at the specified indices.
+
+    Args:
+        generator_type: 'bvh' or 'smpl'
+        motion_file: relative path to the motion file (may include generator_type prefix)
+        split_indices: comma-separated frame indices to split at (e.g., "300,400" creates segments 0-300, 300-400, 400-end)
+    """
+    # Strip generator_type prefix if present (motion_file may include prefix like "smpl/file.npz")
+    if motion_file.startswith(f"{generator_type}/"):
+        motion_file = motion_file[len(f"{generator_type}/"):]
+    motion_path = Path(GENERATOR_TYPE_TO_DATA_PATH.get(generator_type, DATA_PATH)) / motion_file
+    if not motion_path.exists():
+        raise HTTPException(status_code=404, detail="Motion file not found")
+
+    # Parse split indices
+    try:
+        indices = [int(idx.strip()) for idx in split_indices.split(',') if idx.strip()]
+        if not indices:
+            raise ValueError("No valid indices provided")
+        # Sort and validate indices
+        indices = sorted(set(indices))
+        if any(idx < 0 for idx in indices):
+            raise HTTPException(status_code=400, detail="All split indices must be non-negative")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid split_indices format: {e}")
+
+    try:
+        if generator_type == "smpl":
+            data_dict = np.load(motion_path)
+            data_length = data_dict["poses"].shape[0]
+
+            # Validate all indices
+            if any(idx >= data_length for idx in indices):
+                raise HTTPException(status_code=400, detail=f"All split indices must be less than data length ({data_length})")
+
+            # Create segments: [0, idx1), [idx1, idx2), ..., [idxN, end)
+            segment_ranges = []
+            start = 0
+            for idx in indices:
+                segment_ranges.append((start, idx))
+                start = idx
+            segment_ranges.append((start, data_length))
+
+            # Save all segments
+            output_files = []
+            for start_idx, end_idx in segment_ranges:
+                if start_idx >= end_idx:
+                    continue
+
+                segment_part = {
+                    "gender": data_dict['gender'],
+                    "mocap_framerate": data_dict["mocap_framerate"],
+                    "poses": data_dict["poses"][start_idx:end_idx],
+                    "trans": data_dict["trans"][start_idx:end_idx],
+                    "betas": data_dict["betas"]
+                }
+
+                segment_path = motion_path.parent / f"{motion_path.stem}_{start_idx}_{end_idx}.npz"
+                np.savez_compressed(segment_path, **segment_part)
+                output_files.append({
+                    "file": str(segment_path),
+                    "range": f"{start_idx}-{end_idx}"
+                })
+
+            return {
+                "status": "success",
+                "segments": output_files
+            }
+
+        elif generator_type == "bvh":
+            # Read BVH file and split
+            with open(motion_path, 'r') as f:
+                content = f.read()
+
+            # Find the MOTION section
+            motion_idx = content.upper().find('MOTION')
+            if motion_idx == -1:
+                raise HTTPException(status_code=400, detail="Invalid BVH file: no MOTION section found")
+
+            header = content[:motion_idx]
+            motion_section = content[motion_idx:]
+
+            # Parse frames
+            lines = motion_section.strip().split('\n')
+            frames_line_idx = None
+            for i, line in enumerate(lines):
+                if line.strip().upper().startswith('FRAMES:'):
+                    frames_line_idx = i
+                    break
+
+            if frames_line_idx is None:
+                raise HTTPException(status_code=400, detail="Invalid BVH file: no FRAMES line found")
+
+            frames = int(lines[frames_line_idx].split(':')[1].strip())
+
+            # Find where the motion data starts (after the frame time line)
+            motion_data_start = motion_idx
+            for i in range(frames_line_idx + 2, len(lines)):
+                if lines[i].strip():
+                    motion_data_start = content.find(lines[i].strip(), motion_idx)
+                    break
+
+            header_content = content[:motion_data_start]
+            motion_data = content[motion_data_start:]
+
+            # Split motion data into lines (each line is a frame)
+            motion_lines = [line.strip() for line in motion_data.strip().split('\n') if line.strip()]
+
+            # Validate all indices
+            if any(idx >= len(motion_lines) for idx in indices):
+                raise HTTPException(status_code=400, detail=f"All split indices must be less than frame count ({len(motion_lines)})")
+
+            # Create segments: [0, idx1), [idx1, idx2), ..., [idxN, end)
+            segment_ranges = []
+            start = 0
+            for idx in indices:
+                segment_ranges.append((start, idx))
+                start = idx
+            segment_ranges.append((start, len(motion_lines)))
+
+            # Save all segments
+            output_files = []
+            for start_idx, end_idx in segment_ranges:
+                if start_idx >= end_idx:
+                    continue
+
+                segment_motion_data = '\n'.join(motion_lines[start_idx:end_idx])
+                segment_bvh = header_content + segment_motion_data + '\n'
+
+                # Update frames count
+                segment_bvh = segment_bvh.replace(f"Frames: {frames}", f"Frames: {end_idx - start_idx}")
+
+                segment_path = motion_path.parent / f"{motion_path.stem}_{start_idx}_{end_idx}.bvh"
+                with open(segment_path, 'w') as f:
+                    f.write(segment_bvh)
+
+                output_files.append({
+                    "file": str(segment_path),
+                    "range": f"{start_idx}-{end_idx}"
+                })
+
+            return {
+                "status": "success",
+                "segments": output_files
+            }
+
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported generator type: {generator_type}")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to split motion: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
