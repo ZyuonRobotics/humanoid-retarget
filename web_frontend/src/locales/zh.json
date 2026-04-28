@@ -44,6 +44,7 @@
     "footNames": "脚部名称",
     "footOffset": "脚部偏移",
     "jointAdjustments": "关节调整",
+    "selectJointName": "选择关节",
     "enterHipNames": "输入臀部关节名称",
     "enterFootNames": "输入脚部关节名称",
     "selectHipName": "选择臀部",

@@ -44,6 +44,7 @@
     "footNames": "Foot Names",
     "footOffset": "Foot Offset",
     "jointAdjustments": "Joint Adjustments",
+    "selectJointName": "Select joint",
     "enterHipNames": "Enter hip joint names",
     "enterFootNames": "Enter foot joint names",
     "selectHipName": "Select hip",

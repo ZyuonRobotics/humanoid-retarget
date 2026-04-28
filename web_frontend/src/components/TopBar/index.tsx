@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next';
 import { useConfigContext } from '../../contexts/ConfigContext';
 import { useMotionContext } from '../../contexts/MotionContext';
 import { modelApi, MotionTreeNode, MotionFileInfo, HumanConfig } from '../../api/client';
+import JointAdjustmentWidget from '../Widgets/JointAdjustmentWidget';
 import './FileSelector.css';
 
 interface FolderInfo {
@@ -914,17 +915,13 @@ const TopBar: React.FC<TopBarProps> = ({
             <InputNumber style={{ width: '100%' }} step={0.01} />
           </Form.Item>
 
-          <Form.Item label={t('player.jointAdjustments')}>
-            <Input.TextArea
-              rows={4}
-              value={JSON.stringify(humanConfig.joint_adjustments || {}, null, 2)}
-              onChange={(e) => {
-                try {
-                  const parsed = JSON.parse(e.target.value);
-                  setHumanConfig({ ...humanConfig, joint_adjustments: parsed });
-                } catch {}
+          <Form.Item>
+            <JointAdjustmentWidget
+              jointAdjustments={humanConfig.joint_adjustments || {}}
+              availableJoints={humanBodyNames}
+              onChange={(adjustments) => {
+                setHumanConfig({ ...humanConfig, joint_adjustments: adjustments });
               }}
-              placeholder='{"joint_name": [x, y, z], ...}'
             />
           </Form.Item>
 

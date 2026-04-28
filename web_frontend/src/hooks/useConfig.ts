@@ -13,7 +13,13 @@ export function useConfig(
   );
 
   const addTracker = useCallback(() => {
-    const key = `tracker_${Object.keys(config.tracker_dict).length + 1}`;
+    const existingKeys = Object.keys(config.tracker_dict);
+    let index = 1;
+    let key = `tracker_${index}`;
+    while (existingKeys.includes(key)) {
+      index++;
+      key = `tracker_${index}`;
+    }
     updateConfig('tracker_dict', {
       ...config.tracker_dict,
       [key]: { human: [], robot: [], position_cost: 1.0, orientation_cost: 1.0 } as TrackerConfig,
@@ -38,7 +44,16 @@ export function useConfig(
 
   const addBodyRotate = useCallback(
     (key?: string) => {
-      const bodyKey = key || `body_${Object.keys(config.body_rotate_dict).length + 1}`;
+      let bodyKey = key;
+      if (!bodyKey) {
+        const existingKeys = Object.keys(config.body_rotate_dict);
+        let index = 1;
+        bodyKey = `body_${index}`;
+        while (existingKeys.includes(bodyKey)) {
+          index++;
+          bodyKey = `body_${index}`;
+        }
+      }
       updateConfig('body_rotate_dict', { ...config.body_rotate_dict, [bodyKey]: [0, 0, 0] });
     },
     [config.body_rotate_dict, updateConfig]
@@ -62,7 +77,16 @@ export function useConfig(
 
   const addRelativeBodyRatio = useCallback(
     (key?: string) => {
-      const bodyKey = key || `body_${Object.keys(config.relative_body_ratio_dict).length + 1}`;
+      let bodyKey = key;
+      if (!bodyKey) {
+        const existingKeys = Object.keys(config.relative_body_ratio_dict);
+        let index = 1;
+        bodyKey = `body_${index}`;
+        while (existingKeys.includes(bodyKey)) {
+          index++;
+          bodyKey = `body_${index}`;
+        }
+      }
       updateConfig('relative_body_ratio_dict', {
         ...config.relative_body_ratio_dict,
         [bodyKey]: [1, 1, 1],

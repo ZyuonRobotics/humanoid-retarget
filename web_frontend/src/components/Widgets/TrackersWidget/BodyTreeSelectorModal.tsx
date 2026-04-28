@@ -66,9 +66,8 @@ const BodyTreeSelectorModal: React.FC<BodyTreeSelectorModalProps> = ({
     (name) => !existingPairs.some((p) => p.human === name)
   );
 
-  const availableRobotNames = robotBodyNames.filter(
-    (name) => !existingPairs.some((p) => p.robot === name)
-  );
+  // Robot body parts can be reused in the same tracker group
+  const availableRobotNames = robotBodyNames;
 
   const handleConfirm = () => {
     if (selectedHuman && selectedRobot) {
