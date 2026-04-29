@@ -123,6 +123,14 @@ const TopBar: React.FC<TopBarProps> = ({
   const [splitPosition, setSplitPosition] = useState<string>('');
   const [splitting, setSplitting] = useState(false);
 
+  // Robot Motion Segmentation tool state
+  const [robotSegmentRobot, setRobotSegmentRobot] = useState<string>('');
+  const [robotSegmentMotion, setRobotSegmentMotion] = useState<string>('');
+  const [robotSplitPosition, setRobotSplitPosition] = useState<string>('');
+  const [robotSplitting, setRobotSplitting] = useState(false);
+  const [robotSegmentMotions, setRobotSegmentMotions] = useState<string[]>([]);
+  const [robotSegmentLoading, setRobotSegmentLoading] = useState(false);
+
   // Load retargeted motions when entering player mode
   useEffect(() => {
     if (activePanel === 'player' && selectedRobot) {
@@ -133,6 +141,17 @@ const TopBar: React.FC<TopBarProps> = ({
         .finally(() => setRetargetedLoading(false));
     }
   }, [activePanel, selectedRobot]);
+
+  // Load robot motions when robot is selected in robot segmentation tool
+  useEffect(() => {
+    if (selectedTool === 'robotMotionSegmentation' && robotSegmentRobot) {
+      setRobotSegmentLoading(true);
+      modelApi.listRetargetedMotions(robotSegmentRobot)
+        .then(setRobotSegmentMotions)
+        .catch(console.error)
+        .finally(() => setRobotSegmentLoading(false));
+    }
+  }, [selectedTool, robotSegmentRobot]);
   useEffect(() => {
     if (fileSelectorOpen && !motionTree) {
       loadMotionTree();
@@ -238,7 +257,8 @@ const TopBar: React.FC<TopBarProps> = ({
 
   const toolboxMenu = {
     items: [
-      { key: 'motionSegmentation', label: t('toolbox.motionSegmentation') || 'Motion Segmentation', onClick: () => { setSelectedTool('motionSegmentation'); setToolboxOpen(false); } },
+      { key: 'motionSegmentation', label: t('toolbox.motionSegmentation') || 'Human Motion Segmentation', onClick: () => { setSelectedTool('motionSegmentation'); setToolboxOpen(false); } },
+      { key: 'robotMotionSegmentation', label: t('toolbox.robotMotionSegmentation') || 'Robot Motion Segmentation', onClick: () => { setSelectedTool('robotMotionSegmentation'); setToolboxOpen(false); } },
     ],
   };
 
@@ -469,6 +489,75 @@ const TopBar: React.FC<TopBarProps> = ({
                       }
                     }}
                     loading={splitting}
+                  >
+                    {t('toolbox.split')}
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : selectedTool === 'robotMotionSegmentation' ? (
+            <>
+              <div className="topbar-row">
+                <div className="topbar-section">
+                  <Select
+                    value={robotSegmentRobot}
+                    onChange={(val) => { setRobotSegmentRobot(val); setRobotSegmentMotion(''); }}
+                    style={{ width: 140 }}
+                    options={robotOptions}
+                    placeholder={t('toolbox.selectRobot')}
+                    suffixIcon={<RobotOutlined />}
+                  />
+                </div>
+                <div className="topbar-section">
+                  <Select
+                    value={robotSegmentMotion}
+                    onChange={setRobotSegmentMotion}
+                    style={{ width: 200 }}
+                    placeholder={robotSegmentMotions.length === 0 && !robotSegmentLoading ? t('toolbox.noRobotMotions') : t('toolbox.selectRobotMotion')}
+                    loading={robotSegmentLoading}
+                    options={robotSegmentMotions.map(m => ({ value: m, label: m }))}
+                    disabled={robotSegmentMotions.length === 0}
+                  />
+                </div>
+                <div className="topbar-section">
+                  <Input
+                    value={robotSplitPosition}
+                    onChange={(e) => setRobotSplitPosition(e.target.value)}
+                    placeholder={t('toolbox.splitPositions')}
+                    style={{ width: 200 }}
+                  />
+                </div>
+                <div className="topbar-section">
+                  <Button
+                    type="primary"
+                    icon={<ScissorOutlined />}
+                    onClick={async () => {
+                      if (!robotSegmentRobot) {
+                        message.warning(t('toolbox.noRobotSelected'));
+                        return;
+                      }
+                      if (!robotSegmentMotion) {
+                        message.warning(t('toolbox.noRobotMotionSelected'));
+                        return;
+                      }
+                      if (!robotSplitPosition.trim()) {
+                        message.warning(t('toolbox.noSplitPositions'));
+                        return;
+                      }
+                      setRobotSplitting(true);
+                      try {
+                        await modelApi.splitRobotMotion(robotSegmentRobot, robotSegmentMotion, robotSplitPosition);
+                        message.success(t('toolbox.splitSuccess'));
+                        // Refresh robot motions list
+                        const motions = await modelApi.listRetargetedMotions(robotSegmentRobot);
+                        setRobotSegmentMotions(motions);
+                      } catch (error) {
+                        message.error(t('toolbox.splitFailed'));
+                      } finally {
+                        setRobotSplitting(false);
+                      }
+                    }}
+                    loading={robotSplitting}
                   >
                     {t('toolbox.split')}
                   </Button>

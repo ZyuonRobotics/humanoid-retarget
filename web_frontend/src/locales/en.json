@@ -9,14 +9,20 @@
   "toolbox": {
     "name": "Toolbox",
     "selected": "Selected Tool",
-    "motionSegmentation": "Motion Segmentation",
+    "motionSegmentation": "Human Motion Segmentation",
+    "robotMotionSegmentation": "Robot Motion Segmentation",
     "motionFormat": "Motion Format",
     "selectMotionFile": "Select Motion File",
+    "selectRobot": "Select Robot",
+    "selectRobotMotion": "Select Robot Motion",
+    "noRobotMotions": "No robot motions found",
     "splitPositions": "Split Positions (e.g., 300,400)",
     "split": "Split",
     "splitSuccess": "Motion split successfully",
     "splitFailed": "Failed to split motion",
     "noMotionSelected": "Please select a motion file first",
+    "noRobotSelected": "Please select a robot first",
+    "noRobotMotionSelected": "Please select a robot motion first",
     "noSplitPositions": "Please enter split positions"
   },
   "player": {

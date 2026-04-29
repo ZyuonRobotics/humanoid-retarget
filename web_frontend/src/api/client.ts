@@ -199,6 +199,11 @@ export const modelApi = {
     client.post('/model/split-motion', null, {
       params: { generator_type: generatorType, motion_file: motionFile, split_indices: splitIndices }
     }).then(res => res.data),
+
+  splitRobotMotion: (robotName: string, motionFile: string, splitIndices: string) =>
+    client.post('/model/split-robot-motion', null, {
+      params: { robot_name: robotName, motion_file: motionFile, split_indices: splitIndices }
+    }).then(res => res.data),
 };
 
 export default client;

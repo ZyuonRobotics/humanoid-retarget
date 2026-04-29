@@ -773,7 +773,7 @@ async def save_human_player_config(generator_type: str, motion_file: str, config
 
 @router.post("/split-motion")
 async def split_motion(generator_type: str, motion_file: str, split_indices: str):
-    """Split a motion file into multiple parts at the specified indices.
+    """Split a human motion file into multiple parts at the specified indices.
 
     Args:
         generator_type: 'bvh' or 'smpl'
@@ -926,4 +926,88 @@ async def split_motion(generator_type: str, motion_file: str, split_indices: str
         raise
     except Exception as e:
         logger.error(f"Failed to split motion: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/split-robot-motion")
+async def split_robot_motion(robot_name: str, motion_file: str, split_indices: str):
+    """Split a robot motion file into multiple parts at the specified indices.
+
+    Args:
+        robot_name: name of the robot
+        motion_file: relative path to the motion file (without .npz extension)
+        split_indices: comma-separated frame indices to split at (e.g., "300,400" creates segments 0-300, 300-400, 400-end)
+    """
+    # Construct motion path
+    motion_path = Path(RETARGETING_PATH) / robot_name / f"{motion_file}.npz"
+    logger.info(f"Looking for robot motion file at: {motion_path}")
+    if not motion_path.exists():
+        logger.error(f"Robot motion file not found: {motion_path}")
+        raise HTTPException(status_code=404, detail=f"Robot motion file not found: {motion_path}")
+
+    # Parse split indices
+    try:
+        indices = [int(idx.strip()) for idx in split_indices.split(',') if idx.strip()]
+        if not indices:
+            raise ValueError("No valid indices provided")
+        # Sort and validate indices
+        indices = sorted(set(indices))
+        if any(idx < 0 for idx in indices):
+            raise HTTPException(status_code=400, detail="All split indices must be non-negative")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid split_indices format: {e}")
+
+    try:
+        # Load robot motion data
+        data_dict = np.load(motion_path)
+
+        # Get data length from root_trans
+        root_trans = data_dict["root_trans"]
+        data_length = root_trans.shape[0]
+
+        # Validate all indices
+        if any(idx >= data_length for idx in indices):
+            raise HTTPException(status_code=400, detail=f"All split indices must be less than data length ({data_length})")
+
+        # Create segments: [0, idx1), [idx1, idx2), ..., [idxN, end)
+        segment_ranges = []
+        start = 0
+        for idx in indices:
+            segment_ranges.append((start, idx))
+            start = idx
+        segment_ranges.append((start, data_length))
+
+        # Save all segments
+        output_files = []
+        for start_idx, end_idx in segment_ranges:
+            if start_idx >= end_idx:
+                continue
+
+            # Preserve all keys from original file
+            segment_data = {}
+            for key in data_dict.keys():
+                value = data_dict[key]
+                if isinstance(value, np.ndarray) and len(value.shape) > 0 and value.shape[0] == data_length:
+                    # This is a per-frame array, slice it
+                    segment_data[key] = value[start_idx:end_idx]
+                else:
+                    # This is a scalar or metadata, keep as-is
+                    segment_data[key] = value
+
+            segment_path = motion_path.parent / f"{motion_path.stem}_{start_idx}_{end_idx}.npz"
+            np.savez_compressed(segment_path, **segment_data)
+            output_files.append({
+                "file": str(segment_path),
+                "range": f"{start_idx}-{end_idx}"
+            })
+
+        return {
+            "status": "success",
+            "segments": output_files
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to split robot motion: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
