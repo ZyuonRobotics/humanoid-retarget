@@ -306,6 +306,28 @@ body {
   border-radius: var(--radius-md) !important;
 }
 
+.rc-virtual-list-holder {
+  max-height: 256px !important;
+  overflow-y: auto !important;
+}
+
+.rc-virtual-list-holder::-webkit-scrollbar {
+  width: 6px;
+}
+
+.rc-virtual-list-holder::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.rc-virtual-list-holder::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+.rc-virtual-list-holder::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
 .ant-select-item {
   color: var(--color-text-primary) !important;
 }

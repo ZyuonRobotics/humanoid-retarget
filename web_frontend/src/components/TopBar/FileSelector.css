@@ -134,7 +134,7 @@
 .file-selector-columns {
   display: flex;
   height: 100%;
-  min-height: 320px;
+  max-height: calc(70vh - 120px);
   overflow-x: auto;
   overflow-y: hidden;
 }
@@ -172,6 +172,23 @@
 .file-selector-column-content {
   flex: 1;
   overflow-y: auto;
+}
+
+.file-selector-column-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.file-selector-column-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.file-selector-column-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+.file-selector-column-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
 }
 
 /* ── Items ──────────────────────────────────────────────────────── */
