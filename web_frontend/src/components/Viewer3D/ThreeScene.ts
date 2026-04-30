@@ -70,6 +70,9 @@ export class ThreeScene {
   private hasRobotPrefix = false;
   private hasHumanPrefix = false;
 
+  // Track visibility state for human model (needed for skin toggle)
+  private humanVisible = true;
+
   constructor(canvas: HTMLCanvasElement) {
     console.log(`ThreeScene[${this.instanceId}]: constructor called`);
     this.canvas = canvas;
@@ -282,6 +285,7 @@ export class ThreeScene {
     // First pass: detect model mode by checking for prefixes
     this.hasRobotPrefix = false;
     this.hasHumanPrefix = false;
+    this.humanVisible = true;
     for (let b = 0; b < model.nbody; b++) {
       const bodyAdr = model.name_bodyadr[b];
       let endIdx = bodyAdr;
@@ -665,16 +669,20 @@ export class ThreeScene {
 
     // If we have skin geometries, toggle between skin and parametric geoms
     if (this.skinGeometries.length > 0) {
-      // Show/hide skin meshes
+      // Show/hide skin meshes, but only if human model is visible
       this.mujocoRoot?.children.forEach(child => {
         if (child instanceof THREE.Mesh && child.userData.skinId !== undefined) {
-          child.visible = show;
+          child.visible = show && this.humanVisible;
         }
       });
 
       // Hide/show parametric geoms (inverse of skin visibility)
       for (const mesh of this.skinMeshes) {
-        mesh.visible = !show;
+        if (this.humanVisible) {
+          mesh.visible = !show;
+        } else {
+          mesh.visible = false;
+        }
       }
     } else {
       // No skin available, just toggle parametric geoms
@@ -924,6 +932,7 @@ export class ThreeScene {
     this.skinGeometries = [];
     this.hasRobotPrefix = false;
     this.hasHumanPrefix = false;
+    this.humanVisible = true;
     this.model = null;
     this.simulation = null;
   }
@@ -1069,5 +1078,126 @@ export class ThreeScene {
    */
   public setPlayerFrameCallback(callback: PlayerFrameCallback | null): void {
     this.playerFrameCallback = callback;
+  }
+
+  /**
+   * Set visibility for robot bodies (bodies with 'robot_' prefix or all non-world bodies in robot-only mode)
+   */
+  public setRobotVisible(visible: boolean): void {
+    console.log(`ThreeScene[${this.instanceId}]: setRobotVisible(${visible})`, {
+      hasRobotPrefix: this.hasRobotPrefix,
+      hasHumanPrefix: this.hasHumanPrefix,
+      bodiesCount: this.bodies.size,
+      hasMujocoRoot: !!this.mujocoRoot,
+      mujocoRootInScene: this.mujocoRoot ? this.scene.children.includes(this.mujocoRoot) : false,
+      mujocoRootVisible: this.mujocoRoot?.visible
+    });
+
+    // In combined mode (has robot_ prefix), only toggle robot_ bodies
+    if (this.hasRobotPrefix) {
+      let count = 0;
+      for (const bodyGroup of this.bodies.values()) {
+        if (bodyGroup.name.startsWith('robot_')) {
+          bodyGroup.visible = visible;
+          // Also set visibility for all child meshes
+          let meshCount = 0;
+          bodyGroup.traverse((child) => {
+            if (child instanceof THREE.Mesh) {
+              child.visible = visible;
+              meshCount++;
+            }
+          });
+          console.log(`  → Body ${bodyGroup.name}: set ${meshCount} meshes to visible=${visible}`);
+          count++;
+        }
+      }
+      console.log(`  → Toggled ${count} robot_ bodies`);
+    } else if (!this.hasHumanPrefix) {
+      // Robot-only mode: no prefixes, toggle all non-world bodies
+      let count = 0;
+      let totalMeshes = 0;
+      for (const [bodyId, bodyGroup] of this.bodies) {
+        if (bodyId > 0) { // Skip world body
+          bodyGroup.visible = visible;
+          // Also set visibility for all child meshes
+          let meshCount = 0;
+          bodyGroup.traverse((child) => {
+            if (child instanceof THREE.Mesh) {
+              child.visible = visible;
+              meshCount++;
+            }
+          });
+          totalMeshes += meshCount;
+          console.log(`  → Body ${bodyId} (${bodyGroup.name}): children=${bodyGroup.children.length}, meshes=${meshCount}, visible=${visible}`);
+          count++;
+        }
+      }
+      console.log(`  → Toggled ${count} non-world bodies, ${totalMeshes} total meshes`);
+    } else {
+      console.log(`  → Human-only mode, no robot to toggle`);
+    }
+
+    this._dirty = true;
+    console.log(`  → Set _dirty=true, forcing immediate render`);
+    // Force immediate render to ensure visibility change is applied
+    this.render();
+  }
+
+  /**
+   * Set visibility for human bodies (bodies with 'human_' prefix or all non-world bodies in human-only mode)
+   */
+  public setHumanVisible(visible: boolean): void {
+    this.humanVisible = visible;
+
+    // In combined mode, hide bodies with 'human_' prefix
+    if (this.hasHumanPrefix) {
+      for (const bodyGroup of this.bodies.values()) {
+        if (bodyGroup.name.startsWith('human_')) {
+          bodyGroup.visible = visible;
+          // Also set visibility for all child meshes
+          bodyGroup.traverse((child) => {
+            if (child instanceof THREE.Mesh) {
+              child.visible = visible;
+            }
+          });
+        }
+      }
+    } else if (!this.hasRobotPrefix) {
+      // Human-only mode: hide all non-world bodies
+      for (const [bodyId, bodyGroup] of this.bodies) {
+        if (bodyId > 0) { // Skip world body
+          bodyGroup.visible = visible;
+          // Also set visibility for all child meshes
+          bodyGroup.traverse((child) => {
+            if (child instanceof THREE.Mesh) {
+              child.visible = visible;
+            }
+          });
+        }
+      }
+    }
+    // else: Robot-only mode (hasRobotPrefix && !hasHumanPrefix) - do nothing, no human bodies to toggle
+
+    // Also toggle skin meshes visibility
+    if (this.skinGeometries.length > 0) {
+      this.mujocoRoot?.children.forEach(child => {
+        if (child instanceof THREE.Mesh && child.userData.skinId !== undefined) {
+          child.visible = visible && this.showSkin;
+        }
+      });
+
+      // Toggle parametric geoms (inverse of skin when skin is available)
+      for (const mesh of this.skinMeshes) {
+        if (visible) {
+          mesh.visible = !this.showSkin;
+        } else {
+          mesh.visible = false;
+        }
+      }
+    }
+
+    this._dirty = true;
+    // Force immediate render to ensure visibility change is applied
+    this.render();
   }
 }

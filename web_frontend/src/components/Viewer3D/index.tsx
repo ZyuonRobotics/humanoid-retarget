@@ -53,8 +53,9 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
 
   // Independent visibility toggles. When both are false nothing is shown;
   // when both are true the combined human+robot preview is shown.
-  const [showRobot, setShowRobot] = useState(false);
-  const [showHuman, setShowHuman] = useState(false);
+  // Default: show both if available
+  const [showRobot, setShowRobot] = useState(true);
+  const [showHuman, setShowHuman] = useState(true);
 
   // Skin visibility toggle for human model
   const [showSkin, setShowSkin] = useState(true);
@@ -109,11 +110,12 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
 
   // Clear models when switching between retargeter and player modes
   useEffect(() => {
-    setShowRobot(false);
-    setShowHuman(false);
+    setShowRobot(true);
+    setShowHuman(true);
     setShowSkin(true);
     setAlignData(null);
     setPlayerModelLoaded(false);
+    setHasModel(false);
     dispose();
   }, [activePanel]);
 
@@ -364,18 +366,73 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
     (window as any).__playerSeekHandler = handleSeek;
   }, [activePanel, playerMotion, onFrameChange]);
 
+  // Track if we have loaded any model (combined, robot-only, or human-only)
+  const [hasModel, setHasModel] = useState(false);
+
   // Determine which toggles are currently enabled
   const canShowRobot = !!selectedRobot;
   const canShowHuman = !!sourceFile && !!generatorType;
 
   const toggleRobot = () => {
     if (!canShowRobot) return;
-    setShowRobot(v => !v);
+    const newShowRobot = !showRobot;
+    console.log(`toggleRobot: ${showRobot} → ${newShowRobot}`, {
+      hasModel,
+      hasThreeScene: !!threeSceneRef.current
+    });
+    setShowRobot(newShowRobot);
+
+    // If we have any model loaded, just toggle visibility instead of reloading
+    if (hasModel && threeSceneRef.current) {
+      console.log(`  → Calling setRobotVisible(${newShowRobot})`);
+      threeSceneRef.current.setRobotVisible(newShowRobot);
+      // Clear loading state when toggling visibility
+      setLoading(false);
+    }
   };
   const toggleHuman = () => {
     if (!canShowHuman) return;
-    setShowHuman(v => !v);
+    const newShowHuman = !showHuman;
+    setShowHuman(newShowHuman);
+
+    // If we have any model loaded, just toggle visibility instead of reloading
+    if (hasModel && threeSceneRef.current) {
+      threeSceneRef.current.setHumanVisible(newShowHuman);
+      // Clear loading state when toggling visibility
+      setLoading(false);
+    }
   };
+
+  // Handle toggle changes: only update visibility when any model is loaded
+  useEffect(() => {
+    console.log(`useEffect[showRobot, showHuman, hasModel]: showRobot=${showRobot}, showHuman=${showHuman}, hasModel=${hasModel}`, {
+      hasThreeScene: !!threeSceneRef.current,
+      canShowRobot,
+      canShowHuman
+    });
+    if (hasModel && threeSceneRef.current) {
+      // Only call setRobotVisible if robot is available in current mode
+      if (canShowRobot) {
+        console.log(`  → Calling setRobotVisible(${showRobot})`);
+        threeSceneRef.current.setRobotVisible(showRobot);
+      }
+      // Only call setHumanVisible if human is available in current mode
+      if (canShowHuman) {
+        console.log(`  → Calling setHumanVisible(${showHuman})`);
+        threeSceneRef.current.setHumanVisible(showHuman);
+      }
+      // Ensure loading is false when just toggling visibility
+      setLoading(false);
+    }
+  }, [showRobot, showHuman, hasModel, canShowRobot, canShowHuman]);
+
+  // Keep refs for latest toggle state to avoid closure issues
+  const showRobotRef = useRef(showRobot);
+  const showHumanRef = useRef(showHuman);
+  useEffect(() => {
+    showRobotRef.current = showRobot;
+    showHumanRef.current = showHuman;
+  }, [showRobot, showHuman]);
 
   // Camera state
   const [camera, setCameraState] = useState({
@@ -387,7 +444,6 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
     lastY: 0
   });
 
-  // Initialize Three.js scene when canvas becomes available
   // Debounced fetch for model (robot only, human only, or robot+human)
   const fetchPreview = useCallback(async () => {
     // Cancel any previous in-flight request
@@ -395,14 +451,19 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
-    // Nothing to show
-    if (!showRobot && !showHuman) {
+    // Determine what to load based on available data
+    const canShowRobot = !!selectedRobot;
+    const canShowHuman = !!sourceFile && !!generatorType;
+
+    // Nothing to show - clean up
+    if (!canShowRobot && !canShowHuman) {
       dispose();
       if (threeSceneRef.current) {
         threeSceneRef.current.dispose();
         threeSceneRef.current = null;
       }
       setAlignData(null);
+      setHasModel(false);
       return;
     }
 
@@ -412,16 +473,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
       threeSceneRef.current.dispose();
       threeSceneRef.current = null;
     }
-
-    // Guard: each enabled toggle needs its own prerequisites
-    if (showRobot && !selectedRobot) {
-      setAlignData(null);
-      return;
-    }
-    if (showHuman && (!sourceFile || !generatorType)) {
-      setAlignData(null);
-      return;
-    }
+    setHasModel(false);
 
     setLoading(true);
     setError(null);
@@ -436,9 +488,8 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
     };
 
     try {
-      if (showRobot && showHuman) {
-        // Combined human+robot preview. Robot meshes are referenced by the
-        // combined XML, so fetch them alongside the align preview.
+      if (canShowRobot && canShowHuman) {
+        // Load combined model when both are available
         const [data, robotData] = await Promise.all([
           fetchAlignPreview(sourceFile!, selectedRobot!, generatorType!, configRef.current),
           getRobotData(selectedRobot!),
@@ -449,11 +500,19 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
           const lookatY = data.globalBodyRatio * 0.5;
           setCamera({ lookat: [0, 0, lookatY] });
           setAlignData(data);
-          setTimeout(() => bootScene(), 100);
+          setHasModel(true);
+          setTimeout(() => {
+            bootScene();
+            // Set initial visibility based on current toggle state (use refs to get latest values)
+            if (threeSceneRef.current) {
+              threeSceneRef.current.setRobotVisible(showRobotRef.current);
+              threeSceneRef.current.setHumanVisible(showHumanRef.current);
+            }
+          }, 100);
         } else {
           setAlignData(null);
         }
-      } else if (showRobot) {
+      } else if (canShowRobot) {
         // Robot only — use cache to avoid re-fetching unchanged mesh data
         const robotData = await getRobotData(selectedRobot!);
         if (abortController.signal.aborted) return;
@@ -465,8 +524,15 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
           globalBodyRatio: 1.0,
         });
         setCamera({ lookat: [0, 0, 0.5] });
-        setTimeout(() => bootScene(), 100);
-      } else if (showHuman) {
+        setHasModel(true);
+        setTimeout(() => {
+          bootScene();
+          // Set initial visibility for robot-only model
+          if (threeSceneRef.current) {
+            threeSceneRef.current.setRobotVisible(showRobotRef.current);
+          }
+        }, 100);
+      } else if (canShowHuman) {
         // Human only — parametric bodies, no mesh files required
         const data = await fetchHumanPreview(sourceFile!, generatorType!, configRef.current);
         if (abortController.signal.aborted) return;
@@ -475,7 +541,14 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
           const lookatY = data.globalBodyRatio * 0.5;
           setCamera({ lookat: [0, 0, lookatY] });
           setAlignData(data);
-          setTimeout(() => bootScene(), 100);
+          setHasModel(true);
+          setTimeout(() => {
+            bootScene();
+            // Set initial visibility for human-only model
+            if (threeSceneRef.current) {
+              threeSceneRef.current.setHumanVisible(showHumanRef.current);
+            }
+          }, 100);
         } else {
           setAlignData(null);
         }
@@ -484,25 +557,74 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
       if (abortController.signal.aborted) return;
       setError(err instanceof Error ? err.message : 'Failed to load preview');
       setAlignData(null);
+      setHasModel(false);
     } finally {
       if (!abortController.signal.aborted) {
         setLoading(false);
       }
     }
-  }, [sourceFile, selectedRobot, generatorType, showRobot, showHuman, bootScene]);
+  }, [sourceFile, selectedRobot, generatorType, bootScene]);
 
-  // Re-fetch when non-config things change (robot switch, toggle, file change)
+  // Re-fetch only when robot/source/generator changes (not when toggles change)
+  // Use refs to track previous values to avoid unnecessary re-renders
+  const prevSelectedRobotRef = useRef(selectedRobot);
+  const prevSourceFileRef = useRef(sourceFile);
+  const prevGeneratorTypeRef = useRef(generatorType);
+
   useEffect(() => {
-    const debounceTimer = setTimeout(() => {
-      fetchPreview();
-    }, 300);
+    // Check if we need to reload (robot/source/generator changed)
+    const robotChanged = prevSelectedRobotRef.current !== selectedRobot;
+    const sourceChanged = prevSourceFileRef.current !== sourceFile;
+    const generatorChanged = prevGeneratorTypeRef.current !== generatorType;
 
-    return () => clearTimeout(debounceTimer);
-  }, [fetchPreview]);
+    console.log('useEffect[selectedRobot, sourceFile, generatorType]:', {
+      robotChanged,
+      sourceChanged,
+      generatorChanged,
+      selectedRobot,
+      sourceFile,
+      generatorType
+    });
+
+    // Update refs
+    prevSelectedRobotRef.current = selectedRobot;
+    prevSourceFileRef.current = sourceFile;
+    prevGeneratorTypeRef.current = generatorType;
+
+    // Only reload when robot/source/generator changes
+    if (robotChanged || sourceChanged || generatorChanged) {
+      // Reset visibility toggles based on what's available
+      const canShowRobot = !!selectedRobot;
+      const canShowHuman = !!sourceFile && !!generatorType;
+
+      console.log('  → Data source changed, resetting visibility:', {
+        canShowRobot,
+        canShowHuman
+      });
+
+      if (canShowRobot && canShowHuman) {
+        setShowRobot(true);
+        setShowHuman(true);
+      } else if (canShowRobot && !canShowHuman) {
+        setShowRobot(true);
+        setShowHuman(false);
+      } else if (!canShowRobot && canShowHuman) {
+        setShowRobot(false);
+        setShowHuman(true);
+      } else {
+        setShowRobot(false);
+        setShowHuman(false);
+      }
+
+      const debounceTimer = setTimeout(() => {
+        fetchPreview();
+      }, 300);
+
+      return () => clearTimeout(debounceTimer);
+    }
+  }, [selectedRobot, sourceFile, generatorType, fetchPreview]);
 
   // Re-fetch when config changes, but only if human data is involved
-  const showHumanRef = useRef(showHuman);
-  showHumanRef.current = showHuman;
   useEffect(() => {
     if (!showHumanRef.current) return; // robot-only view is config-independent
     const debounceTimer = setTimeout(() => {
