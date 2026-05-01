@@ -13,6 +13,10 @@ interface MotionContextType {
   handleSaveRetarget: () => Promise<void>;
   retargetPreviewData: RetargetPreviewResponse | null;
   setRetargetPreviewData: (data: RetargetPreviewResponse | null) => void;
+  streamingFrames: Map<number, any>;
+  streamingMetadata: any | null;
+  isStreaming: boolean;
+  streamingProgress: { current: number; total: number };
 }
 
 const MotionContext = createContext<MotionContextType | undefined>(undefined);
@@ -27,6 +31,12 @@ export const MotionProvider: React.FC<MotionProviderProps> = ({ children }) => {
   const [selectedMotion, setSelectedMotion] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [retargetPreviewData, setRetargetPreviewData] = useState<RetargetPreviewResponse | null>(null);
+
+  // Streaming state
+  const [streamingFrames, setStreamingFrames] = useState<Map<number, any>>(new Map());
+  const [streamingMetadata, setStreamingMetadata] = useState<any | null>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingProgress, setStreamingProgress] = useState({ current: 0, total: 0 });
 
   const uploadMotion = useCallback(async (file: File) => {
     try {
@@ -49,23 +59,55 @@ export const MotionProvider: React.FC<MotionProviderProps> = ({ children }) => {
       message.warning(t('message.pleaseSelectMotion'));
       return;
     }
+
     setLoading(true);
+    setIsStreaming(true);
+    setStreamingFrames(new Map());
+    setStreamingMetadata(null);
+    setStreamingProgress({ current: 0, total: 0 });
+
     try {
-      // Call retarget-preview instead of retarget to get preview data without saving
-      const result = await modelApi.retargetPreview(
+      // Use streaming retarget
+      modelApi.retargetStream(
         selectedMotion,
         selectedRobot,
         generatorType,
-        selectedConfig
+        selectedConfig,
+        // onMetadata
+        (metadata) => {
+          console.log('Received metadata:', metadata);
+          setStreamingMetadata(metadata);
+          setStreamingProgress({ current: 0, total: metadata.frame_num });
+          message.success(t('message.retargetStarted') || 'Retarget started, streaming frames...');
+        },
+        // onFrame
+        (frameData) => {
+          console.log('Received frame:', frameData.frame_id);
+          setStreamingFrames(prev => {
+            const newMap = new Map(prev);
+            newMap.set(frameData.frame_id, frameData);
+            return newMap;
+          });
+          setStreamingProgress(prev => ({ ...prev, current: frameData.frame_id + 1 }));
+        },
+        // onComplete
+        () => {
+          console.log('Streaming complete');
+          setIsStreaming(false);
+          setLoading(false);
+          message.success(t('message.retargetComplete') || 'Retarget completed successfully');
+        },
+        // onError
+        (error) => {
+          console.error('Streaming error:', error);
+          setIsStreaming(false);
+          setLoading(false);
+          message.error(error);
+        }
       );
-      if (result.status === 'success') {
-        setRetargetPreviewData(result);
-        message.success(t('message.retargetPreviewSuccess') || 'Retarget preview generated successfully');
-      } else {
-        message.error(t('message.retargetFailed'));
-      }
     } catch (error: any) {
-      // Check if it's a 400 error with human config message
+      setIsStreaming(false);
+      setLoading(false);
       if (error?.response?.status === 400 && error?.response?.data) {
         const detail = error.response.data;
         const msg = typeof detail === 'string' ? detail : (detail?.detail || JSON.stringify(detail));
@@ -73,13 +115,11 @@ export const MotionProvider: React.FC<MotionProviderProps> = ({ children }) => {
       } else {
         message.error(t('message.retargetFailed'));
       }
-    } finally {
-      setLoading(false);
     }
   }, [selectedMotion, selectedRobot, generatorType, selectedConfig, t]);
 
   const handleSaveRetarget = useCallback(async () => {
-    if (!retargetPreviewData) {
+    if (!retargetPreviewData && !streamingMetadata) {
       message.warning('No retarget preview to save');
       return;
     }
@@ -89,6 +129,8 @@ export const MotionProvider: React.FC<MotionProviderProps> = ({ children }) => {
       if (result.status === 'success') {
         message.success(t('message.retargetSuccess'));
         setRetargetPreviewData(null);
+        setStreamingMetadata(null);
+        setStreamingFrames(new Map());
       } else {
         message.error(t('message.retargetFailed'));
       }
@@ -97,7 +139,7 @@ export const MotionProvider: React.FC<MotionProviderProps> = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [retargetPreviewData, t]);
+  }, [retargetPreviewData, streamingMetadata, t]);
 
   return (
     <MotionContext.Provider
@@ -110,6 +152,10 @@ export const MotionProvider: React.FC<MotionProviderProps> = ({ children }) => {
         handleSaveRetarget,
         retargetPreviewData,
         setRetargetPreviewData,
+        streamingFrames,
+        streamingMetadata,
+        isStreaming,
+        streamingProgress,
       }}
     >
       {children}

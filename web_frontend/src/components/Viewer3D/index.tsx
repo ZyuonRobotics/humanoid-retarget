@@ -26,7 +26,7 @@ interface Viewer3DProps {
   sourceFile?: string;
   activePanel?: string;
   playerMotion?: {
-    type: 'robot' | 'human' | 'retarget-preview';
+    type: 'robot' | 'human' | 'retarget-preview' | 'retarget-stream';
     robotName: string;
     motionFile: string;
     generatorType?: string;
@@ -34,12 +34,24 @@ interface Viewer3DProps {
   } | null;
   // Retarget preview data (when retarget completes but not yet saved)
   retargetPreviewData?: RetargetPreviewResponse | null;
+  // Streaming data
+  streamingMetadata?: any | null;
+  streamingFrames?: Map<number, any>;
   // Playback control props
   playing?: boolean;
   onFrameChange?: (frame: number, total: number) => void;
 }
 
-const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMotion, retargetPreviewData, playing = false, onFrameChange }) => {
+const Viewer3D: React.FC<Viewer3DProps> = ({
+  sourceFile,
+  activePanel,
+  playerMotion,
+  retargetPreviewData,
+  streamingMetadata,
+  streamingFrames,
+  playing = false,
+  onFrameChange
+}) => {
   const { selectedRobot, config, generatorType } = useConfigContext();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -67,6 +79,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
   // Track previous playerMotion to detect actual changes
   const prevPlayerMotionRef = useRef<typeof playerMotion>(null);
   const prevRetargetPreviewDataRef = useRef<typeof retargetPreviewData>(null);
+  const prevStreamingMetadataRef = useRef<typeof streamingMetadata>(null);
   const prevShowSkinRef = useRef<boolean>(showSkin);
   const prevActivePanelRef = useRef<string>(activePanel || 'retargeter');
 
@@ -166,6 +179,19 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
       }
     }
 
+    // For retarget-stream mode, check if anything changed
+    if (playerMotion.type === 'retarget-stream') {
+      const prevStreamingMetadata = prevStreamingMetadataRef.current;
+      if (prevPlayerMotion?.type === 'retarget-stream' &&
+          prevPlayerMotion.robotName === playerMotion.robotName &&
+          prevPlayerMotion.motionFile === playerMotion.motionFile &&
+          prevStreamingMetadata === streamingMetadata &&
+          threeSceneRef.current) {
+        // Nothing changed, skip reload
+        return;
+      }
+    }
+
     const loadPlayer = async () => {
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -222,6 +248,50 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
             nbody: retargetPreviewData.nbody,
             xpos: retargetPreviewData.body_transforms.xpos,
             xquat: retargetPreviewData.body_transforms.xquat,
+          };
+        } else if (playerMotion.type === 'retarget-stream') {
+          // Retarget streaming mode - requires streamingMetadata
+          if (!streamingMetadata) {
+            setLoading(false);
+            return; // No metadata yet, skip loading
+          }
+
+          // Load robot meshes (required for combined human-robot XML)
+          let robotCached = robotDataCache.get(streamingMetadata.robot_name);
+          if (!robotCached) {
+            try {
+              const data = await modelApi.getRobotMJCFWithMeshes(streamingMetadata.robot_name);
+              robotCached = data;
+              robotDataCache.set(streamingMetadata.robot_name, data);
+            } catch (err) {
+              setError('Failed to load robot mesh data');
+              setLoading(false);
+              return;
+            }
+          }
+
+          if (!robotCached) {
+            setError('Failed to load robot mesh data');
+            setLoading(false);
+            return;
+          }
+
+          // Initialize MuJoCo with combined human-robot XML and robot meshes
+          await initMuJoCo(streamingMetadata.xml, undefined, robotCached.meshes || {});
+
+          // Initialize with empty arrays, will be populated as frames arrive
+          const xpos: number[][][] = [];
+          const xquat: number[][][] = [];
+
+          motionData = {
+            robotName: streamingMetadata.robot_name,
+            motionFile: streamingMetadata.output_name,
+            frameNum: streamingMetadata.frame_num,
+            frameRate: streamingMetadata.frame_rate,
+            bodyNames: streamingMetadata.body_names,
+            nbody: streamingMetadata.nbody,
+            xpos,
+            xquat,
           };
         } else if (playerMotion.type === 'robot') {
           // Robot motion playback
@@ -334,12 +404,55 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
         // Update refs after successful load
         prevPlayerMotionRef.current = playerMotion;
         prevRetargetPreviewDataRef.current = retargetPreviewData;
+        prevStreamingMetadataRef.current = streamingMetadata;
         prevShowSkinRef.current = showSkin;
       }
     };
 
     loadPlayer();
-  }, [playerMotion, activePanel, retargetPreviewData, showSkin, onFrameChange, bootScene]);
+  }, [playerMotion, activePanel, retargetPreviewData, streamingMetadata, showSkin, onFrameChange, bootScene]);
+
+  // Handle streaming frames update
+  useEffect(() => {
+    if (activePanel !== 'player' || playerMotion?.type !== 'retarget-stream') return;
+    if (!threeSceneRef.current || !streamingFrames || !streamingMetadata) return;
+
+    // Update player motion data with new frames
+    const xpos: number[][][] = [];
+    const xquat: number[][][] = [];
+
+    // Collect frames in order
+    for (let i = 0; i < streamingMetadata.frame_num; i++) {
+      const frameData = streamingFrames.get(i);
+      if (frameData) {
+        xpos.push(frameData.xpos);
+        xquat.push(frameData.xquat);
+      } else {
+        // Frame not yet received, stop here
+        break;
+      }
+    }
+
+    if (xpos.length > 0 && threeSceneRef.current) {
+      // Update the player motion with new frames
+      threeSceneRef.current.updateStreamingFrames({
+        xpos,
+        xquat,
+        frameNum: streamingMetadata.frame_num,
+        frameRate: streamingMetadata.frame_rate,
+        nbody: streamingMetadata.nbody
+      });
+
+      // If player was paused due to waiting for frames, and we now have more frames, resume
+      if (!threeSceneRef.current.isPlayerRunning() && playing) {
+        const currentFrame = threeSceneRef.current.getPlayerFrame();
+        if (currentFrame < xpos.length - 1) {
+          console.log('Resuming playback, new frames available');
+          threeSceneRef.current.resumePlayer();
+        }
+      }
+    }
+  }, [streamingFrames, streamingMetadata, activePanel, playerMotion, playing]);
 
   // Player mode: control animation based on playing prop
   useEffect(() => {

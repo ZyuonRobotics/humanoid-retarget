@@ -18,7 +18,19 @@ type ThemeType = 'dark' | 'light' | 'ocean' | 'forest' | 'sunset';
 
 const AppContent: React.FC = () => {
   const { t } = useTranslation();
-  const { selectedMotion, uploadMotion, handleRetarget, handleSaveRetarget, retargetPreviewData, setRetargetPreviewData, loading } = useMotionContext();
+  const {
+    selectedMotion,
+    uploadMotion,
+    handleRetarget,
+    handleSaveRetarget,
+    retargetPreviewData,
+    setRetargetPreviewData,
+    loading,
+    streamingMetadata,
+    streamingFrames,
+    isStreaming,
+    streamingProgress
+  } = useMotionContext();
   const { bodyTree, config, setConfig } = useConfigContext();
   const [activePanel, setActivePanel] = useState<string>('retargeter');
   const [theme, setTheme] = useState<ThemeType>(() => {
@@ -30,7 +42,7 @@ const AppContent: React.FC = () => {
 
   // Player mode state
   const [playerMotion, setPlayerMotion] = useState<{
-    type: 'robot' | 'human' | 'retarget-preview';
+    type: 'robot' | 'human' | 'retarget-preview' | 'retarget-stream';
     robotName: string;
     motionFile: string;
     generatorType?: string;
@@ -56,6 +68,27 @@ const AppContent: React.FC = () => {
     window.addEventListener('resize', updateWidth);
     return () => window.removeEventListener('resize', updateWidth);
   }, []);
+
+  // Handle streaming metadata - switch to player mode when first metadata arrives
+  useEffect(() => {
+    if (streamingMetadata && isStreaming) {
+      console.log('Streaming metadata received, switching to player mode', {
+        robot: streamingMetadata.robot_name,
+        frameNum: streamingMetadata.frame_num
+      });
+      // Switch to player mode to show streaming retarget
+      setActivePanel('player');
+      setIsPlaying(false);
+      setRetargetPreviewFrame({ current: 0, total: streamingMetadata.frame_num });
+      setIsRetargetPreviewPlaying(false);
+      // Set player motion to streaming type
+      setPlayerMotion({
+        type: 'retarget-stream',
+        robotName: streamingMetadata.robot_name,
+        motionFile: streamingMetadata.output_name,
+      });
+    }
+  }, [streamingMetadata, isStreaming]);
 
   // Handle retarget preview - when retargetPreviewData exists, switch to player mode
   useEffect(() => {
@@ -84,21 +117,34 @@ const AppContent: React.FC = () => {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  // Handle panel change - clear retarget data when switching to retargeter
+  const handlePanelChange = (panel: string) => {
+    setActivePanel(panel);
+    setIsPlaying(false);
+    setPlaybackFrame({ current: 0, total: 0 });
+
+    // Clear retarget preview/stream data when switching to retargeter
+    if (panel === 'retargeter') {
+      setRetargetPreviewData(null);
+      setPlayerMotion(null);
+    }
+  };
+
+  // Handle close retarget stream - return to normal player
+  const handleCloseRetargetStream = () => {
+    setRetargetPreviewData(null);
+    setPlayerMotion(null);
+    setIsPlaying(false);
+    setPlaybackFrame({ current: 0, total: 0 });
+  };
+
   return (
     <div className="app-container" ref={appContainerRef}>
       {/* Top Bar */}
       <TopBar
         activePanel={activePanel}
         playerMotion={playerMotion}
-        onPanelChange={(panel) => {
-          setActivePanel(panel);
-          setIsPlaying(false);
-          setPlaybackFrame({ current: 0, total: 0 });
-          // Clear retarget preview data when switching panels
-          if (panel !== 'player') {
-            setRetargetPreviewData(null);
-          }
-        }}
+        onPanelChange={handlePanelChange}
         theme={theme}
         onThemeChange={setTheme}
         onPlayerMotionChange={(type, robotName, motionFile, generatorType) => {
@@ -106,6 +152,7 @@ const AppContent: React.FC = () => {
           setPlaybackFrame({ current: 0, total: 0 });
           setPlayerMotion({ type, robotName, motionFile, generatorType });
         }}
+        onCloseRetargetStream={handleCloseRetargetStream}
       />
 
       {/* 3D Background */}
@@ -115,6 +162,8 @@ const AppContent: React.FC = () => {
           activePanel={activePanel}
           playerMotion={playerMotion}
           retargetPreviewData={retargetPreviewData}
+          streamingMetadata={streamingMetadata}
+          streamingFrames={streamingFrames}
           playing={isPlaying}
           onFrameChange={(current, total) => setPlaybackFrame(prev => ({ ...prev, current, total }))}
         />
@@ -213,31 +262,91 @@ const AppContent: React.FC = () => {
           <Space direction="vertical" style={{ width: '100%', alignItems: 'center' }}>
             {playbackFrame.total > 0 && (
               <div style={{ width: 400, display: 'flex', alignItems: 'center', gap: 12 }}>
-                <Slider
-                  min={0}
-                  max={playbackFrame.total - 1}
-                  value={playbackFrame.current}
-                  style={{ flex: 1 }}
-                  tooltip={{ formatter: (v) => `${v} / ${playbackFrame.total - 1}` }}
-                  onChange={(value) => {
-                    // Update local state immediately for responsive UI
-                    setPlaybackFrame(prev => ({ ...prev, current: value }));
-                    // Also seek the ThreeScene player to this frame
-                    const seekHandler = (window as any).__playerSeekHandler;
-                    if (seekHandler) {
-                      seekHandler(value);
-                    }
-                  }}
-                />
+                <div style={{ flex: 1, position: 'relative', height: 24 }}>
+                  {/* Custom progress bar with three states */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: 0,
+                      transform: 'translateY(-50%)',
+                      width: '100%',
+                      height: 4,
+                      background: '#3a3a3a',
+                      borderRadius: 2,
+                      overflow: 'hidden'
+                    }}
+                  >
+                    {/* Loaded frames background (gray) */}
+                    {isStreaming && streamingProgress.total > 0 && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: 0,
+                          top: 0,
+                          height: '100%',
+                          width: `${(streamingProgress.current / streamingProgress.total) * 100}%`,
+                          background: '#6b6b6b',
+                          transition: 'width 0.3s ease'
+                        }}
+                      />
+                    )}
+                    {/* Played frames foreground (white) */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        height: '100%',
+                        width: `${(playbackFrame.current / (playbackFrame.total - 1)) * 100}%`,
+                        background: '#ffffff',
+                        transition: 'width 0.1s linear'
+                      }}
+                    />
+                  </div>
+
+                  {/* Invisible slider for interaction */}
+                  <Slider
+                    min={0}
+                    max={playbackFrame.total - 1}
+                    value={playbackFrame.current}
+                    style={{
+                      position: 'absolute',
+                      width: '100%',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      margin: 0
+                    }}
+                    tooltip={{ formatter: (v) => `${v} / ${playbackFrame.total - 1}` }}
+                    onChange={(value) => {
+                      // Update local state immediately for responsive UI
+                      setPlaybackFrame(prev => ({ ...prev, current: value }));
+                      // Also seek the ThreeScene player to this frame
+                      const seekHandler = (window as any).__playerSeekHandler;
+                      if (seekHandler) {
+                        seekHandler(value);
+                      }
+                    }}
+                    styles={{
+                      track: {
+                        background: 'transparent'
+                      },
+                      tracks: {
+                        background: 'transparent'
+                      }
+                    }}
+                  />
+                </div>
                 <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, whiteSpace: 'nowrap' }}>
                   {playbackFrame.current} / {playbackFrame.total - 1}
+                  {isStreaming && ` (${streamingProgress.current}/${streamingProgress.total})`}
                 </span>
               </div>
             )}
             <Space>
               {/* Play/Pause button - always show in player mode */}
               <Button
-                type={retargetPreviewData ? 'default' : 'primary'}
+                type={retargetPreviewData || streamingMetadata ? 'default' : 'primary'}
                 size="large"
                 icon={isPlaying ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
                 onClick={() => setIsPlaying(v => !v)}
@@ -264,8 +373,8 @@ const AppContent: React.FC = () => {
                 />
               )}
 
-              {/* Save button - only show when in retarget preview mode */}
-              {retargetPreviewData && (
+              {/* Save button - only show when in retarget preview mode or streaming complete */}
+              {(retargetPreviewData || (streamingMetadata && !isStreaming)) && (
                 <Button
                   type="primary"
                   size="large"

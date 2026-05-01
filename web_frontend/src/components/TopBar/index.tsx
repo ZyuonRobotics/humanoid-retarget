@@ -42,7 +42,7 @@ type ThemeType = 'dark' | 'light' | 'ocean' | 'forest' | 'sunset';
 interface TopBarProps {
   activePanel: string;
   playerMotion?: {
-    type: 'robot' | 'human' | 'retarget-preview';
+    type: 'robot' | 'human' | 'retarget-preview' | 'retarget-stream';
     robotName: string;
     motionFile: string;
     generatorType?: string;
@@ -52,6 +52,7 @@ interface TopBarProps {
   theme: ThemeType;
   onThemeChange: (theme: ThemeType) => void;
   onPlayerMotionChange?: (type: 'robot' | 'human', robotName: string, motionFile: string, generatorType?: string) => void;
+  onCloseRetargetStream?: () => void;
 }
 
 const TopBar: React.FC<TopBarProps> = ({
@@ -61,6 +62,7 @@ const TopBar: React.FC<TopBarProps> = ({
   theme,
   onThemeChange,
   onPlayerMotionChange,
+  onCloseRetargetStream,
 }) => {
   const { t, i18n } = useTranslation();
   const {
@@ -657,8 +659,8 @@ const TopBar: React.FC<TopBarProps> = ({
 
           {activePanel === 'player' && (
             <>
-              {/* Only show Robot/Human toggle if not in retarget-preview mode */}
-              {playerMotion?.type !== 'retarget-preview' && (
+              {/* Only show Robot/Human toggle if not in retarget-preview or retarget-stream mode */}
+              {playerMotion?.type !== 'retarget-preview' && playerMotion?.type !== 'retarget-stream' && (
                 <>
                   <div className="topbar-row">
                     <div className="topbar-section">
@@ -682,14 +684,30 @@ const TopBar: React.FC<TopBarProps> = ({
                 </>
               )}
 
-              {/* Show retarget preview info if in retarget-preview mode */}
-              {playerMotion?.type === 'retarget-preview' && (
+              {/* Show retarget preview info if in retarget-preview or retarget-stream mode */}
+              {(playerMotion?.type === 'retarget-preview' || playerMotion?.type === 'retarget-stream') && (
                 <>
                   <div className="topbar-row">
                     <div className="topbar-section">
                       <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14 }}>
-                        {t('player.retargetPreview') || 'Retarget Preview'}: {playerMotion.robotName}
+                        {playerMotion.type === 'retarget-stream'
+                          ? (t('player.retargetStreaming') || 'Retarget Streaming')
+                          : (t('player.retargetPreview') || 'Retarget Preview')
+                        }: {playerMotion.robotName}
                       </span>
+                    </div>
+                    <div className="topbar-section">
+                      <Button
+                        type="text"
+                        icon={<CloseOutlined />}
+                        onClick={() => {
+                          if (onCloseRetargetStream) {
+                            onCloseRetargetStream();
+                          }
+                        }}
+                        style={{ color: 'rgba(255,255,255,0.7)' }}
+                        title={t('player.closeRetargetMode') || 'Close Retarget Mode'}
+                      />
                     </div>
                   </div>
 
@@ -697,8 +715,8 @@ const TopBar: React.FC<TopBarProps> = ({
                 </>
               )}
 
-              {/* Row 3: Player motion selectors - only show if not in retarget-preview mode */}
-              {playerMotion?.type !== 'retarget-preview' && (
+              {/* Row 3: Player motion selectors - only show if not in retarget-preview or retarget-stream mode */}
+              {playerMotion?.type !== 'retarget-preview' && playerMotion?.type !== 'retarget-stream' && (
                 <div className="topbar-row">
                   {playerMotionType === 'robot' ? (
                   <>

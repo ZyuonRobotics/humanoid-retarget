@@ -872,7 +872,19 @@ export class ThreeScene {
         const frameRate = this.playerMotionUpdate.frameRate || 30;
         const frameAdvance = Math.floor(elapsed * frameRate);
         if (frameAdvance > 0) {
-          this.playerCurrentFrame = (this.playerCurrentFrame + frameAdvance) % this.playerMotionUpdate.frameNum;
+          const nextFrame = this.playerCurrentFrame + frameAdvance;
+          const maxLoadedFrame = this.playerMotionUpdate.xpos.length - 1;
+
+          // In streaming mode, pause if we reach unloaded frames
+          if (nextFrame > maxLoadedFrame) {
+            // Pause at the last loaded frame
+            this.playerCurrentFrame = maxLoadedFrame;
+            this.stop(); // Pause playback until more frames arrive
+            console.log('ThreeScene: paused at frame', maxLoadedFrame, 'waiting for more frames');
+          } else {
+            this.playerCurrentFrame = nextFrame % this.playerMotionUpdate.frameNum;
+          }
+
           this.playerLastTime = currentTime;
           // Notify frame change
           if (this.playerFrameCallback) {
@@ -983,6 +995,30 @@ export class ThreeScene {
   }
 
   /**
+   * Update streaming frames (for retarget-stream mode)
+   */
+  public updateStreamingFrames(update: PlayerMotionUpdate): void {
+    console.log('ThreeScene: updateStreamingFrames called', {
+      currentFrames: update.xpos.length,
+      totalFrames: update.frameNum
+    });
+
+    if (!this.playerMotionUpdate) {
+      // First update, initialize player motion
+      this.playerMotionUpdate = update;
+      this.playerCurrentFrame = 0;
+      this.playerLastTime = 0;
+    } else {
+      // Update existing player motion with new frames
+      this.playerMotionUpdate.xpos = update.xpos;
+      this.playerMotionUpdate.xquat = update.xquat;
+    }
+
+    // Redraw to show latest frame
+    this.redraw();
+  }
+
+  /**
    * Set current frame for player motion playback
    */
   public setPlayerFrame(frame: number): void {
@@ -1035,6 +1071,12 @@ export class ThreeScene {
 
     const frameIdx = this.playerCurrentFrame;
     const { xpos, xquat, nbody } = this.playerMotionUpdate;
+
+    // Check if frame data is available (for streaming mode)
+    if (frameIdx >= xpos.length || frameIdx >= xquat.length) {
+      console.warn('ThreeScene: frame', frameIdx, 'not yet loaded');
+      return;
+    }
 
     for (let b = 0; b < nbody; b++) {
       const bodyGroup = this.bodies.get(b);

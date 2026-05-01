@@ -11,6 +11,7 @@ from typing import Optional
 
 import numpy as np
 from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi.responses import StreamingResponse
 
 from humanoid_retargeting import DATA_PATH, RETARGETING_PATH, GENERATOR_TYPE_TO_DATA_PATH, PLAYER_FILE_SUFFIXES
 from humanoid_retargeting.mjcf_generator import generator_class
@@ -165,6 +166,89 @@ async def retarget_preview(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/retarget-stream")
+async def retarget_stream(
+    motion_file: str,
+    robot_name: str,
+    generator_type: str,
+    config_name: str,
+    output_name: Optional[str] = None
+):
+    """Stream retarget results frame by frame using SSE."""
+    from humanoid_retargeting.retargeter import Retargeter
+
+    motion_path = Path(DATA_PATH) / motion_file
+    if not motion_path.exists():
+        raise HTTPException(status_code=404, detail="Motion file not found")
+
+    if output_name is None:
+        output_name = motion_path.stem + "_" + robot_name
+
+    async def event_generator():
+        try:
+            retargeter = Retargeter(
+                source_file_path=str(motion_path),
+                robot_name=robot_name,
+                generator_type=generator_type,
+                config_name=config_name,
+                view=False
+            )
+
+            # Send initial metadata
+            metadata = {
+                "type": "metadata",
+                "output_name": output_name,
+                "robot_name": robot_name,
+                "frame_num": retargeter.frame_num,
+                "frame_rate": retargeter.frame_rate,
+                "body_names": list(retargeter.generator.all_body_names),
+                "nbody": retargeter.model.nbody,
+                "xml": retargeter.generator.xml_str
+            }
+            yield f"data: {json.dumps(metadata)}\n\n"
+
+            # Store retargeter for later save
+            global _pending_retarget
+            _pending_retarget = {
+                "output_name": output_name,
+                "robot_name": robot_name,
+                "retargeter": retargeter
+            }
+
+            # Stream frame data
+            for frame_data in retargeter.run_ik(progress_bar=False, streaming=True):
+                frame_event = {
+                    "type": "frame",
+                    "frame_id": frame_data["frame_id"],
+                    "xpos": frame_data["xpos"],
+                    "xquat": frame_data["xquat"]
+                }
+                yield f"data: {json.dumps(frame_event)}\n\n"
+
+            # Send completion event
+            completion = {"type": "complete", "status": "success"}
+            yield f"data: {json.dumps(completion)}\n\n"
+
+        except HumanConfigNotFoundError as e:
+            error = {"type": "error", "detail": str(e)}
+            yield f"data: {json.dumps(error)}\n\n"
+        except Exception as e:
+            logger.error(f"Streaming retarget failed: {e}", exc_info=True)
+            error = {"type": "error", "detail": str(e)}
+            yield f"data: {json.dumps(error)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
 
 
 # Module-level storage for pending retarget data

@@ -156,12 +156,15 @@ class Retargeter:
                 self.frame_tasks.append(task)
 
 
-    def run_ik(self, progress_bar=True):
+    def run_ik(self, progress_bar=True, streaming=False):
         assert self.posture_task is not None and self.frame_tasks is not None
         #self.player.load(source_file_path=self.source_file_path)
-        
+
         self.player.apply_adjustments()
-        
+
+        # Offset for human model to avoid overlap with robot
+        human_offset = np.array([0.0, 1.0, 0.0])
+
         for frame_idx in tqdm(range(self.frame_num), disable=not progress_bar):
             self.player.sync_data(frame_idx)
 
@@ -193,6 +196,21 @@ class Retargeter:
 
             if self.view:
                 self.viewer.sync()
+
+            # Streaming mode: yield frame data after each frame computation
+            if streaming:
+                # Compute body transforms for this frame with human offset
+                self.data.qpos[:self.player.model.nq] = self.player.ref_qpos[frame_idx, :]
+                self.data.qpos[:2] += human_offset[:2]
+                self.data.qpos[self.player.model.nq:] = self.robot_ref_qpos[frame_idx, :]
+                self.data.qvel[:] = 0
+                mujoco.mj_forward(self.model, self.data)
+
+                yield {
+                    'frame_id': frame_idx,
+                    'xpos': self.data.xpos.copy().tolist(),
+                    'xquat': self.data.xquat.copy().tolist()
+                }
 
     def view_frame(self, frame_id=0, offset=None):
         offset = np.array(offset) if offset is not None else np.zeros(3)

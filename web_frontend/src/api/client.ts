@@ -129,6 +129,56 @@ export const modelApi = {
       params: { motion_file: motionFile, robot_name: robotName, generator_type: generatorType, config_name: configName, output_name: outputName }
     }).then(res => res.data),
 
+  retargetStream: (
+    motionFile: string,
+    robotName: string,
+    generatorType: string,
+    configName: string,
+    onMetadata: (metadata: any) => void,
+    onFrame: (frameData: any) => void,
+    onComplete: () => void,
+    onError: (error: string) => void,
+    outputName?: string
+  ) => {
+    const params = new URLSearchParams({
+      motion_file: motionFile,
+      robot_name: robotName,
+      generator_type: generatorType,
+      config_name: configName,
+      ...(outputName && { output_name: outputName })
+    });
+
+    const eventSource = new EventSource(`${API_BASE}/model/retarget-stream?${params.toString()}`);
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        if (data.type === 'metadata') {
+          onMetadata(data);
+        } else if (data.type === 'frame') {
+          onFrame(data);
+        } else if (data.type === 'complete') {
+          onComplete();
+          eventSource.close();
+        } else if (data.type === 'error') {
+          onError(data.detail || 'Unknown error');
+          eventSource.close();
+        }
+      } catch (err) {
+        console.error('Failed to parse SSE data:', err);
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.error('SSE connection error:', err);
+      onError('Connection error');
+      eventSource.close();
+    };
+
+    return eventSource;
+  },
+
   saveRetarget: () =>
     client.post('/model/save-retarget').then(res => res.data),
 
