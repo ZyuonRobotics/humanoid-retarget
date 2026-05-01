@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useConfigContext } from '../../contexts/ConfigContext';
+import { usePerformanceContext } from '../../contexts/PerformanceContext';
 import { modelApi, RetargetPreviewResponse } from '../../api/client';
 import {
   initMuJoCo,
@@ -53,6 +54,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
   onFrameChange
 }) => {
   const { selectedRobot, config, generatorType } = useConfigContext();
+  const { settings: performanceSettings } = usePerformanceContext();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const threeSceneRef = useRef<any>(null);
@@ -92,8 +94,8 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
       return false;
     }
     if (!threeSceneRef.current) {
-      console.log('bootScene: creating new ThreeScene');
-      threeSceneRef.current = initThreeScene(canvas);
+      console.log('bootScene: creating new ThreeScene with performance settings', performanceSettings);
+      threeSceneRef.current = initThreeScene(canvas, performanceSettings);
       if (!threeSceneRef.current) {
         console.error('bootScene: failed to create ThreeScene');
         return false;
@@ -353,11 +355,12 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
           hasMujocoModule: !!mujocoModule,
           hasCurrentModel: !!currentModel,
           hasCurrentData: !!currentData,
-          motionDataFrameNum: motionData?.frameNum
+          motionDataFrameNum: motionData?.frameNum,
+          performanceSettings
         });
 
         // initThreeScene will automatically call createScene if model is loaded
-        threeSceneRef.current = initThreeScene(canvas);
+        threeSceneRef.current = initThreeScene(canvas, performanceSettings);
         if (threeSceneRef.current) {
           console.log('Player mode: ThreeScene created, setting player motion');
 
@@ -410,7 +413,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
     };
 
     loadPlayer();
-  }, [playerMotion, activePanel, retargetPreviewData, streamingMetadata, showSkin, onFrameChange, bootScene]);
+  }, [playerMotion, activePanel, retargetPreviewData, streamingMetadata, showSkin, onFrameChange, bootScene, performanceSettings]);
 
   // Handle streaming frames update
   useEffect(() => {
@@ -770,6 +773,22 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
     const bodyId = Math.floor(Math.random() * alignData.bodyNames.length); // Placeholder
     highlightBody(bodyId, [1, 0.5, 0]); // Orange highlight
   }, [alignData]);
+
+  // Cleanup on unmount - ensure all resources are properly disposed
+  useEffect(() => {
+    return () => {
+      console.log('Viewer3D: unmounting, cleaning up resources');
+      // Cancel any pending requests
+      abortControllerRef.current?.abort();
+      // Dispose Three.js scene
+      if (threeSceneRef.current) {
+        threeSceneRef.current.dispose();
+        threeSceneRef.current = null;
+      }
+      // Dispose MuJoCo resources
+      dispose();
+    };
+  }, []);
 
   return (
     <div

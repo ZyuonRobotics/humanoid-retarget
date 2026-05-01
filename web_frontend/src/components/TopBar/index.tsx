@@ -17,10 +17,12 @@ import {
   UploadOutlined,
   ToolOutlined,
   ScissorOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useConfigContext } from '../../contexts/ConfigContext';
 import { useMotionContext } from '../../contexts/MotionContext';
+import { usePerformanceContext } from '../../contexts/PerformanceContext';
 import { modelApi, MotionTreeNode, MotionFileInfo, HumanConfig } from '../../api/client';
 import JointAdjustmentWidget from '../Widgets/JointAdjustmentWidget';
 import './FileSelector.css';
@@ -83,6 +85,7 @@ const TopBar: React.FC<TopBarProps> = ({
     saving,
   } = useConfigContext();
   const { setSelectedMotion } = useMotionContext();
+  const { settings: performanceSettings, setLowPerformanceMode } = usePerformanceContext();
   const [isCreatingConfig, setIsCreatingConfig] = useState(false);
   const [newConfigName, setNewConfigName] = useState('');
 
@@ -406,6 +409,24 @@ const TopBar: React.FC<TopBarProps> = ({
           <Dropdown menu={languageMenu} trigger={['click']}>
             <Button type="text" icon={<GlobalOutlined />} />
           </Dropdown>
+          <Button
+            type={performanceSettings.lowPerformanceMode ? 'text' : 'primary'}
+            icon={<ThunderboltOutlined />}
+            onClick={() => {
+              const newMode = !performanceSettings.lowPerformanceMode;
+              setLowPerformanceMode(newMode);
+              message.success(
+                newMode
+                  ? t('performance.lowModeEnabled') || 'Low quality mode enabled (VRAM ~500MB)'
+                  : t('performance.normalModeEnabled') || 'High quality mode enabled (VRAM ~2GB)'
+              );
+              // Force page reload to apply settings
+              setTimeout(() => window.location.reload(), 500);
+            }}
+            title={performanceSettings.lowPerformanceMode ? t('performance.lowMode') || 'Low Quality' : t('performance.normalMode') || 'High Quality'}
+          >
+            {performanceSettings.lowPerformanceMode ? t('performance.lowMode') || 'Low Quality' : t('performance.normalMode') || 'High Quality'}
+          </Button>
         </div>
       </div>
 

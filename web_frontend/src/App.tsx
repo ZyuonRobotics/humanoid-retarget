@@ -13,6 +13,7 @@ import BodyTreeWidget from './components/Widgets/BodyTreeWidget';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ConfigProvider, useConfigContext } from './contexts/ConfigContext';
 import { MotionProvider, useMotionContext } from './contexts/MotionContext';
+import { PerformanceProvider } from './contexts/PerformanceContext';
 
 type ThemeType = 'dark' | 'light' | 'ocean' | 'forest' | 'sunset';
 
@@ -395,11 +396,13 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <ConfigProvider>
-      <MotionProvider>
-        <AppContent />
-      </MotionProvider>
-    </ConfigProvider>
+    <PerformanceProvider>
+      <ConfigProvider>
+        <MotionProvider>
+          <AppContent />
+        </MotionProvider>
+      </ConfigProvider>
+    </PerformanceProvider>
   );
 };
 

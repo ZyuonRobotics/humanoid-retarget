@@ -174,5 +174,11 @@
     "files": "个文件",
     "emptyFolder": "此文件夹为空",
     "noFiles": "未找到动作文件"
+  },
+  "performance": {
+    "lowMode": "低画质",
+    "normalMode": "高画质",
+    "lowModeEnabled": "已启用低画质模式（显存约500MB）。页面将重新加载。",
+    "normalModeEnabled": "已启用高画质模式（显存约2GB）。页面将重新加载。"
   }
 }

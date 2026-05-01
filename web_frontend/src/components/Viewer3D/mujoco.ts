@@ -516,15 +516,15 @@ export function highlightBody(bodyId: number, color?: [number, number, number]):
 /**
  * Initialize Three.js scene for rendering
  */
-export function initThreeScene(canvas: HTMLCanvasElement): ThreeScene | null {
+export function initThreeScene(canvas: HTMLCanvasElement, performanceSettings?: any): ThreeScene | null {
   try {
     // Dispose old scene if exists
     if (currentScene) {
       currentScene.dispose();
     }
 
-    // Create new ThreeScene
-    currentScene = new ThreeScene(canvas);
+    // Create new ThreeScene with performance settings
+    currentScene = new ThreeScene(canvas, performanceSettings);
 
     // If model is already loaded, create scene
     if (mujocoModule && currentModel && currentData) {

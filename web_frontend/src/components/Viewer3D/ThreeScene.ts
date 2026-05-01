@@ -21,12 +21,20 @@ export interface PlayerMotionUpdate {
 
 export type PlayerFrameCallback = (frame: number) => void;
 
+export interface PerformanceSettings {
+  geometryDetail: number;
+  shadowMapSize: number;
+  maxPixelRatio: number;
+  antialiasing: boolean;
+}
+
 export class ThreeScene {
   private canvas: HTMLCanvasElement;
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
   private renderer: THREE.WebGLRenderer;
   private controls: OrbitControls;
+  private performanceSettings: PerformanceSettings;
 
   // MuJoCo data
   private model: MuJoCoModel | null = null;
@@ -73,9 +81,17 @@ export class ThreeScene {
   // Track visibility state for human model (needed for skin toggle)
   private humanVisible = true;
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, performanceSettings?: PerformanceSettings) {
     console.log(`ThreeScene[${this.instanceId}]: constructor called`);
     this.canvas = canvas;
+
+    // Use provided settings or defaults
+    this.performanceSettings = performanceSettings || {
+      geometryDetail: 32,
+      shadowMapSize: 2048,
+      maxPixelRatio: Infinity,
+      antialiasing: true,
+    };
 
     // Create scene
     this.scene = new THREE.Scene();
@@ -99,10 +115,11 @@ export class ThreeScene {
     // Create renderer
     this.renderer = new THREE.WebGLRenderer({
       canvas: canvas,
-      antialias: true
+      antialias: this.performanceSettings.antialiasing
     });
     this.renderer.setSize(width, height);
-    this.renderer.setPixelRatio(window.devicePixelRatio);
+    const pixelRatio = Math.min(window.devicePixelRatio, this.performanceSettings.maxPixelRatio);
+    this.renderer.setPixelRatio(pixelRatio);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -206,8 +223,8 @@ export class ThreeScene {
     this.directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     this.directionalLight.position.set(5, 10, 5);
     this.directionalLight.castShadow = true;
-    this.directionalLight.shadow.mapSize.width = 2048;
-    this.directionalLight.shadow.mapSize.height = 2048;
+    this.directionalLight.shadow.mapSize.width = this.performanceSettings.shadowMapSize;
+    this.directionalLight.shadow.mapSize.height = this.performanceSettings.shadowMapSize;
     this.directionalLight.shadow.camera.near = 0.5;
     this.directionalLight.shadow.camera.far = 50;
     this.directionalLight.shadow.camera.left = -10;
@@ -252,7 +269,8 @@ export class ThreeScene {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, true);
-    this.renderer.setPixelRatio(window.devicePixelRatio);
+    const pixelRatio = Math.min(window.devicePixelRatio, this.performanceSettings.maxPixelRatio);
+    this.renderer.setPixelRatio(pixelRatio);
 
     this.render();
   }
@@ -353,21 +371,23 @@ export class ThreeScene {
 
       // Create geometry
       let geometry: THREE.BufferGeometry;
+      const detail = this.performanceSettings.geometryDetail;
+      const detailLow = Math.max(8, Math.floor(detail / 2));
 
       if (geomType === mujoco.mjtGeom.mjGEOM_SPHERE.value) {
-        geometry = new THREE.SphereGeometry(size[0], 32, 32);
+        geometry = new THREE.SphereGeometry(size[0], detail, detail);
       } else if (geomType === mujoco.mjtGeom.mjGEOM_CAPSULE.value) {
-        geometry = new THREE.CapsuleGeometry(size[0], size[1] * 2.0, 20, 20);
+        geometry = new THREE.CapsuleGeometry(size[0], size[1] * 2.0, detailLow, detailLow);
       } else if (geomType === mujoco.mjtGeom.mjGEOM_CYLINDER.value) {
-        geometry = new THREE.CylinderGeometry(size[0], size[0], size[1] * 2.0, 32);
+        geometry = new THREE.CylinderGeometry(size[0], size[0], size[1] * 2.0, detail);
       } else if (geomType === mujoco.mjtGeom.mjGEOM_BOX.value) {
         geometry = new THREE.BoxGeometry(size[0] * 2.0, size[2] * 2.0, size[1] * 2.0);
       } else if (geomType === mujoco.mjtGeom.mjGEOM_ELLIPSOID.value) {
-        geometry = new THREE.SphereGeometry(1, 32, 32);
+        geometry = new THREE.SphereGeometry(1, detail, detail);
       } else if (geomType === mujoco.mjtGeom.mjGEOM_MESH.value) {
         geometry = this.createMeshGeometry(model, model.geom_dataid[g]);
       } else {
-        geometry = new THREE.SphereGeometry(size[0] || 0.1, 16, 16);
+        geometry = new THREE.SphereGeometry(size[0] || 0.1, Math.max(8, Math.floor(detail / 2)), Math.max(8, Math.floor(detail / 2)));
       }
 
       // Create material from rgba

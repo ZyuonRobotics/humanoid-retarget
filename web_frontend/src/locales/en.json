@@ -174,5 +174,11 @@
     "files": "files",
     "emptyFolder": "This folder is empty",
     "noFiles": "No motion files found"
+  },
+  "performance": {
+    "lowMode": "Low Quality",
+    "normalMode": "High Quality",
+    "lowModeEnabled": "Low quality mode enabled (VRAM ~500MB). Page will reload.",
+    "normalModeEnabled": "High quality mode enabled (VRAM ~2GB). Page will reload."
   }
 }
