@@ -115,7 +115,7 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
     } catch (error) {
       console.error('Failed to load body tree', error);
       if (currentRequestId === bodyTreeRequestIdRef.current) {
-        setBodyTree({ human: { error: 'Failed to load body tree' } });
+        setBodyTree({ human: { error: t('configPanel.failedToLoadBodyTree') } });
       }
     }
   }, [selectedRobot, generatorType]);

@@ -78,7 +78,7 @@ export const MotionProvider: React.FC<MotionProviderProps> = ({ children }) => {
           console.log('Received metadata:', metadata);
           setStreamingMetadata(metadata);
           setStreamingProgress({ current: 0, total: metadata.frame_num });
-          message.success(t('message.retargetStarted') || 'Retarget started, streaming frames...');
+          message.success(t('message.retargetStarted'));
         },
         // onFrame
         (frameData) => {
@@ -95,7 +95,7 @@ export const MotionProvider: React.FC<MotionProviderProps> = ({ children }) => {
           console.log('Streaming complete');
           setIsStreaming(false);
           setLoading(false);
-          message.success(t('message.retargetComplete') || 'Retarget completed successfully');
+          message.success(t('message.retargetComplete'));
         },
         // onError
         (error) => {
@@ -120,7 +120,7 @@ export const MotionProvider: React.FC<MotionProviderProps> = ({ children }) => {
 
   const handleSaveRetarget = useCallback(async () => {
     if (!retargetPreviewData && !streamingMetadata) {
-      message.warning('No retarget preview to save');
+      message.warning(t('message.noRetargetPreview'));
       return;
     }
     setLoading(true);

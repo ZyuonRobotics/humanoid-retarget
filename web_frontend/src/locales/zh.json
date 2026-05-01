@@ -59,7 +59,8 @@
     "loadHumanConfigFailed": "加载人体配置失败",
     "saveHumanConfigSuccess": "人体配置保存成功",
     "saveHumanConfigFailed": "人体配置保存失败",
-    "humanConfigRequired": "{{filename}}需要在播放器->人体动作->人体设置中设置人体配置"
+    "humanConfigRequired": "{{filename}}需要在播放器->人体动作->人体设置中设置人体配置",
+    "humanConfigIncomplete": "{{filename}}的人体配置不完整。请在播放器->人体动作->人体设置中设置hip_names、hip_offset、foot_names、foot_offset"
   },
   "robot": {
     "label": "机器人",
@@ -74,13 +75,20 @@
     "failedToLoadRobots": "加载机器人失败",
     "failedToLoadConfigs": "加载配置失败",
     "pleaseSelectRobotAndConfig": "请选择机器人和配置",
+    "pleaseSelectMotion": "请先选择动作文件",
+    "uploadSuccess": "上传成功",
+    "uploadFailed": "上传失败",
     "retargetStarted": "重定向开始",
-    "retargetFailed": "重定向失败"
+    "retargetComplete": "重定向完成",
+    "retargetSuccess": "重定向保存成功",
+    "retargetFailed": "重定向失败",
+    "noRetargetPreview": "没有可保存的重定向预览"
   },
   "configPanel": {
     "title": "配置: {{configName}}",
     "save": "保存",
     "delete": "删除",
+    "failedToLoadBodyTree": "加载身体树失败",
     "tabs": {
       "robotSettings": "机器人设置",
       "humanSettings": "人体参数",
@@ -165,7 +173,11 @@
   "common": {
     "ok": "确定",
     "cancel": "取消",
-    "confirm": "确认"
+    "confirm": "确认",
+    "error": "错误",
+    "somethingWentWrong": "出错了",
+    "tryAgain": "重试",
+    "autoCalculated": "自动计算"
   },
   "fileBrowser": {
     "title": "动作文件",
@@ -180,5 +192,16 @@
     "normalMode": "高画质",
     "lowModeEnabled": "已启用低画质模式（显存约500MB）。页面将重新加载。",
     "normalModeEnabled": "已启用高画质模式（显存约2GB）。页面将重新加载。"
+  },
+  "viewer": {
+    "robot": "机器人",
+    "human": "人体",
+    "skin": "皮肤",
+    "loading": "加载3D预览中..."
+  },
+  "error": {
+    "unknownError": "未知错误",
+    "connectionError": "连接错误",
+    "parseError": "解析数据失败"
   }
 }

@@ -59,7 +59,8 @@
     "loadHumanConfigFailed": "Failed to load HumanConfig",
     "saveHumanConfigSuccess": "HumanConfig saved successfully",
     "saveHumanConfigFailed": "Failed to save HumanConfig",
-    "humanConfigRequired": "{{filename}} needs human config in Player->Human Motion->Human Settings"
+    "humanConfigRequired": "{{filename}} needs human config in Player->Human Motion->Human Settings",
+    "humanConfigIncomplete": "{{filename}} human config is incomplete. Please set hip_names, hip_offset, foot_names, foot_offset in Player->Human Motion->Human Settings"
   },
   "robot": {
     "label": "Robot",
@@ -74,13 +75,20 @@
     "failedToLoadRobots": "Failed to load robots",
     "failedToLoadConfigs": "Failed to load configs",
     "pleaseSelectRobotAndConfig": "Please select robot and config",
+    "pleaseSelectMotion": "Please select a motion file first",
+    "uploadSuccess": "Upload successful",
+    "uploadFailed": "Upload failed",
     "retargetStarted": "Retarget started",
-    "retargetFailed": "Retarget failed"
+    "retargetComplete": "Retarget completed successfully",
+    "retargetSuccess": "Retarget saved successfully",
+    "retargetFailed": "Retarget failed",
+    "noRetargetPreview": "No retarget preview to save"
   },
   "configPanel": {
     "title": "Configuration: {{configName}}",
     "save": "Save",
     "delete": "Delete",
+    "failedToLoadBodyTree": "Failed to load body tree",
     "tabs": {
       "robotSettings": "Robot Settings",
       "humanSettings": "Human Settings",
@@ -165,7 +173,11 @@
   "common": {
     "ok": "OK",
     "cancel": "Cancel",
-    "confirm": "Confirm"
+    "confirm": "Confirm",
+    "error": "Error",
+    "somethingWentWrong": "Something went wrong",
+    "tryAgain": "Try Again",
+    "autoCalculated": "Auto calculated"
   },
   "fileBrowser": {
     "title": "Motion Files",
@@ -180,5 +192,16 @@
     "normalMode": "High Quality",
     "lowModeEnabled": "Low quality mode enabled (VRAM ~500MB). Page will reload.",
     "normalModeEnabled": "High quality mode enabled (VRAM ~2GB). Page will reload."
+  },
+  "viewer": {
+    "robot": "Robot",
+    "human": "Human",
+    "skin": "Skin",
+    "loading": "Loading 3D Preview..."
+  },
+  "error": {
+    "unknownError": "Unknown error",
+    "connectionError": "Connection error",
+    "parseError": "Failed to parse data"
   }
 }

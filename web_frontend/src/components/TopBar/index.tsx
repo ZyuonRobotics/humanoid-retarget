@@ -990,7 +990,7 @@ const TopBar: React.FC<TopBarProps> = ({
           } as HumanConfig)}
         >
           <Form.Item label={t('player.heightAdjustment')} name="height_adjustment">
-            <InputNumber style={{ width: '100%' }} placeholder="Auto calculated" />
+            <InputNumber style={{ width: '100%' }} placeholder={t('common.autoCalculated')} />
           </Form.Item>
 
           <Form.Item label={t('player.hipNames')}>

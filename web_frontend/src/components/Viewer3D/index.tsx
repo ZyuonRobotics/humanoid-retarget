@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useConfigContext } from '../../contexts/ConfigContext';
 import { usePerformanceContext } from '../../contexts/PerformanceContext';
 import { modelApi, RetargetPreviewResponse } from '../../api/client';
@@ -53,6 +54,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
   playing = false,
   onFrameChange
 }) => {
+  const { t } = useTranslation();
   const { selectedRobot, config, generatorType } = useConfigContext();
   const { settings: performanceSettings } = usePerformanceContext();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -64,6 +66,26 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [playerModelLoaded, setPlayerModelLoaded] = useState(false);
+
+  // Helper function to translate backend error messages
+  const translateError = useCallback((errorMessage: string): string => {
+    // Check for "needs human config" pattern
+    const humanConfigMatch = errorMessage.match(/(.+?)\s+needs human config in Player->Human Motion->Human Settings/);
+    if (humanConfigMatch) {
+      const filename = humanConfigMatch[1];
+      return t('player.humanConfigRequired', { filename });
+    }
+
+    // Check for "human config is incomplete" pattern
+    const incompleteConfigMatch = errorMessage.match(/(.+?)\s+human config is incomplete/);
+    if (incompleteConfigMatch) {
+      const filename = incompleteConfigMatch[1];
+      return t('player.humanConfigIncomplete', { filename });
+    }
+
+    // Return original message if no pattern matches
+    return errorMessage;
+  }, [t]);
 
   // Independent visibility toggles. When both are false nothing is shown;
   // when both are true the combined human+robot preview is shown.
@@ -400,7 +422,8 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
           console.error('Player mode: failed to create ThreeScene');
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load player motion');
+        const errorMsg = err instanceof Error ? err.message : 'Failed to load player motion';
+        setError(translateError(errorMsg));
         setPlayerModelLoaded(false);
       } finally {
         setLoading(false);
@@ -676,7 +699,8 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
       }
     } catch (err) {
       if (abortController.signal.aborted) return;
-      setError(err instanceof Error ? err.message : 'Failed to load preview');
+      const errorMsg = err instanceof Error ? err.message : 'Failed to load preview';
+      setError(translateError(errorMsg));
       setAlignData(null);
       setHasModel(false);
     } finally {
@@ -883,7 +907,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
             }}
           >
             <div style={{ fontSize: 24 }}>⟳</div>
-            <div>Loading 3D Preview...</div>
+            <div>{t('viewer.loading')}</div>
           </div>
         ) : error ? (
           <div
@@ -981,7 +1005,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
               opacity: canShowRobot ? 1 : 0.5,
               transition: 'all 0.2s ease'
             }}
-            title="机器人"
+            title={t('viewer.robot')}
           >
             🤖
           </button>
@@ -1005,7 +1029,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
               opacity: canShowHuman ? 1 : 0.5,
               transition: 'all 0.2s ease'
             }}
-            title="人体"
+            title={t('viewer.human')}
           >
             🧍
           </button>
@@ -1034,7 +1058,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
                 opacity: showHuman ? 1 : 0.5,
                 transition: 'all 0.2s ease'
               }}
-              title="皮肤"
+              title={t('viewer.skin')}
             >
               👤
             </button>
@@ -1077,7 +1101,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
               fontSize: 16,
               transition: 'all 0.2s ease'
             }}
-            title="皮肤"
+            title={t('viewer.skin')}
           >
             👤
           </button>

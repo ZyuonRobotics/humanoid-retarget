@@ -1,7 +1,8 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
 import { Button, Result } from 'antd';
+import { withTranslation, WithTranslation } from 'react-i18next';
 
-interface Props {
+interface Props extends WithTranslation {
   children: ReactNode;
   fallback?: ReactNode;
 }
@@ -27,16 +28,17 @@ class ErrorBoundary extends Component<Props, State> {
   };
 
   render() {
+    const { t } = this.props;
     if (this.state.hasError) {
       return (
         this.props.fallback || (
           <Result
             status="error"
-            title="Something went wrong"
+            title={t('common.somethingWentWrong')}
             subTitle={this.state.error?.message}
             extra={
               <Button type="primary" onClick={this.handleReset}>
-                Try Again
+                {t('common.tryAgain')}
               </Button>
             }
           />
@@ -48,4 +50,4 @@ class ErrorBoundary extends Component<Props, State> {
   }
 }
 
-export default ErrorBoundary;
+export default withTranslation()(ErrorBoundary);
