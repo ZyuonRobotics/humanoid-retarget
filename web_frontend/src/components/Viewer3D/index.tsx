@@ -154,6 +154,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
     setAlignData(null);
     setPlayerModelLoaded(false);
     setHasModel(false);
+    lastProcessedFrameCountRef.current = 0; // Reset frame counter
     dispose();
   }, [activePanel]);
 
@@ -222,6 +223,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
 
       setLoading(true);
       setError(null);
+      lastProcessedFrameCountRef.current = 0; // Reset frame counter for new motion
 
       try {
         // Clear previous scene and model state BEFORE loading new data
@@ -438,24 +440,43 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
     loadPlayer();
   }, [playerMotion, activePanel, retargetPreviewData, streamingMetadata, showSkin, onFrameChange, bootScene, performanceSettings]);
 
-  // Handle streaming frames update
+  // Handle streaming frames update - use ref to track last processed frame count
+  const lastProcessedFrameCountRef = useRef(0);
+
   useEffect(() => {
     if (activePanel !== 'player' || playerMotion?.type !== 'retarget-stream') return;
     if (!threeSceneRef.current || !streamingFrames || !streamingMetadata) return;
 
-    // Update player motion data with new frames
+    // Count available frames
+    let availableFrameCount = 0;
+    for (let i = 0; i < streamingMetadata.frame_num; i++) {
+      if (streamingFrames.has(i)) {
+        availableFrameCount = i + 1;
+      } else {
+        break;
+      }
+    }
+
+    // Only update if we have new frames
+    if (availableFrameCount <= lastProcessedFrameCountRef.current) {
+      return;
+    }
+
+    console.log('Viewer3D: processing new frames', {
+      lastProcessed: lastProcessedFrameCountRef.current,
+      available: availableFrameCount,
+      total: streamingMetadata.frame_num
+    });
+
+    // Build frame arrays incrementally
     const xpos: number[][][] = [];
     const xquat: number[][][] = [];
 
-    // Collect frames in order
-    for (let i = 0; i < streamingMetadata.frame_num; i++) {
+    for (let i = 0; i < availableFrameCount; i++) {
       const frameData = streamingFrames.get(i);
       if (frameData) {
         xpos.push(frameData.xpos);
         xquat.push(frameData.xquat);
-      } else {
-        // Frame not yet received, stop here
-        break;
       }
     }
 
@@ -468,6 +489,8 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
         frameRate: streamingMetadata.frame_rate,
         nbody: streamingMetadata.nbody
       });
+
+      lastProcessedFrameCountRef.current = availableFrameCount;
 
       // If player was paused due to waiting for frames, and we now have more frames, resume
       if (!threeSceneRef.current.isPlayerRunning() && playing) {

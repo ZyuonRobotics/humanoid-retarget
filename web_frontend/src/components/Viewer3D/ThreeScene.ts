@@ -1016,10 +1016,13 @@ export class ThreeScene {
 
   /**
    * Update streaming frames (for retarget-stream mode)
+   * Incrementally adds new frames without rebuilding the entire array
    */
   public updateStreamingFrames(update: PlayerMotionUpdate): void {
+    const newFrameCount = update.xpos.length;
     console.log('ThreeScene: updateStreamingFrames called', {
-      currentFrames: update.xpos.length,
+      currentFrames: this.playerMotionUpdate?.xpos.length || 0,
+      newFrames: newFrameCount,
       totalFrames: update.frameNum
     });
 
@@ -1029,13 +1032,25 @@ export class ThreeScene {
       this.playerCurrentFrame = 0;
       this.playerLastTime = 0;
     } else {
-      // Update existing player motion with new frames
-      this.playerMotionUpdate.xpos = update.xpos;
-      this.playerMotionUpdate.xquat = update.xquat;
+      // Incremental update: only append new frames
+      const currentFrameCount = this.playerMotionUpdate.xpos.length;
+      if (newFrameCount > currentFrameCount) {
+        // Append new frames
+        for (let i = currentFrameCount; i < newFrameCount; i++) {
+          this.playerMotionUpdate.xpos.push(update.xpos[i]);
+          this.playerMotionUpdate.xquat.push(update.xquat[i]);
+        }
+        console.log(`ThreeScene: appended ${newFrameCount - currentFrameCount} new frames`);
+      }
+      // Update metadata
+      this.playerMotionUpdate.frameNum = update.frameNum;
+      this.playerMotionUpdate.frameRate = update.frameRate;
     }
 
-    // Redraw to show latest frame
-    this.redraw();
+    // Only redraw if we're not currently playing (playing will redraw automatically)
+    if (!this.isRunning) {
+      this.redraw();
+    }
   }
 
   /**

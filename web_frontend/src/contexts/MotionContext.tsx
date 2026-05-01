@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, ReactNode } from 'react';
 import { message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { modelApi, RetargetPreviewResponse } from '../api/client';
@@ -32,7 +32,8 @@ export const MotionProvider: React.FC<MotionProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [retargetPreviewData, setRetargetPreviewData] = useState<RetargetPreviewResponse | null>(null);
 
-  // Streaming state
+  // Streaming state - use ref to avoid triggering re-renders on every frame
+  const streamingFramesRef = useRef<Map<number, any>>(new Map());
   const [streamingFrames, setStreamingFrames] = useState<Map<number, any>>(new Map());
   const [streamingMetadata, setStreamingMetadata] = useState<any | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -62,6 +63,7 @@ export const MotionProvider: React.FC<MotionProviderProps> = ({ children }) => {
 
     setLoading(true);
     setIsStreaming(true);
+    streamingFramesRef.current = new Map();
     setStreamingFrames(new Map());
     setStreamingMetadata(null);
     setStreamingProgress({ current: 0, total: 0 });
@@ -83,11 +85,13 @@ export const MotionProvider: React.FC<MotionProviderProps> = ({ children }) => {
         // onFrame
         (frameData) => {
           console.log('Received frame:', frameData.frame_id);
-          setStreamingFrames(prev => {
-            const newMap = new Map(prev);
-            newMap.set(frameData.frame_id, frameData);
-            return newMap;
-          });
+          // Update ref directly (no re-render)
+          streamingFramesRef.current.set(frameData.frame_id, frameData);
+          // Only trigger state update every 10 frames or on last frame to reduce re-renders
+          const shouldUpdate = frameData.frame_id % 10 === 0 || frameData.frame_id === streamingProgress.total - 1;
+          if (shouldUpdate) {
+            setStreamingFrames(new Map(streamingFramesRef.current));
+          }
           setStreamingProgress(prev => ({ ...prev, current: frameData.frame_id + 1 }));
         },
         // onComplete
@@ -95,6 +99,8 @@ export const MotionProvider: React.FC<MotionProviderProps> = ({ children }) => {
           console.log('Streaming complete');
           setIsStreaming(false);
           setLoading(false);
+          // Final update to ensure all frames are reflected in state
+          setStreamingFrames(new Map(streamingFramesRef.current));
           message.success(t('message.retargetComplete'));
         },
         // onError
@@ -130,6 +136,7 @@ export const MotionProvider: React.FC<MotionProviderProps> = ({ children }) => {
         message.success(t('message.retargetSuccess'));
         setRetargetPreviewData(null);
         setStreamingMetadata(null);
+        streamingFramesRef.current = new Map();
         setStreamingFrames(new Map());
       } else {
         message.error(t('message.retargetFailed'));
