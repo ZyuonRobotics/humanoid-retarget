@@ -68,6 +68,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
   const prevPlayerMotionRef = useRef<typeof playerMotion>(null);
   const prevRetargetPreviewDataRef = useRef<typeof retargetPreviewData>(null);
   const prevShowSkinRef = useRef<boolean>(showSkin);
+  const prevActivePanelRef = useRef<string>(activePanel || 'retargeter');
 
   // Shared bootScene function - creates Three.js scene from loaded MuJoCo model
   // MUST be defined before any useEffect that uses it
@@ -429,10 +430,12 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
   // Keep refs for latest toggle state to avoid closure issues
   const showRobotRef = useRef(showRobot);
   const showHumanRef = useRef(showHuman);
+  const showSkinRef = useRef(showSkin);
   useEffect(() => {
     showRobotRef.current = showRobot;
     showHumanRef.current = showHuman;
-  }, [showRobot, showHuman]);
+    showSkinRef.current = showSkin;
+  }, [showRobot, showHuman, showSkin]);
 
   // Camera state
   const [camera, setCameraState] = useState({
@@ -507,6 +510,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
             if (threeSceneRef.current) {
               threeSceneRef.current.setRobotVisible(showRobotRef.current);
               threeSceneRef.current.setHumanVisible(showHumanRef.current);
+              threeSceneRef.current.setShowSkin(showSkinRef.current);
             }
           }, 100);
         } else {
@@ -547,6 +551,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
             // Set initial visibility for human-only model
             if (threeSceneRef.current) {
               threeSceneRef.current.setHumanVisible(showHumanRef.current);
+              threeSceneRef.current.setShowSkin(showSkinRef.current);
             }
           }, 100);
         } else {
@@ -572,7 +577,14 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
   const prevGeneratorTypeRef = useRef(generatorType);
 
   useEffect(() => {
-    // Check if we need to reload (robot/source/generator changed)
+    // Track panel switches to force reload when coming back to retargeter
+    const panelSwitchedToRetargeter = prevActivePanelRef.current !== 'retargeter' && activePanel === 'retargeter';
+    prevActivePanelRef.current = activePanel || 'retargeter';
+
+    // Only fetch in retargeter mode
+    if (activePanel !== 'retargeter') return;
+
+    // Check if we need to reload (robot/source/generator changed, or switched back to retargeter)
     const robotChanged = prevSelectedRobotRef.current !== selectedRobot;
     const sourceChanged = prevSourceFileRef.current !== sourceFile;
     const generatorChanged = prevGeneratorTypeRef.current !== generatorType;
@@ -581,6 +593,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
       robotChanged,
       sourceChanged,
       generatorChanged,
+      panelSwitchedToRetargeter,
       selectedRobot,
       sourceFile,
       generatorType
@@ -591,8 +604,8 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
     prevSourceFileRef.current = sourceFile;
     prevGeneratorTypeRef.current = generatorType;
 
-    // Only reload when robot/source/generator changes
-    if (robotChanged || sourceChanged || generatorChanged) {
+    // Reload when robot/source/generator changes, or when switching back to retargeter mode
+    if (robotChanged || sourceChanged || generatorChanged || panelSwitchedToRetargeter) {
       // Reset visibility toggles based on what's available
       const canShowRobot = !!selectedRobot;
       const canShowHuman = !!sourceFile && !!generatorType;
@@ -622,7 +635,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ sourceFile, activePanel, playerMoti
 
       return () => clearTimeout(debounceTimer);
     }
-  }, [selectedRobot, sourceFile, generatorType, fetchPreview]);
+  }, [selectedRobot, sourceFile, generatorType, activePanel, fetchPreview]);
 
   // Re-fetch when config changes, but only if human data is involved
   useEffect(() => {

@@ -94,16 +94,10 @@ const AppContent: React.FC = () => {
           setActivePanel(panel);
           setIsPlaying(false);
           setPlaybackFrame({ current: 0, total: 0 });
-          setPlayerMotion(null);
           // Clear retarget preview data when switching panels
           if (panel !== 'player') {
             setRetargetPreviewData(null);
           }
-        }}
-        onPlayerMotionClear={() => {
-          setPlayerMotion(null);
-          setIsPlaying(false);
-          setPlaybackFrame({ current: 0, total: 0 });
         }}
         theme={theme}
         onThemeChange={setTheme}

@@ -49,7 +49,6 @@ interface TopBarProps {
     reloadKey?: number;
   } | null;
   onPanelChange: (panel: string) => void;
-  onPlayerMotionClear?: () => void;
   theme: ThemeType;
   onThemeChange: (theme: ThemeType) => void;
   onPlayerMotionChange?: (type: 'robot' | 'human', robotName: string, motionFile: string, generatorType?: string) => void;
@@ -59,7 +58,6 @@ const TopBar: React.FC<TopBarProps> = ({
   activePanel,
   playerMotion,
   onPanelChange,
-  onPlayerMotionClear,
   theme,
   onThemeChange,
   onPlayerMotionChange,
@@ -375,10 +373,6 @@ const TopBar: React.FC<TopBarProps> = ({
             onClick={() => {
               setSelectedTool(null);
               onPanelChange('retargeter');
-              setPlayerMotionType('robot');
-              setSelectedRobotMotion('');
-              setSelectedHumanMotion('');
-              onPlayerMotionClear?.();
             }}
           >
             {t('menu.retargeter')}
@@ -392,8 +386,6 @@ const TopBar: React.FC<TopBarProps> = ({
               setSelectedMotionFile('');
               setMotionTree(null);
               setColumns([]);
-              setSelectedRobot('');
-              onPlayerMotionClear?.();
             }}
           >
             {t('menu.player')}
