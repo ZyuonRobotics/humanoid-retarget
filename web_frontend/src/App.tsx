@@ -87,6 +87,7 @@ const AppContent: React.FC = () => {
         type: 'retarget-stream',
         robotName: streamingMetadata.robot_name,
         motionFile: streamingMetadata.output_name,
+        generatorType: streamingMetadata.generator_type,
       });
     }
   }, [streamingMetadata, isStreaming]);
@@ -131,14 +132,6 @@ const AppContent: React.FC = () => {
     }
   };
 
-  // Handle close retarget stream - return to normal player
-  const handleCloseRetargetStream = () => {
-    setRetargetPreviewData(null);
-    setPlayerMotion(null);
-    setIsPlaying(false);
-    setPlaybackFrame({ current: 0, total: 0 });
-  };
-
   return (
     <div className="app-container" ref={appContainerRef}>
       {/* Top Bar */}
@@ -151,9 +144,15 @@ const AppContent: React.FC = () => {
         onPlayerMotionChange={(type, robotName, motionFile, generatorType) => {
           setIsPlaying(false);
           setPlaybackFrame({ current: 0, total: 0 });
-          setPlayerMotion({ type, robotName, motionFile, generatorType });
+          // If switching to retarget types, preserve the existing playerMotion data
+          if (type === 'retarget-preview' || type === 'retarget-stream') {
+            setPlayerMotion({ type, robotName, motionFile, generatorType });
+          } else {
+            // When switching to robot or human motion, clear retarget data
+            setPlayerMotion({ type, robotName, motionFile, generatorType });
+            setRetargetPreviewData(null);
+          }
         }}
-        onCloseRetargetStream={handleCloseRetargetStream}
       />
 
       {/* 3D Background */}
@@ -375,7 +374,8 @@ const AppContent: React.FC = () => {
               )}
 
               {/* Save button - only show when in retarget preview mode or streaming complete */}
-              {(retargetPreviewData || (streamingMetadata && !isStreaming)) && (
+              {(retargetPreviewData || (streamingMetadata && !isStreaming)) &&
+               (playerMotion?.type === 'retarget-preview' || playerMotion?.type === 'retarget-stream') && (
                 <Button
                   type="primary"
                   size="large"
@@ -383,7 +383,7 @@ const AppContent: React.FC = () => {
                   onClick={handleSaveRetarget}
                   loading={loading}
                 >
-                  {t('saveRetarget') || 'Save Retarget'}
+                  {t('player.saveRetarget') || 'Save Retarget'}
                 </Button>
               )}
             </Space>

@@ -53,8 +53,7 @@ interface TopBarProps {
   onPanelChange: (panel: string) => void;
   theme: ThemeType;
   onThemeChange: (theme: ThemeType) => void;
-  onPlayerMotionChange?: (type: 'robot' | 'human', robotName: string, motionFile: string, generatorType?: string) => void;
-  onCloseRetargetStream?: () => void;
+  onPlayerMotionChange?: (type: 'robot' | 'human' | 'retarget-preview' | 'retarget-stream', robotName: string, motionFile: string, generatorType?: string) => void;
 }
 
 const TopBar: React.FC<TopBarProps> = ({
@@ -64,7 +63,6 @@ const TopBar: React.FC<TopBarProps> = ({
   theme,
   onThemeChange,
   onPlayerMotionChange,
-  onCloseRetargetStream,
 }) => {
   const { t, i18n } = useTranslation();
   const {
@@ -90,7 +88,7 @@ const TopBar: React.FC<TopBarProps> = ({
   const [newConfigName, setNewConfigName] = useState('');
 
   // Player mode state
-  const [playerMotionType, setPlayerMotionType] = useState<'robot' | 'human'>('robot');
+  const [playerMotionType, setPlayerMotionType] = useState<'robot' | 'human' | 'retargeted'>('robot');
   const [selectedRobotMotion, setSelectedRobotMotion] = useState<string>('');
   const [selectedHumanFormat, setSelectedHumanFormat] = useState<'smpl' | 'bvh'>('bvh');
   const [selectedHumanMotion, setSelectedHumanMotion] = useState<string>('');
@@ -155,6 +153,13 @@ const TopBar: React.FC<TopBarProps> = ({
         .finally(() => setRobotSegmentLoading(false));
     }
   }, [selectedTool, robotSegmentRobot]);
+
+  // Auto-switch to retargeted motion type when entering retarget mode
+  useEffect(() => {
+    if (activePanel === 'player' && (playerMotion?.type === 'retarget-preview' || playerMotion?.type === 'retarget-stream')) {
+      setPlayerMotionType('retargeted');
+    }
+  }, [activePanel, playerMotion?.type]);
   useEffect(() => {
     if (fileSelectorOpen && !motionTree) {
       loadMotionTree();
@@ -680,66 +685,60 @@ const TopBar: React.FC<TopBarProps> = ({
 
           {activePanel === 'player' && (
             <>
-              {/* Only show Robot/Human toggle if not in retarget-preview or retarget-stream mode */}
-              {playerMotion?.type !== 'retarget-preview' && playerMotion?.type !== 'retarget-stream' && (
-                <>
-                  <div className="topbar-row">
-                    <div className="topbar-section">
-                      <Button
-                        type={playerMotionType === 'robot' ? 'primary' : 'text'}
-                        onClick={() => setPlayerMotionType('robot')}
-                      >
-                        {t('player.robotMotion')}
-                      </Button>
-                      <Button
-                        type={playerMotionType === 'human' ? 'primary' : 'text'}
-                        onClick={() => setPlayerMotionType('human')}
-                        style={{ marginLeft: 8 }}
-                      >
-                        {t('player.humanMotion')}
-                      </Button>
-                    </div>
-                  </div>
+              {/* Row 2: Motion type toggle - always show */}
+              <div className="topbar-row">
+                <div className="topbar-section">
+                  <Button
+                    type={playerMotionType === 'robot' ? 'primary' : 'text'}
+                    onClick={() => {
+                      setPlayerMotionType('robot');
+                      if (selectedRobot && selectedRobotMotion && onPlayerMotionChange) {
+                        onPlayerMotionChange('robot', selectedRobot, selectedRobotMotion);
+                      }
+                    }}
+                  >
+                    {t('player.robotMotion')}
+                  </Button>
+                  <Button
+                    type={playerMotionType === 'human' ? 'primary' : 'text'}
+                    onClick={() => {
+                      setPlayerMotionType('human');
+                      if (selectedRobot && selectedHumanMotion && onPlayerMotionChange) {
+                        onPlayerMotionChange('human', selectedRobot, selectedHumanMotion, selectedHumanFormat);
+                      }
+                    }}
+                    style={{ marginLeft: 8 }}
+                  >
+                    {t('player.humanMotion')}
+                  </Button>
+                  {/* Show retargeted motion button only when in retarget mode */}
+                  {(playerMotion?.type === 'retarget-preview' || playerMotion?.type === 'retarget-stream') && (
+                    <Button
+                      type={playerMotionType === 'retargeted' ? 'primary' : 'text'}
+                      onClick={() => {
+                        setPlayerMotionType('retargeted');
+                        if (playerMotion && onPlayerMotionChange) {
+                          onPlayerMotionChange(
+                            playerMotion.type === 'retarget-stream' ? 'retarget-stream' : 'retarget-preview',
+                            playerMotion.robotName,
+                            playerMotion.motionFile,
+                            playerMotion.generatorType
+                          );
+                        }
+                      }}
+                      style={{ marginLeft: 8 }}
+                    >
+                      {t('player.retargetedMotion')}
+                    </Button>
+                  )}
+                </div>
+              </div>
 
-                  <div className="topbar-row-separator" />
-                </>
-              )}
+              <div className="topbar-row-separator" />
 
-              {/* Show retarget preview info if in retarget-preview or retarget-stream mode */}
-              {(playerMotion?.type === 'retarget-preview' || playerMotion?.type === 'retarget-stream') && (
-                <>
-                  <div className="topbar-row">
-                    <div className="topbar-section">
-                      <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14 }}>
-                        {playerMotion.type === 'retarget-stream'
-                          ? (t('player.retargetStreaming') || 'Retarget Streaming')
-                          : (t('player.retargetPreview') || 'Retarget Preview')
-                        }: {playerMotion.robotName}
-                      </span>
-                    </div>
-                    <div className="topbar-section">
-                      <Button
-                        type="text"
-                        icon={<CloseOutlined />}
-                        onClick={() => {
-                          if (onCloseRetargetStream) {
-                            onCloseRetargetStream();
-                          }
-                        }}
-                        style={{ color: 'rgba(255,255,255,0.7)' }}
-                        title={t('player.closeRetargetMode') || 'Close Retarget Mode'}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="topbar-row-separator" />
-                </>
-              )}
-
-              {/* Row 3: Player motion selectors - only show if not in retarget-preview or retarget-stream mode */}
-              {playerMotion?.type !== 'retarget-preview' && playerMotion?.type !== 'retarget-stream' && (
-                <div className="topbar-row">
-                  {playerMotionType === 'robot' ? (
+              {/* Row 3: Motion selectors based on selected type */}
+              <div className="topbar-row">
+                {playerMotionType === 'robot' ? (
                   <>
                     <div className="topbar-section">
                       <Select
@@ -785,7 +784,7 @@ const TopBar: React.FC<TopBarProps> = ({
                       />
                     </div>
                   </>
-                ) : (
+                ) : playerMotionType === 'human' ? (
                   <>
                     <div className="topbar-section">
                       <Select
@@ -832,7 +831,7 @@ const TopBar: React.FC<TopBarProps> = ({
                         onChange={handleHumanFileChange}
                       />
                     </div>
-                    {playerMotionType === 'human' && selectedHumanMotion && (
+                    {selectedHumanMotion && (
                       <div className="topbar-section">
                         <Button
                           icon={<SettingOutlined />}
@@ -863,9 +862,21 @@ const TopBar: React.FC<TopBarProps> = ({
                       </div>
                     )}
                   </>
-                )}
-                </div>
-              )}
+                ) : playerMotionType === 'retargeted' && playerMotion ? (
+                  <>
+                    <div className="topbar-section">
+                      <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: 14 }}>
+                        {t('player.robot')}: <strong>{playerMotion.robotName}</strong>
+                      </span>
+                    </div>
+                    <div className="topbar-section">
+                      <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: 14 }}>
+                        {t('player.humanMotion')}: <strong>{playerMotion.motionFile}</strong>
+                      </span>
+                    </div>
+                  </>
+                ) : null}
+              </div>
             </>
           )}
         </>

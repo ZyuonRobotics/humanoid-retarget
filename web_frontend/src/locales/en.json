@@ -28,6 +28,8 @@
   "player": {
     "robotMotion": "Robot Motion",
     "humanMotion": "Human Motion",
+    "retargetedMotion": "Retargeted Motion",
+    "robot": "Robot",
     "selectRobot": "Select Robot",
     "selectRobotMotion": "Select Robot Motion",
     "selectMotionFormat": "Select Motion Format",
@@ -37,6 +39,7 @@
     "play": "Play",
     "pause": "Pause",
     "reload": "Reload",
+    "saveRetarget": "Save Retarget",
     "uploadRobotMotion": "Upload Robot Motion",
     "uploadHumanMotion": "Upload Human Motion",
     "pleaseSelectRobotFirst": "Please select a robot first",
@@ -60,7 +63,8 @@
     "saveHumanConfigSuccess": "HumanConfig saved successfully",
     "saveHumanConfigFailed": "Failed to save HumanConfig",
     "humanConfigRequired": "{{filename}} needs human config in Player->Human Motion->Human Settings",
-    "humanConfigIncomplete": "{{filename}} human config is incomplete. Please set hip_names, hip_offset, foot_names, foot_offset in Player->Human Motion->Human Settings"
+    "humanConfigIncomplete": "{{filename}} human config is incomplete. Please set hip_names, hip_offset, foot_names, foot_offset in Player->Human Motion->Human Settings",
+    "closeRetargetMode": "Close Retarget Mode"
   },
   "robot": {
     "label": "Robot",

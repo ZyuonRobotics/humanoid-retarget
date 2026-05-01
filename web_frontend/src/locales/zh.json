@@ -28,6 +28,8 @@
   "player": {
     "robotMotion": "机器人动作",
     "humanMotion": "人体动作",
+    "retargetedMotion": "重定向动作",
+    "robot": "机器人",
     "selectRobot": "选择机器人",
     "selectRobotMotion": "选择机器人动作",
     "selectMotionFormat": "选择动作格式",
@@ -37,6 +39,7 @@
     "play": "播放",
     "pause": "暂停",
     "reload": "刷新",
+    "saveRetarget": "保存重定向",
     "uploadRobotMotion": "上传机器人动作",
     "uploadHumanMotion": "上传人体动作",
     "pleaseSelectRobotFirst": "请先选择机器人",
@@ -60,7 +63,8 @@
     "saveHumanConfigSuccess": "人体配置保存成功",
     "saveHumanConfigFailed": "人体配置保存失败",
     "humanConfigRequired": "{{filename}}需要在播放器->人体动作->人体设置中设置人体配置",
-    "humanConfigIncomplete": "{{filename}}的人体配置不完整。请在播放器->人体动作->人体设置中设置hip_names、hip_offset、foot_names、foot_offset"
+    "humanConfigIncomplete": "{{filename}}的人体配置不完整。请在播放器->人体动作->人体设置中设置hip_names、hip_offset、foot_names、foot_offset",
+    "closeRetargetMode": "关闭重定向模式"
   },
   "robot": {
     "label": "机器人",
