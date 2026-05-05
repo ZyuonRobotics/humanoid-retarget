@@ -210,6 +210,37 @@ class HumanoidMotionPlayerBase(MotionPlayerBase, ABC):
                       f"fitted plane: z = {a:.6f}*x + {b:.6f}*y + {c:.6f}")
                 print(f"Residual sum of squares: {residuals[0] if len(residuals) > 0 else 0:.6f}")
 
+                # Visualize plane fitting if draw_plot is enabled
+                if draw_plot:
+                    from mpl_toolkits.mplot3d import Axes3D
+                    fig_3d = plt.figure(figsize=(10, 8))
+                    ax_3d = fig_3d.add_subplot(111, projection='3d')
+
+                    # Plot all valid positions as scatter points
+                    ax_3d.scatter(X, Y, Z, c='blue', marker='o', s=20, alpha=0.6, label='Valid Positions')
+
+                    # Create a mesh grid for the fitted plane
+                    x_range = np.linspace(X.min(), X.max(), 10)
+                    y_range = np.linspace(Y.min(), Y.max(), 10)
+                    x_mesh, y_mesh = np.meshgrid(x_range, y_range)
+                    z_mesh = a * x_mesh + b * y_mesh + c
+
+                    # Plot the fitted plane as a semi-transparent surface
+                    ax_3d.plot_surface(x_mesh, y_mesh, z_mesh, alpha=0.3, color='red', label='Fitted Plane')
+
+                    ax_3d.set_xlabel('X Position (m)')
+                    ax_3d.set_ylabel('Y Position (m)')
+                    ax_3d.set_zlabel('Z Position (m)')
+                    ax_3d.set_title(f'Plane Fitting Visualization\nz = {a:.6f}*x + {b:.6f}*y + {c:.6f}')
+                    ax_3d.legend()
+
+                    plt.tight_layout()
+                    if self.view:
+                        plt.show()
+                    else:
+                        plt.savefig('plane_fitting_visualization.png', dpi=150, bbox_inches='tight')
+                        plt.close()
+
                 plane_coeffs_list = [float(a), float(b), float(c)]
                 self.human_config.height_adjustment = plane_coeffs_list
                 self.human_config.height_adjustment_method = "plane_fit"
