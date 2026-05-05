@@ -40,9 +40,15 @@ class HumanoidMotionPlayerBase(MotionPlayerBase, ABC):
 
     def load_config(self, source_file_path):
         config_path = Path(source_file_path).with_suffix('.yaml')
-        
+
         if config_path.exists():
             self.human_config = HumanConfig.from_yaml(str(config_path))
+            # Infer height_adjustment_method from height_adjustment data type if not set
+            if self.human_config.height_adjustment is not None and self.human_config.height_adjustment_method is None:
+                if isinstance(self.human_config.height_adjustment, list):
+                    self.human_config.height_adjustment_method = "plane_fit"
+                else:
+                    self.human_config.height_adjustment_method = "offset"
         else:
             # Create default HumanConfig if config doesn't exist
             self.human_config = HumanConfig()
@@ -51,6 +57,8 @@ class HumanoidMotionPlayerBase(MotionPlayerBase, ABC):
                 self.human_config.foot_names = self.foot_names
             if self.hip_names is not None:
                 self.human_config.hip_names = self.hip_names
+            # Default to plane_fit method when no config exists
+            self.human_config.height_adjustment_method = "plane_fit"
 
     def save_config(self, source_file_path):
         config_path = Path(source_file_path).with_suffix('.yaml')
@@ -85,19 +93,33 @@ class HumanoidMotionPlayerBase(MotionPlayerBase, ABC):
         velocity_threshold: float = 0.05,
         angular_velocity_threshold: float = 0.2,
         draw_plot: bool = True,
+        use_plane_fit: bool = None,
     ):
         """
         Calculate root height adjustment to ensure feet contact ground when meeting multiple criteria.
         The height adjustment is calculated and saved to human_config.height_adjustment, but not applied to ref_qpos.
-        
+
         Args:
             velocity_threshold (float): Linear velocity threshold below which feet are considered stationary, default 0.1
             angular_velocity_threshold (float): Angular velocity threshold below which feet are considered stationary, default 0.5
             draw_plot (bool): Whether to draw analysis plots, default True
-            
+            use_plane_fit (bool): If True, fit a plane (z = ax + by + c) instead of using mean height.
+                                 If None, uses human_config.height_adjustment_method to determine the method.
+
         Returns:
-            float: Height adjustment value that was calculated, or None if human_config.human_foot is not valid
+            float or list: Height adjustment value, or [a, b, c] plane coefficients if use_plane_fit=True,
+                          or None if human_config.human_foot is not valid
         """
+        # Determine use_plane_fit from human_config if not explicitly provided
+        if use_plane_fit is None:
+            if self.human_config.height_adjustment_method == "plane_fit":
+                use_plane_fit = True
+            elif self.human_config.height_adjustment_method == "offset":
+                use_plane_fit = False
+            else:
+                # Default to plane_fit if method is not set
+                use_plane_fit = True
+                self.human_config.height_adjustment_method = "plane_fit"
         # Check if human_config has valid human_foot
         if not self.human_config.foot_names is not None:
             print("human_config.foot_names is not valid. Cannot calculate height adjustment.")
@@ -105,8 +127,9 @@ class HumanoidMotionPlayerBase(MotionPlayerBase, ABC):
         # Get motion data for both feet
         feet_names = self.human_config.foot_names
         motion_data = self.get_body_motion_data(feet_names)
-        
+
         low_velocity_heights = []
+        valid_positions = []  # Store all valid frame positions for plane fitting
         
         # Initialize plotting if needed
         if draw_plot:
@@ -130,6 +153,10 @@ class HumanoidMotionPlayerBase(MotionPlayerBase, ABC):
             if np.any(valid_frames):
                 valid_z = positions[valid_frames, 2]
                 low_velocity_heights.extend(valid_z.tolist())
+
+                # Store x, y, z positions for plane fitting
+                if use_plane_fit:
+                    valid_positions.append(positions[valid_frames])
             
             if draw_plot:
                 ax = axes[0, col]
@@ -165,28 +192,66 @@ class HumanoidMotionPlayerBase(MotionPlayerBase, ABC):
                 plt.close()
 
         if len(low_velocity_heights) != 0:
-            height_adjustment = np.mean(low_velocity_heights)
-            print(f"Based on {len(low_velocity_heights)} valid frames meeting all criteria, "
-                  f"height adjustment: {height_adjustment:.4f}")
-            self.human_config.height_adjustment = float(height_adjustment)
+            if use_plane_fit:
+                # Fit a plane z = ax + by + c using all valid positions
+                all_valid_positions = np.vstack(valid_positions)  # Shape: (N, 3)
+                X = all_valid_positions[:, 0]  # x coordinates
+                Y = all_valid_positions[:, 1]  # y coordinates
+                Z = all_valid_positions[:, 2]  # z coordinates
+
+                # Build design matrix for least squares: [x, y, 1] * [a, b, c]^T = z
+                A_matrix = np.column_stack([X, Y, np.ones_like(X)])
+
+                # Solve least squares: A * [a, b, c]^T = Z
+                plane_coeffs, residuals, _, _ = np.linalg.lstsq(A_matrix, Z, rcond=None)
+                a, b, c = plane_coeffs
+
+                print(f"Based on {len(all_valid_positions)} valid frames meeting all criteria, "
+                      f"fitted plane: z = {a:.6f}*x + {b:.6f}*y + {c:.6f}")
+                print(f"Residual sum of squares: {residuals[0] if len(residuals) > 0 else 0:.6f}")
+
+                plane_coeffs_list = [float(a), float(b), float(c)]
+                self.human_config.height_adjustment = plane_coeffs_list
+                self.human_config.height_adjustment_method = "plane_fit"
+                return plane_coeffs_list
+            else:
+                height_adjustment = np.mean(low_velocity_heights)
+                print(f"Based on {len(low_velocity_heights)} valid frames meeting all criteria, "
+                      f"height adjustment: {height_adjustment:.4f}")
+                self.human_config.height_adjustment = float(height_adjustment)
+                self.human_config.height_adjustment_method = "offset"
+                return height_adjustment
+
+        return None
 
 
     def apply_adjustments(self):
         """
         Apply adjustments from human_config to reference qpos.
         This includes:
-        1. Height adjustment for root position
+        1. Height adjustment for root position (can be a scalar or plane coefficients [a, b, c])
         2. Joint angle offsets specified in joint_adjustments dict
-        
+
         The joint_adjustments is a dict where:
         - key: joint name (str)
         - value: 3D Euler angle offset in degrees [x, y, z]
         """
         # Apply height adjustment to root position
         if self.human_config.height_adjustment is not None and self.human_config.foot_offset is not None:
-            height_adjustment = self.human_config.height_adjustment + self.human_config.foot_offset
             global_body_ratio = self.global_body_ratio if isinstance(self.global_body_ratio, float) else self.global_body_ratio[2]
-            self._ref_qpos[:, 2] -= height_adjustment * global_body_ratio
+
+            # Check if height_adjustment is a plane (list of [a, b, c]) or a scalar
+            if isinstance(self.human_config.height_adjustment, list):
+                # Plane adjustment: z = ax + by + c
+                a, b, c = self.human_config.height_adjustment
+                x = self._ref_qpos[:, 0]
+                y = self._ref_qpos[:, 1]
+                plane_z = a * x + b * y + c
+                self._ref_qpos[:, 2] -= (plane_z + self.human_config.foot_offset) * global_body_ratio
+            else:
+                # Scalar height adjustment
+                height_adjustment = self.human_config.height_adjustment + self.human_config.foot_offset
+                self._ref_qpos[:, 2] -= height_adjustment * global_body_ratio
         
         # Apply joint angle adjustments
         if self.human_config.joint_adjustments:

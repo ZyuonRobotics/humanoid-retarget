@@ -1,9 +1,10 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union, Literal
 
 from hurodes.utils.config import BaseConfig
 
 class HumanConfig(BaseConfig):
-    height_adjustment: Optional[float] = None
+    height_adjustment: Optional[Union[float, List[float]]] = None
+    height_adjustment_method: Optional[Literal["plane_fit", "offset"]] = None
     hip_names: Optional[List[str]] = None
     hip_offset: Optional[float] = None
     foot_names: Optional[List[str]] = None

@@ -100,7 +100,8 @@ export interface HumanPlayerMotionResponse {
 
 // HumanConfig for human motion player
 export interface HumanConfig {
-  height_adjustment: number | null;
+  height_adjustment: number | number[] | null;
+  height_adjustment_method: 'plane_fit' | 'offset' | null;
   hip_names: string[] | null;
   hip_offset: number | null;
   foot_names: string[] | null;

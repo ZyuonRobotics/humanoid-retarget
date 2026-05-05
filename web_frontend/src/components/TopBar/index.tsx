@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Select, Button, Input, Dropdown, Spin, message, Modal, Form, InputNumber, Space } from 'antd';
+import { Select, Button, Input, Dropdown, Spin, message, Modal, Form, InputNumber, Space, Radio } from 'antd';
 import {
   SettingOutlined,
   PlayCircleOutlined,
@@ -994,14 +994,79 @@ const TopBar: React.FC<TopBarProps> = ({
       {humanConfig && (
         <Form
           layout="vertical"
-          initialValues={humanConfig}
-          onValuesChange={(_, allValues) => setHumanConfig({
-            ...allValues,
-            joint_adjustments: humanConfig.joint_adjustments
-          } as HumanConfig)}
+          initialValues={{
+            ...humanConfig,
+            height_adjustment_method: humanConfig.height_adjustment_method ||
+              (humanConfig.height_adjustment === null ? 'plane_fit' :
+                (Array.isArray(humanConfig.height_adjustment) ? 'plane_fit' : 'offset'))
+          }}
+          onValuesChange={(changedValues, allValues) => {
+            // When method changes, reset height_adjustment to null for recalculation
+            if (changedValues.height_adjustment_method) {
+              setHumanConfig({
+                ...allValues,
+                height_adjustment: null,
+                joint_adjustments: humanConfig.joint_adjustments
+              } as HumanConfig);
+            } else {
+              setHumanConfig({
+                ...allValues,
+                joint_adjustments: humanConfig.joint_adjustments
+              } as HumanConfig);
+            }
+          }}
         >
-          <Form.Item label={t('player.heightAdjustment')} name="height_adjustment">
-            <InputNumber style={{ width: '100%' }} placeholder={t('common.autoCalculated')} />
+          <Form.Item label={t('player.heightAdjustmentMethod')} name="height_adjustment_method">
+            <Radio.Group>
+              <Radio value="plane_fit">{t('player.planeFit')}</Radio>
+              <Radio value="offset">{t('player.offset')}</Radio>
+            </Radio.Group>
+          </Form.Item>
+
+          <Form.Item noStyle shouldUpdate={(prevValues, currentValues) =>
+            prevValues.height_adjustment_method !== currentValues.height_adjustment_method
+          }>
+            {({ getFieldValue }) => {
+              const method = getFieldValue('height_adjustment_method');
+              if (method === 'plane_fit') {
+                return (
+                  <Form.Item label={t('player.heightAdjustment')}>
+                    <Space direction="horizontal" size="small" style={{ display: 'flex' }}>
+                      <Form.Item name={['height_adjustment', 0]} noStyle>
+                        <InputNumber
+                          placeholder="a"
+                          style={{ width: 180 }}
+                          step={0.000001}
+                          precision={6}
+                        />
+                      </Form.Item>
+                      <Form.Item name={['height_adjustment', 1]} noStyle>
+                        <InputNumber
+                          placeholder="b"
+                          style={{ width: 180 }}
+                          step={0.000001}
+                          precision={6}
+                        />
+                      </Form.Item>
+                      <Form.Item name={['height_adjustment', 2]} noStyle>
+                        <InputNumber
+                          placeholder="c"
+                          style={{ width: 180 }}
+                          step={0.000001}
+                          precision={6}
+                        />
+                      </Form.Item>
+                    </Space>
+                  </Form.Item>
+                );
+              } else {
+                return (
+                  <Form.Item label={t('player.heightAdjustment')} name="height_adjustment">
+                    <InputNumber style={{ width: '100%' }} placeholder={t('common.autoCalculated')} step={0.01} />
+                  </Form.Item>
+                );
+              }
+            }}
           </Form.Item>
 
           <Form.Item label={t('player.hipNames')}>

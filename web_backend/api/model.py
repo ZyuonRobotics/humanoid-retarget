@@ -789,6 +789,7 @@ async def get_human_player_config(generator_type: str, motion_file: str):
         # Return HumanConfig as dict
         return {
             "height_adjustment": player.human_config.height_adjustment,
+            "height_adjustment_method": player.human_config.height_adjustment_method,
             "hip_names": player.human_config.hip_names,
             "hip_offset": player.human_config.hip_offset,
             "foot_names": player.human_config.foot_names,
@@ -821,13 +822,22 @@ async def save_human_player_config(generator_type: str, motion_file: str, config
         player.load(source_file_path=str(motion_path))
 
         # Update human_config with provided values
-        # If height_adjustment is None, auto-calculate it
+        # If height_adjustment is None, auto-calculate it based on height_adjustment_method
         if "height_adjustment" in config:
             if config["height_adjustment"] is None:
+                # Determine use_plane_fit from height_adjustment_method
+                use_plane_fit = True  # default
+                if "height_adjustment_method" in config and config["height_adjustment_method"] is not None:
+                    use_plane_fit = (config["height_adjustment_method"] == "plane_fit")
+                    player.human_config.height_adjustment_method = config["height_adjustment_method"]
+
                 # Auto-calculate height_adjustment
-                player.calculate_height_adjustment(draw_plot=False)
+                player.calculate_height_adjustment(draw_plot=False, use_plane_fit=use_plane_fit)
             else:
                 player.human_config.height_adjustment = config["height_adjustment"]
+
+        if "height_adjustment_method" in config:
+            player.human_config.height_adjustment_method = config["height_adjustment_method"]
         if "hip_names" in config:
             player.human_config.hip_names = config["hip_names"]
         if "hip_offset" in config:
@@ -844,6 +854,7 @@ async def save_human_player_config(generator_type: str, motion_file: str, config
 
         return {"status": "saved", "config": {
             "height_adjustment": player.human_config.height_adjustment,
+            "height_adjustment_method": player.human_config.height_adjustment_method,
             "hip_names": player.human_config.hip_names,
             "hip_offset": player.human_config.hip_offset,
             "foot_names": player.human_config.foot_names,
