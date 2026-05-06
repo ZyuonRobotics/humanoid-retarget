@@ -103,6 +103,7 @@ const TopBar: React.FC<TopBarProps> = ({
   const [humanConfigCalculating, setHumanConfigCalculating] = useState(false);
   const [humanBodyNames, setHumanBodyNames] = useState<string[]>([]);
   const [humanConfigForm] = Form.useForm();
+  const [humanConfigMotionKey, setHumanConfigMotionKey] = useState<string>('');
 
   // File selector popover state
   const [fileSelectorOpen, setFileSelectorOpen] = useState(false);
@@ -155,6 +156,36 @@ const TopBar: React.FC<TopBarProps> = ({
         .finally(() => setRobotSegmentLoading(false));
     }
   }, [selectedTool, robotSegmentRobot]);
+
+  // Reload human config when motion file or format changes while modal is open
+  useEffect(() => {
+    const currentKey = `${selectedHumanFormat}:${selectedHumanMotion}`;
+    if (humanConfigOpen && selectedHumanMotion && humanConfigMotionKey !== currentKey) {
+      setHumanConfig(null);
+      setHumanBodyNames([]);
+      setHumanConfigLoading(true);
+      setHumanConfigMotionKey(currentKey);
+      Promise.all([
+        modelApi.getHumanPlayerConfig(selectedHumanFormat, selectedHumanMotion),
+        modelApi.getHumanPlayerMotionData(selectedHumanFormat, selectedHumanMotion, false),
+      ])
+        .then(([config, motionData]) => {
+          setHumanConfig(config);
+          setHumanBodyNames(motionData.body_names || []);
+          humanConfigForm.setFieldsValue({
+            ...config,
+            height_adjustment_method: config.height_adjustment_method ||
+              (config.height_adjustment === null ? 'plane_fit' :
+                (Array.isArray(config.height_adjustment) ? 'plane_fit' : 'offset'))
+          });
+        })
+        .catch(err => {
+          console.error('Failed to load HumanConfig:', err);
+          message.error(t('player.loadHumanConfigFailed'));
+        })
+        .finally(() => setHumanConfigLoading(false));
+    }
+  }, [humanConfigOpen, selectedHumanFormat, selectedHumanMotion, humanConfigMotionKey, humanConfigForm, t]);
 
   // Auto-switch to retargeted motion type when entering retarget mode
   useEffect(() => {
@@ -842,6 +873,7 @@ const TopBar: React.FC<TopBarProps> = ({
                             setHumanBodyNames([]);
                             setHumanConfigLoading(true);
                             setHumanConfigOpen(true);
+                            setHumanConfigMotionKey(`${selectedHumanFormat}:${selectedHumanMotion}`);
                             Promise.all([
                               modelApi.getHumanPlayerConfig(selectedHumanFormat, selectedHumanMotion),
                               modelApi.getHumanPlayerMotionData(selectedHumanFormat, selectedHumanMotion, false),
@@ -849,6 +881,12 @@ const TopBar: React.FC<TopBarProps> = ({
                               .then(([config, motionData]) => {
                                 setHumanConfig(config);
                                 setHumanBodyNames(motionData.body_names || []);
+                                humanConfigForm.setFieldsValue({
+                                  ...config,
+                                  height_adjustment_method: config.height_adjustment_method ||
+                                    (config.height_adjustment === null ? 'plane_fit' :
+                                      (Array.isArray(config.height_adjustment) ? 'plane_fit' : 'offset'))
+                                });
                               })
                               .catch(err => {
                                 console.error('Failed to load HumanConfig:', err);
@@ -1202,7 +1240,46 @@ const TopBar: React.FC<TopBarProps> = ({
                   if (!humanConfig || !selectedHumanMotion) return;
                   setHumanConfigSaving(true);
                   try {
-                    await modelApi.saveHumanPlayerConfig(selectedHumanFormat, selectedHumanMotion, humanConfig);
+                    // Get current form values
+                    const formValues = humanConfigForm.getFieldsValue();
+                    const configToSave = {
+                      ...humanConfig,
+                      ...formValues
+                    };
+
+                    // Check if height_adjustment is empty/null and needs auto-calculation
+                    const method = formValues.height_adjustment_method || humanConfig.height_adjustment_method;
+                    const heightAdjustment = formValues.height_adjustment;
+
+                    let needsAutoCalculation = false;
+                    if (method === 'plane_fit') {
+                      // For plane_fit, check if any of the three values is null/undefined
+                      if (!heightAdjustment ||
+                          heightAdjustment[0] === null || heightAdjustment[0] === undefined ||
+                          heightAdjustment[1] === null || heightAdjustment[1] === undefined ||
+                          heightAdjustment[2] === null || heightAdjustment[2] === undefined) {
+                        needsAutoCalculation = true;
+                      }
+                    } else if (method === 'offset') {
+                      // For offset, check if the value is null/undefined
+                      if (heightAdjustment === null || heightAdjustment === undefined) {
+                        needsAutoCalculation = true;
+                      }
+                    }
+
+                    // If needs auto-calculation, set height_adjustment to null
+                    if (needsAutoCalculation) {
+                      configToSave.height_adjustment = null;
+                    }
+
+                    const result = await modelApi.saveHumanPlayerConfig(selectedHumanFormat, selectedHumanMotion, configToSave);
+
+                    // If auto-calculation was triggered, update the form with calculated values
+                    if (needsAutoCalculation && result.config) {
+                      setHumanConfig(result.config);
+                      humanConfigForm.setFieldsValue(result.config);
+                    }
+
                     message.success(t('player.saveHumanConfigSuccess'));
                     setHumanConfigOpen(false);
                     // Trigger reload of motion
