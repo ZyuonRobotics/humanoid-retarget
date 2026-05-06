@@ -100,7 +100,9 @@ const TopBar: React.FC<TopBarProps> = ({
   const [humanConfig, setHumanConfig] = useState<HumanConfig | null>(null);
   const [humanConfigLoading, setHumanConfigLoading] = useState(false);
   const [humanConfigSaving, setHumanConfigSaving] = useState(false);
+  const [humanConfigCalculating, setHumanConfigCalculating] = useState(false);
   const [humanBodyNames, setHumanBodyNames] = useState<string[]>([]);
+  const [humanConfigForm] = Form.useForm();
 
   // File selector popover state
   const [fileSelectorOpen, setFileSelectorOpen] = useState(false);
@@ -993,6 +995,7 @@ const TopBar: React.FC<TopBarProps> = ({
     >
       {humanConfig && (
         <Form
+          form={humanConfigForm}
           layout="vertical"
           initialValues={{
             ...humanConfig,
@@ -1018,8 +1021,8 @@ const TopBar: React.FC<TopBarProps> = ({
         >
           <Form.Item label={t('player.heightAdjustmentMethod')} name="height_adjustment_method">
             <Radio.Group>
-              <Radio value="plane_fit">{t('player.planeFit')}</Radio>
-              <Radio value="offset">{t('player.offset')}</Radio>
+              <Radio value="plane_fit"><span style={{ color: 'white' }}>{t('player.planeFit')}</span></Radio>
+              <Radio value="offset"><span style={{ color: 'white' }}>{t('player.offset')}</span></Radio>
             </Radio.Group>
           </Form.Item>
 
@@ -1030,40 +1033,104 @@ const TopBar: React.FC<TopBarProps> = ({
               const method = getFieldValue('height_adjustment_method');
               if (method === 'plane_fit') {
                 return (
-                  <Form.Item label={t('player.heightAdjustment')}>
-                    <Space direction="horizontal" size="small" style={{ display: 'flex' }}>
-                      <Form.Item name={['height_adjustment', 0]} noStyle>
-                        <InputNumber
-                          placeholder="a"
-                          style={{ width: 180 }}
-                          step={0.000001}
-                          precision={6}
-                        />
-                      </Form.Item>
-                      <Form.Item name={['height_adjustment', 1]} noStyle>
-                        <InputNumber
-                          placeholder="b"
-                          style={{ width: 180 }}
-                          step={0.000001}
-                          precision={6}
-                        />
-                      </Form.Item>
-                      <Form.Item name={['height_adjustment', 2]} noStyle>
-                        <InputNumber
-                          placeholder="c"
-                          style={{ width: 180 }}
-                          step={0.000001}
-                          precision={6}
-                        />
-                      </Form.Item>
-                    </Space>
-                  </Form.Item>
+                  <>
+                    <Form.Item label={t('player.heightAdjustment')}>
+                      <Space direction="horizontal" size="small" style={{ display: 'flex' }}>
+                        <Form.Item name={['height_adjustment', 0]} noStyle>
+                          <InputNumber
+                            placeholder="a"
+                            style={{ width: 180 }}
+                            step={0.000001}
+                            precision={6}
+                          />
+                        </Form.Item>
+                        <Form.Item name={['height_adjustment', 1]} noStyle>
+                          <InputNumber
+                            placeholder="b"
+                            style={{ width: 180 }}
+                            step={0.000001}
+                            precision={6}
+                          />
+                        </Form.Item>
+                        <Form.Item name={['height_adjustment', 2]} noStyle>
+                          <InputNumber
+                            placeholder="c"
+                            style={{ width: 180 }}
+                            step={0.000001}
+                            precision={6}
+                          />
+                        </Form.Item>
+                      </Space>
+                    </Form.Item>
+                    <Form.Item>
+                      <Button
+                        type="default"
+                        loading={humanConfigCalculating}
+                        onClick={async () => {
+                          if (!humanConfig || !selectedHumanMotion) return;
+                          setHumanConfigCalculating(true);
+                          try {
+                            // Save config with height_adjustment set to null to trigger auto-calculation
+                            const configToSave: HumanConfig = {
+                              ...humanConfig,
+                              height_adjustment: null,
+                              height_adjustment_method: 'plane_fit' as const
+                            };
+                            const result = await modelApi.saveHumanPlayerConfig(selectedHumanFormat, selectedHumanMotion, configToSave);
+                            // Update the form with the calculated values
+                            setHumanConfig(result.config);
+                            humanConfigForm.setFieldsValue(result.config);
+                            message.success(t('player.autoCalculateSuccess'));
+                          } catch (err) {
+                            console.error('Failed to auto-calculate:', err);
+                            message.error(t('player.autoCalculateFailed'));
+                          } finally {
+                            setHumanConfigCalculating(false);
+                          }
+                        }}
+                      >
+                        {t('player.autoCalculate')}
+                      </Button>
+                    </Form.Item>
+                  </>
                 );
               } else {
                 return (
-                  <Form.Item label={t('player.heightAdjustment')} name="height_adjustment">
-                    <InputNumber style={{ width: '100%' }} placeholder={t('common.autoCalculated')} step={0.01} />
-                  </Form.Item>
+                  <>
+                    <Form.Item label={t('player.heightAdjustment')} name="height_adjustment">
+                      <InputNumber style={{ width: '100%' }} placeholder={t('common.autoCalculated')} step={0.01} />
+                    </Form.Item>
+                    <Form.Item>
+                      <Button
+                        type="default"
+                        loading={humanConfigCalculating}
+                        onClick={async () => {
+                          if (!humanConfig || !selectedHumanMotion) return;
+                          setHumanConfigCalculating(true);
+                          try {
+                            // Save config with height_adjustment set to null to trigger auto-calculation
+                            const configToSave: HumanConfig = {
+                              ...humanConfig,
+                              height_adjustment: null,
+                              height_adjustment_method: 'offset' as const
+                            };
+                            const result = await modelApi.saveHumanPlayerConfig(selectedHumanFormat, selectedHumanMotion, configToSave);
+                            // Update the form with the calculated values
+                            setHumanConfig(result.config);
+                            humanConfigForm.setFieldsValue(result.config);
+                            message.success(t('player.autoCalculateSuccess'));
+                          } catch (err) {
+                            console.error('Failed to auto-calculate:', err);
+                            message.error(t('player.autoCalculateFailed'));
+                          } finally {
+                            setHumanConfigCalculating(false);
+                          }
+                        }}
+                      >
+                        {t('player.autoCalculate')}
+                      </Button>
+                    </Form.Item>
+                  </>
                 );
               }
             }}

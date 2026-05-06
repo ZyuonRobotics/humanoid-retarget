@@ -95,7 +95,7 @@ const BodyTreeSelectorModal: React.FC<BodyTreeSelectorModalProps> = ({
     >
       <Space direction="vertical" size="middle" style={{ width: '100%', marginTop: 16 }}>
         <div>
-          <Text strong>{t('configPanel.label.humanTrackers')}</Text>
+          <Text strong style={{ color: 'white' }}>{t('configPanel.label.humanTrackers')}</Text>
           <Select
             style={{ width: '100%', marginTop: 4 }}
             placeholder={t('configPanel.modal.selectHumanBody')}
@@ -109,7 +109,7 @@ const BodyTreeSelectorModal: React.FC<BodyTreeSelectorModalProps> = ({
           />
         </div>
         <div>
-          <Text strong>{t('configPanel.label.robotTrackers')}</Text>
+          <Text strong style={{ color: 'white' }}>{t('configPanel.label.robotTrackers')}</Text>
           <Select
             style={{ width: '100%', marginTop: 4 }}
             placeholder={t('configPanel.modal.selectRobotBody')}
