@@ -246,6 +246,9 @@ export const modelApi = {
   listRetargetedMotions: (robotName: string) =>
     client.get<string[]>(`/model/retargeted/${robotName}`).then(res => res.data),
 
+  listRetargetedMotionsTree: (robotName: string) =>
+    client.get<MotionTreeNode>(`/model/retargeted/${robotName}/tree`).then(res => res.data),
+
   splitMotion: (generatorType: string, motionFile: string, splitIndices: string) =>
     client.post('/model/split-motion', null, {
       params: { generator_type: generatorType, motion_file: motionFile, split_indices: splitIndices }

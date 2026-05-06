@@ -195,7 +195,8 @@
     "rootFiles": "文件",
     "files": "个文件",
     "emptyFolder": "此文件夹为空",
-    "noFiles": "未找到动作文件"
+    "noFiles": "未找到动作文件",
+    "refresh": "刷新"
   },
   "performance": {
     "lowMode": "低画质",

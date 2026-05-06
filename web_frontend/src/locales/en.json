@@ -195,7 +195,8 @@
     "rootFiles": "Files",
     "files": "files",
     "emptyFolder": "This folder is empty",
-    "noFiles": "No motion files found"
+    "noFiles": "No motion files found",
+    "refresh": "Refresh"
   },
   "performance": {
     "lowMode": "Low Quality",

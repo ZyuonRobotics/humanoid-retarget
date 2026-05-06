@@ -42,6 +42,7 @@
 .file-selector-modal-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--spacing-sm);
   padding: var(--spacing-md) var(--spacing-md) var(--spacing-md) var(--spacing-lg);
   border-bottom: 1px solid var(--color-border);
@@ -103,6 +104,13 @@
 }
 
 /* ── Close Button ───────────────────────────────────────────────── */
+.file-selector-modal-header > div:last-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .file-selector-modal-close {
   display: flex;
   align-items: center;

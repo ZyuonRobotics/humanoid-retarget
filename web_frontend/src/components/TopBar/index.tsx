@@ -18,6 +18,7 @@ import {
   ToolOutlined,
   ScissorOutlined,
   ThunderboltOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useConfigContext } from '../../contexts/ConfigContext';
@@ -92,8 +93,6 @@ const TopBar: React.FC<TopBarProps> = ({
   const [selectedRobotMotion, setSelectedRobotMotion] = useState<string>('');
   const [selectedHumanFormat, setSelectedHumanFormat] = useState<'smpl' | 'bvh'>('bvh');
   const [selectedHumanMotion, setSelectedHumanMotion] = useState<string>('');
-  const [retargetedMotions, setRetargetedMotions] = useState<string[]>([]);
-  const [retargetedLoading, setRetargetedLoading] = useState(false);
 
   // HumanConfig modal state
   const [humanConfigOpen, setHumanConfigOpen] = useState(false);
@@ -107,7 +106,9 @@ const TopBar: React.FC<TopBarProps> = ({
 
   // File selector popover state
   const [fileSelectorOpen, setFileSelectorOpen] = useState(false);
+  const [fileSelectorMode, setFileSelectorMode] = useState<'human' | 'robot' | 'segment'>('human');
   const [motionTree, setMotionTree] = useState<Record<string, MotionTreeNode> | null>(null);
+  const [robotMotionTree, setRobotMotionTree] = useState<MotionTreeNode | null>(null);
   const [columns, setColumns] = useState<ColumnData[]>([]);
   const [treeLoading, setTreeLoading] = useState(false);
 
@@ -135,16 +136,16 @@ const TopBar: React.FC<TopBarProps> = ({
   const [robotSegmentMotions, setRobotSegmentMotions] = useState<string[]>([]);
   const [robotSegmentLoading, setRobotSegmentLoading] = useState(false);
 
-  // Load retargeted motions when entering player mode
-  useEffect(() => {
-    if (activePanel === 'player' && selectedRobot) {
-      setRetargetedLoading(true);
-      modelApi.listRetargetedMotions(selectedRobot)
-        .then(setRetargetedMotions)
-        .catch(console.error)
-        .finally(() => setRetargetedLoading(false));
-    }
-  }, [activePanel, selectedRobot]);
+  // Load retargeted motions when entering player mode - no longer needed since we use file selector
+  // useEffect(() => {
+  //   if (activePanel === 'player' && selectedRobot) {
+  //     setRetargetedLoading(true);
+  //     modelApi.listRetargetedMotions(selectedRobot)
+  //       .then(setRetargetedMotions)
+  //       .catch(console.error)
+  //       .finally(() => setRetargetedLoading(false));
+  //   }
+  // }, [activePanel, selectedRobot]);
 
   // Load robot motions when robot is selected in robot segmentation tool
   useEffect(() => {
@@ -194,10 +195,14 @@ const TopBar: React.FC<TopBarProps> = ({
     }
   }, [activePanel, playerMotion?.type]);
   useEffect(() => {
-    if (fileSelectorOpen && !motionTree) {
-      loadMotionTree();
+    if (fileSelectorOpen) {
+      if (fileSelectorMode === 'robot' && !robotMotionTree) {
+        loadMotionTree();
+      } else if (fileSelectorMode === 'human' && !motionTree) {
+        loadMotionTree();
+      }
     }
-  }, [fileSelectorOpen]);
+  }, [fileSelectorOpen, fileSelectorMode]);
 
   // Initialize columns when motionTree or generatorType changes
   useEffect(() => {
@@ -223,11 +228,143 @@ const TopBar: React.FC<TopBarProps> = ({
     }
   }, [motionTree, generatorType, selectedHumanFormat, activePanel, selectedTool, segmentFormat]);
 
-  const loadMotionTree = async () => {
+  const loadMotionTree = async (preserveSelection: boolean = false) => {
     setTreeLoading(true);
     try {
-      const tree = await modelApi.listMotionsTree();
-      setMotionTree(tree);
+      // Save current selections before reloading
+      const savedColumns = preserveSelection ? [...columns] : null;
+      const savedSelectedMotionFile = preserveSelection ? selectedMotionFile : null;
+      const savedSegmentMotionFile = preserveSelection ? segmentMotionFile : null;
+      const savedSelectedHumanMotion = preserveSelection ? selectedHumanMotion : null;
+      const savedSelectedRobotMotion = preserveSelection ? selectedRobotMotion : null;
+
+      // Load appropriate tree based on mode
+      if (fileSelectorMode === 'robot' && selectedRobot) {
+        // Load robot motion tree
+        const tree = await modelApi.listRetargetedMotionsTree(selectedRobot);
+        setRobotMotionTree(tree);
+
+        // Initialize columns for robot motion tree
+        if (!preserveSelection || !savedColumns || savedColumns.length === 0) {
+          const rootColumn: ColumnData = {
+            path: [],
+            folders: Object.entries(tree.subdirs).map(([name, node]) => ({
+              name,
+              node,
+              path: [name]
+            })),
+            files: tree.motions
+          };
+          setColumns([rootColumn]);
+        } else {
+          // Restore columns for robot motion
+          setTimeout(() => {
+            const newColumns: ColumnData[] = [];
+            let currentNode = tree;
+
+            newColumns.push({
+              path: [],
+              folders: Object.entries(currentNode.subdirs).map(([name, node]) => ({
+                name,
+                node,
+                path: [name]
+              })),
+              files: currentNode.motions
+            });
+
+            for (let i = 1; i < savedColumns.length; i++) {
+              const savedPath = savedColumns[i].path;
+              if (savedPath.length > 0) {
+                const folderName = savedPath[savedPath.length - 1];
+                if (currentNode.subdirs[folderName]) {
+                  currentNode = currentNode.subdirs[folderName];
+                  newColumns.push({
+                    path: savedPath,
+                    folders: Object.entries(currentNode.subdirs).map(([name, node]) => ({
+                      name,
+                      node,
+                      path: [...savedPath, name]
+                    })),
+                    files: currentNode.motions
+                  });
+                } else {
+                  break;
+                }
+              }
+            }
+
+            setColumns(newColumns);
+            if (savedSelectedRobotMotion) {
+              setSelectedRobotMotion(savedSelectedRobotMotion);
+            }
+          }, 0);
+        }
+      } else {
+        // Load human motion tree
+        const tree = await modelApi.listMotionsTree();
+        setMotionTree(tree);
+
+        // Restore selections after tree is loaded
+        if (preserveSelection && savedColumns && savedColumns.length > 0) {
+          // Reconstruct columns based on saved paths
+          setTimeout(() => {
+            const currentGenType = selectedTool === 'motionSegmentation'
+              ? segmentFormat
+              : (activePanel === 'player' ? selectedHumanFormat : generatorType);
+
+            if (tree && tree[currentGenType]) {
+              const newColumns: ColumnData[] = [];
+              let currentNode = tree[currentGenType];
+
+              // Rebuild columns by following the saved paths
+              newColumns.push({
+                path: [],
+                folders: Object.entries(currentNode.subdirs).map(([name, node]) => ({
+                  name,
+                  node,
+                  path: [name]
+                })),
+                files: currentNode.motions
+              });
+
+              // Traverse through saved column paths
+              for (let i = 1; i < savedColumns.length; i++) {
+                const savedPath = savedColumns[i].path;
+                if (savedPath.length > 0) {
+                  const folderName = savedPath[savedPath.length - 1];
+                  if (currentNode.subdirs[folderName]) {
+                    currentNode = currentNode.subdirs[folderName];
+                    newColumns.push({
+                      path: savedPath,
+                      folders: Object.entries(currentNode.subdirs).map(([name, node]) => ({
+                        name,
+                        node,
+                        path: [...savedPath, name]
+                      })),
+                      files: currentNode.motions
+                    });
+                  } else {
+                    break; // Path no longer exists
+                  }
+                }
+              }
+
+              setColumns(newColumns);
+            }
+
+            // Restore selected file
+            if (savedSelectedMotionFile) {
+              setSelectedMotionFile(savedSelectedMotionFile);
+            }
+            if (savedSegmentMotionFile) {
+              setSegmentMotionFile(savedSegmentMotionFile);
+            }
+            if (savedSelectedHumanMotion) {
+              setSelectedHumanMotion(savedSelectedHumanMotion);
+            }
+          }, 0);
+        }
+      }
     } catch (error) {
       console.error('Failed to load motion tree:', error);
     } finally {
@@ -263,6 +400,13 @@ const TopBar: React.FC<TopBarProps> = ({
         setSelectedHumanMotion(file.relative_path);
         if (onPlayerMotionChange) {
           onPlayerMotionChange('human', selectedRobot, file.relative_path, selectedHumanFormat);
+        }
+      } else if (playerMotionType === 'robot') {
+        // Robot motion selection - file.filename is just the name without extension
+        const motionName = file.filename.replace(/\.npz$/, '');
+        setSelectedRobotMotion(motionName);
+        if (onPlayerMotionChange && selectedRobot) {
+          onPlayerMotionChange('robot', selectedRobot, motionName);
         }
       }
     } else {
@@ -337,12 +481,15 @@ const TopBar: React.FC<TopBarProps> = ({
       const result = await modelApi.uploadRobotMotion(selectedRobot, file);
       if (result.status === 'uploaded') {
         message.success(t('player.uploadRobotMotionSuccess'));
-        // Refresh the retargeted motions list
-        const motions = await modelApi.listRetargetedMotions(selectedRobot);
-        setRetargetedMotions(motions);
-        setSelectedRobotMotion(result.filename);
+        // Refresh the robot motion tree
+        if (fileSelectorMode === 'robot') {
+          loadMotionTree(true);
+        }
+        // Strip .npz extension from filename for API calls
+        const motionName = result.filename.replace(/\.npz$/, '');
+        setSelectedRobotMotion(motionName);
         if (onPlayerMotionChange) {
-          onPlayerMotionChange('robot', selectedRobot, result.filename);
+          onPlayerMotionChange('robot', selectedRobot, motionName);
         }
       }
     } catch (error) {
@@ -501,7 +648,10 @@ const TopBar: React.FC<TopBarProps> = ({
                   <Button
                     className="motion-file-btn"
                     icon={<FileOutlined />}
-                    onClick={() => setFileSelectorOpen(true)}
+                    onClick={() => {
+                      setFileSelectorMode('human');
+                      setFileSelectorOpen(true);
+                    }}
                   >
                     <span className="motion-file-btn-text">
                       {segmentMotionFile
@@ -654,7 +804,10 @@ const TopBar: React.FC<TopBarProps> = ({
                   <Button
                     className="motion-file-btn"
                     icon={<FileOutlined />}
-                    onClick={() => setFileSelectorOpen(true)}
+                    onClick={() => {
+                      setFileSelectorMode('human');
+                      setFileSelectorOpen(true);
+                    }}
                   >
                     <span className="motion-file-btn-text">
                       {selectedMotionFile
@@ -784,20 +937,21 @@ const TopBar: React.FC<TopBarProps> = ({
                       />
                     </div>
                     <div className="topbar-section">
-                      <Select
-                        value={selectedRobotMotion}
-                        onChange={(val) => {
-                          setSelectedRobotMotion(val);
-                          if (onPlayerMotionChange && selectedRobot) {
-                            onPlayerMotionChange('robot', selectedRobot, val);
-                          }
+                      <Button
+                        className="motion-file-btn"
+                        icon={<FileOutlined />}
+                        onClick={() => {
+                          setFileSelectorMode('robot');
+                          setFileSelectorOpen(true);
                         }}
-                        style={{ width: 200 }}
-                        placeholder={retargetedMotions.length === 0 && !retargetedLoading ? t('player.noRetargetedMotions') : t('player.selectRobotMotion')}
-                        loading={retargetedLoading}
-                        options={retargetedMotions.map(m => ({ value: m, label: m }))}
-                        disabled={retargetedMotions.length === 0}
-                      />
+                        disabled={!selectedRobot}
+                      >
+                        <span className="motion-file-btn-text">
+                          {selectedRobotMotion
+                            ? selectedRobotMotion
+                            : t('player.selectRobotMotion')}
+                        </span>
+                      </Button>
                     </div>
                     <div className="topbar-section">
                       <Button
@@ -839,7 +993,10 @@ const TopBar: React.FC<TopBarProps> = ({
                       <Button
                         className="motion-file-btn"
                         icon={<FileOutlined />}
-                        onClick={() => setFileSelectorOpen(true)}
+                        onClick={() => {
+                          setFileSelectorMode('human');
+                          setFileSelectorOpen(true);
+                        }}
                       >
                         <span className="motion-file-btn-text">
                           {selectedHumanMotion
@@ -953,12 +1110,24 @@ const TopBar: React.FC<TopBarProps> = ({
                 </React.Fragment>
               ))}
             </div>
-            <button
-              className="file-selector-modal-close"
-              onClick={() => setFileSelectorOpen(false)}
-            >
-              <CloseOutlined />
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Button
+                type="text"
+                icon={<ReloadOutlined />}
+                onClick={() => loadMotionTree(true)}
+                loading={treeLoading}
+                title={t('fileBrowser.refresh')}
+                style={{ color: 'rgba(255,255,255,0.85)' }}
+              >
+                {t('fileBrowser.refresh')}
+              </Button>
+              <button
+                className="file-selector-modal-close"
+                onClick={() => setFileSelectorOpen(false)}
+              >
+                <CloseOutlined />
+              </button>
+            </div>
           </div>
 
           {/* Body */}

@@ -318,6 +318,16 @@ async def list_retargeted_motions(robot_name: str):
     return sorted(motions)
 
 
+@router.get("/retargeted/{robot_name}/tree")
+async def list_retargeted_motions_tree(robot_name: str):
+    """Return nested retargeted motion file tree structure for a specific robot."""
+    robot_dir = Path(RETARGETING_PATH) / robot_name
+    if not robot_dir.exists():
+        return {"motions": [], "subdirs": {}}
+
+    return _scan_directory(robot_dir, robot_dir)
+
+
 @router.get("/mjcf/{robot_name}")
 async def get_robot_mjcf(robot_name: str):
     """Get MJCF XML for a robot."""
