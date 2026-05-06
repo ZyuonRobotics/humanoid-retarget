@@ -202,13 +202,22 @@ class HumanoidMotionPlayerBase(MotionPlayerBase, ABC):
                 # Build design matrix for least squares: [x, y, 1] * [a, b, c]^T = z
                 A_matrix = np.column_stack([X, Y, np.ones_like(X)])
 
-                # Solve least squares: A * [a, b, c]^T = Z
-                plane_coeffs, residuals, _, _ = np.linalg.lstsq(A_matrix, Z, rcond=None)
+                # Solve least squares with L2 regularization: (A^T A + lambda*I) * [a, b, c]^T = A^T Z
+                # Regularization helps prevent overfitting and stabilizes the solution
+                lambda_reg = 0.5  # L2 regularization parameter
+                ATA = A_matrix.T @ A_matrix
+                ATZ = A_matrix.T @ Z
+                # Add regularization only to slope coefficients (a, b), not intercept (c)
+                reg_matrix = np.diag([lambda_reg, lambda_reg, 0])
+                plane_coeffs = np.linalg.solve(ATA + reg_matrix, ATZ)
+
+                # Calculate residuals for reporting
+                residuals = np.sum((A_matrix @ plane_coeffs - Z) ** 2)
                 a, b, c = plane_coeffs
 
                 print(f"Based on {len(all_valid_positions)} valid frames meeting all criteria, "
                       f"fitted plane: z = {a:.6f}*x + {b:.6f}*y + {c:.6f}")
-                print(f"Residual sum of squares: {residuals[0] if len(residuals) > 0 else 0:.6f}")
+                print(f"Residual sum of squares: {residuals:.6f}")
 
                 # Visualize plane fitting if draw_plot is enabled
                 if draw_plot:
