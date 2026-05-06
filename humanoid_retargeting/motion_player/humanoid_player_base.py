@@ -94,6 +94,7 @@ class HumanoidMotionPlayerBase(MotionPlayerBase, ABC):
         angular_velocity_threshold: float = 0.2,
         draw_plot: bool = True,
         use_plane_fit: bool = None,
+        l2_param: float = 0.5
     ):
         """
         Calculate root height adjustment to ensure feet contact ground when meeting multiple criteria.
@@ -204,11 +205,10 @@ class HumanoidMotionPlayerBase(MotionPlayerBase, ABC):
 
                 # Solve least squares with L2 regularization: (A^T A + lambda*I) * [a, b, c]^T = A^T Z
                 # Regularization helps prevent overfitting and stabilizes the solution
-                lambda_reg = 0.5  # L2 regularization parameter
                 ATA = A_matrix.T @ A_matrix
                 ATZ = A_matrix.T @ Z
                 # Add regularization only to slope coefficients (a, b), not intercept (c)
-                reg_matrix = np.diag([lambda_reg, lambda_reg, 0])
+                reg_matrix = np.diag([l2_param, l2_param, 0])
                 plane_coeffs = np.linalg.solve(ATA + reg_matrix, ATZ)
 
                 # Calculate residuals for reporting
