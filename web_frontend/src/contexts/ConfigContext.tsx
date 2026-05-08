@@ -82,7 +82,6 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
         setSelectedConfig(data[0]);
       } else {
         setSelectedConfig('');
-        message.info(t('configPanel.message.noConfigsPleaseCreate'));
       }
     } catch (error) {
       if (currentRequestId !== configsRequestIdRef.current) return;

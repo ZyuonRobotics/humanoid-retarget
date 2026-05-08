@@ -15,6 +15,7 @@
     "selectMotionFile": "选择动作文件",
     "selectRobot": "选择机器人",
     "selectRobotMotion": "选择机器人动作",
+    "selectRobotFirst": "请先选择机器人",
     "noRobotMotions": "未找到机器人动作",
     "splitPositions": "切割位置（例如：300,400）",
     "split": "切割",

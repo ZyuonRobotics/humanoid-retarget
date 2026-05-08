@@ -15,6 +15,7 @@
     "selectMotionFile": "Select Motion File",
     "selectRobot": "Select Robot",
     "selectRobotMotion": "Select Robot Motion",
+    "selectRobotFirst": "Please select a robot first",
     "noRobotMotions": "No robot motions found",
     "splitPositions": "Split Positions (e.g., 300,400)",
     "split": "Split",

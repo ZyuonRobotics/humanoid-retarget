@@ -133,8 +133,6 @@ const TopBar: React.FC<TopBarProps> = ({
   const [robotSegmentMotion, setRobotSegmentMotion] = useState<string>('');
   const [robotSplitPosition, setRobotSplitPosition] = useState<string>('');
   const [robotSplitting, setRobotSplitting] = useState(false);
-  const [robotSegmentMotions, setRobotSegmentMotions] = useState<string[]>([]);
-  const [robotSegmentLoading, setRobotSegmentLoading] = useState(false);
 
   // Load retargeted motions when entering player mode - no longer needed since we use file selector
   // useEffect(() => {
@@ -147,16 +145,16 @@ const TopBar: React.FC<TopBarProps> = ({
   //   }
   // }, [activePanel, selectedRobot]);
 
-  // Load robot motions when robot is selected in robot segmentation tool
-  useEffect(() => {
-    if (selectedTool === 'robotMotionSegmentation' && robotSegmentRobot) {
-      setRobotSegmentLoading(true);
-      modelApi.listRetargetedMotions(robotSegmentRobot)
-        .then(setRobotSegmentMotions)
-        .catch(console.error)
-        .finally(() => setRobotSegmentLoading(false));
-    }
-  }, [selectedTool, robotSegmentRobot]);
+  // Load robot motions when robot is selected in robot segmentation tool - no longer needed, using file selector
+  // useEffect(() => {
+  //   if (selectedTool === 'robotMotionSegmentation' && robotSegmentRobot) {
+  //     setRobotSegmentLoading(true);
+  //     modelApi.listRetargetedMotions(robotSegmentRobot)
+  //       .then(setRobotSegmentMotions)
+  //       .catch(console.error)
+  //       .finally(() => setRobotSegmentLoading(false));
+  //   }
+  // }, [selectedTool, robotSegmentRobot]);
 
   // Reload human config when motion file or format changes while modal is open
   useEffect(() => {
@@ -202,7 +200,7 @@ const TopBar: React.FC<TopBarProps> = ({
         loadMotionTree();
       }
     }
-  }, [fileSelectorOpen, fileSelectorMode]);
+  }, [fileSelectorOpen, fileSelectorMode, robotMotionTree, motionTree]);
 
   // Initialize columns when motionTree or generatorType changes
   useEffect(() => {
@@ -237,11 +235,19 @@ const TopBar: React.FC<TopBarProps> = ({
       const savedSegmentMotionFile = preserveSelection ? segmentMotionFile : null;
       const savedSelectedHumanMotion = preserveSelection ? selectedHumanMotion : null;
       const savedSelectedRobotMotion = preserveSelection ? selectedRobotMotion : null;
+      const savedRobotSegmentMotion = preserveSelection ? robotSegmentMotion : null;
 
       // Load appropriate tree based on mode
-      if (fileSelectorMode === 'robot' && selectedRobot) {
+      if (fileSelectorMode === 'robot') {
+        // Determine which robot to use based on context
+        const robotName = selectedTool === 'robotMotionSegmentation' ? robotSegmentRobot : selectedRobot;
+        if (!robotName) {
+          setTreeLoading(false);
+          return;
+        }
+
         // Load robot motion tree
-        const tree = await modelApi.listRetargetedMotionsTree(selectedRobot);
+        const tree = await modelApi.listRetargetedMotionsTree(robotName);
         setRobotMotionTree(tree);
 
         // Initialize columns for robot motion tree
@@ -296,6 +302,9 @@ const TopBar: React.FC<TopBarProps> = ({
             setColumns(newColumns);
             if (savedSelectedRobotMotion) {
               setSelectedRobotMotion(savedSelectedRobotMotion);
+            }
+            if (savedRobotSegmentMotion) {
+              setRobotSegmentMotion(savedRobotSegmentMotion);
             }
           }, 0);
         }
@@ -394,6 +403,12 @@ const TopBar: React.FC<TopBarProps> = ({
     if (selectedTool === 'motionSegmentation') {
       // Segmentation tool mode
       setSegmentMotionFile(file.relative_path);
+    } else if (selectedTool === 'robotMotionSegmentation') {
+      // Robot motion segmentation tool mode
+      // file.relative_path is relative to robot directory, e.g., "a/b/file.npz"
+      // Remove .npz extension for API call
+      const motionPath = file.relative_path.replace(/\.npz$/, '');
+      setRobotSegmentMotion(motionPath);
     } else if (activePanel === 'player') {
       // Player mode: only update player-specific state
       if (playerMotionType === 'human') {
@@ -402,11 +417,12 @@ const TopBar: React.FC<TopBarProps> = ({
           onPlayerMotionChange('human', selectedRobot, file.relative_path, selectedHumanFormat);
         }
       } else if (playerMotionType === 'robot') {
-        // Robot motion selection - file.filename is just the name without extension
-        const motionName = file.filename.replace(/\.npz$/, '');
-        setSelectedRobotMotion(motionName);
+        // Robot motion selection - file.relative_path is relative to robot directory
+        // Remove .npz extension for API call
+        const motionPath = file.relative_path.replace(/\.npz$/, '');
+        setSelectedRobotMotion(motionPath);
         if (onPlayerMotionChange && selectedRobot) {
-          onPlayerMotionChange('robot', selectedRobot, motionName);
+          onPlayerMotionChange('robot', selectedRobot, motionPath);
         }
       }
     } else {
@@ -704,7 +720,13 @@ const TopBar: React.FC<TopBarProps> = ({
                 <div className="topbar-section">
                   <Select
                     value={robotSegmentRobot}
-                    onChange={(val) => { setRobotSegmentRobot(val); setRobotSegmentMotion(''); }}
+                    onChange={(val) => {
+                      setRobotSegmentRobot(val);
+                      setRobotSegmentMotion('');
+                      // Clear robot motion tree when robot changes
+                      setRobotMotionTree(null);
+                      setColumns([]);
+                    }}
                     style={{ width: 140 }}
                     options={robotOptions}
                     placeholder={t('toolbox.selectRobot')}
@@ -712,15 +734,25 @@ const TopBar: React.FC<TopBarProps> = ({
                   />
                 </div>
                 <div className="topbar-section">
-                  <Select
-                    value={robotSegmentMotion}
-                    onChange={setRobotSegmentMotion}
-                    style={{ width: 200 }}
-                    placeholder={robotSegmentMotions.length === 0 && !robotSegmentLoading ? t('toolbox.noRobotMotions') : t('toolbox.selectRobotMotion')}
-                    loading={robotSegmentLoading}
-                    options={robotSegmentMotions.map(m => ({ value: m, label: m }))}
-                    disabled={robotSegmentMotions.length === 0}
-                  />
+                  <Button
+                    className="motion-file-btn"
+                    icon={<FileOutlined />}
+                    onClick={() => {
+                      if (!robotSegmentRobot) {
+                        message.warning(t('toolbox.selectRobotFirst'));
+                        return;
+                      }
+                      setFileSelectorMode('robot');
+                      setFileSelectorOpen(true);
+                    }}
+                    disabled={!robotSegmentRobot}
+                  >
+                    <span className="motion-file-btn-text">
+                      {robotSegmentMotion
+                        ? robotSegmentMotion.split('/').pop()
+                        : t('toolbox.selectRobotMotion')}
+                    </span>
+                  </Button>
                 </div>
                 <div className="topbar-section">
                   <Input
@@ -751,9 +783,8 @@ const TopBar: React.FC<TopBarProps> = ({
                       try {
                         await modelApi.splitRobotMotion(robotSegmentRobot, robotSegmentMotion, robotSplitPosition);
                         message.success(t('toolbox.splitSuccess'));
-                        // Refresh robot motions list
-                        const motions = await modelApi.listRetargetedMotions(robotSegmentRobot);
-                        setRobotSegmentMotions(motions);
+                        // Refresh robot motion tree
+                        loadMotionTree(true);
                       } catch (error) {
                         message.error(t('toolbox.splitFailed'));
                       } finally {
@@ -878,6 +909,9 @@ const TopBar: React.FC<TopBarProps> = ({
                     type={playerMotionType === 'robot' ? 'primary' : 'text'}
                     onClick={() => {
                       setPlayerMotionType('robot');
+                      // Clear trees to force reload when file selector opens
+                      setRobotMotionTree(null);
+                      setColumns([]);
                       if (selectedRobot && selectedRobotMotion && onPlayerMotionChange) {
                         onPlayerMotionChange('robot', selectedRobot, selectedRobotMotion);
                       }
@@ -889,6 +923,9 @@ const TopBar: React.FC<TopBarProps> = ({
                     type={playerMotionType === 'human' ? 'primary' : 'text'}
                     onClick={() => {
                       setPlayerMotionType('human');
+                      // Clear trees to force reload when file selector opens
+                      setMotionTree(null);
+                      setColumns([]);
                       if (selectedRobot && selectedHumanMotion && onPlayerMotionChange) {
                         onPlayerMotionChange('human', selectedRobot, selectedHumanMotion, selectedHumanFormat);
                       }
@@ -929,7 +966,13 @@ const TopBar: React.FC<TopBarProps> = ({
                     <div className="topbar-section">
                       <Select
                         value={selectedRobot}
-                        onChange={setSelectedRobot}
+                        onChange={(val) => {
+                          setSelectedRobot(val);
+                          // Clear robot motion tree when robot changes
+                          setRobotMotionTree(null);
+                          setColumns([]);
+                          setSelectedRobotMotion('');
+                        }}
                         style={{ width: 140 }}
                         options={robotOptions}
                         placeholder={t('player.selectRobot')}
