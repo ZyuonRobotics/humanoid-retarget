@@ -124,11 +124,23 @@ async def retarget_preview(
     if output_name is None:
         output_name = motion_path.stem + "_" + robot_name
 
-    # Store output_name in module-level dict for later save
+    # Extract subdirectory structure from motion_file (after generator type)
+    # e.g., "smpl/a/b/file.npz" -> "a/b"
+    motion_file_path = Path(motion_file)
+    if len(motion_file_path.parts) > 1 and motion_file_path.parts[0] == generator_type:
+        # Remove generator type prefix and filename to get subdirectory
+        subdir = Path(*motion_file_path.parts[1:-1]) if len(motion_file_path.parts) > 2 else Path()
+    else:
+        subdir = motion_file_path.parent
+
+    logger.info(f"Retarget preview - motion_file: {motion_file}, extracted subdir: {subdir}")
+
+    # Store output_name and subdirectory in module-level dict for later save
     global _pending_retarget
     _pending_retarget = {
         "output_name": output_name,
-        "robot_name": robot_name
+        "robot_name": robot_name,
+        "subdir": str(subdir) if subdir != Path() else ""
     }
 
     try:
@@ -186,6 +198,17 @@ async def retarget_stream(
     if output_name is None:
         output_name = motion_path.stem + "_" + robot_name
 
+    # Extract subdirectory structure from motion_file (after generator type)
+    # e.g., "smpl/a/b/file.npz" -> "a/b"
+    motion_file_path = Path(motion_file)
+    if len(motion_file_path.parts) > 1 and motion_file_path.parts[0] == generator_type:
+        # Remove generator type prefix and filename to get subdirectory
+        subdir = Path(*motion_file_path.parts[1:-1]) if len(motion_file_path.parts) > 2 else Path()
+    else:
+        subdir = motion_file_path.parent
+
+    logger.info(f"Retarget stream - motion_file: {motion_file}, extracted subdir: {subdir}")
+
     async def event_generator():
         try:
             retargeter = Retargeter(
@@ -214,7 +237,8 @@ async def retarget_stream(
             _pending_retarget = {
                 "output_name": output_name,
                 "robot_name": robot_name,
-                "retargeter": retargeter
+                "retargeter": retargeter,
+                "subdir": str(subdir) if subdir != Path() else ""
             }
 
             # Stream frame data
@@ -266,8 +290,16 @@ async def save_retarget():
     retargeter = _pending_retarget["retargeter"]
     output_name = _pending_retarget["output_name"]
     robot_name = _pending_retarget["robot_name"]
+    subdir = _pending_retarget.get("subdir", "")
 
-    output_path = Path(RETARGETING_PATH) / robot_name / f"{output_name}.npz"
+    # Construct output path preserving subdirectory structure
+    # e.g., retargeted/robot_name/a/b/output_name.npz
+    if subdir:
+        output_path = Path(RETARGETING_PATH) / robot_name / subdir / f"{output_name}.npz"
+    else:
+        output_path = Path(RETARGETING_PATH) / robot_name / f"{output_name}.npz"
+
+    logger.info(f"Saving retarget - subdir: '{subdir}', output_path: {output_path}")
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -285,9 +317,9 @@ async def save_retarget():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/retarget/{robot_name}/{output_name}")
+@router.get("/retarget/{robot_name}/{output_name:path}")
 async def get_retargeted_motion(robot_name: str, output_name: str):
-    """Get retargeted motion data."""
+    """Get retargeted motion data. output_name can include subdirectories (e.g., 'a/b/file')."""
     output_path = Path(RETARGETING_PATH) / robot_name / f"{output_name}.npz"
 
     if not output_path.exists():
@@ -656,9 +688,9 @@ async def get_human_preview(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/frame/{robot_name}/{output_name}/{frame_id}")
+@router.get("/frame/{robot_name}/{output_name:path}/{frame_id}")
 async def get_frame_data(robot_name: str, output_name: str, frame_id: int):
-    """Get frame data for visualization."""
+    """Get frame data for visualization. output_name can include subdirectories (e.g., 'a/b/file')."""
     output_path = Path(RETARGETING_PATH) / robot_name / f"{output_name}.npz"
 
     if not output_path.exists():
@@ -676,12 +708,13 @@ async def get_frame_data(robot_name: str, output_name: str, frame_id: int):
     }
 
 
-@router.get("/player/robot/{robot_name}/motion/{motion_file}")
+@router.get("/player/robot/{robot_name}/motion/{motion_file:path}")
 async def get_robot_player_motion_data(robot_name: str, motion_file: str):
     """Pre-compute all frame body transforms for player motion.
 
     Returns body positions and quaternions for every frame so the frontend
     can render by just updating mesh transforms without re-computing physics.
+    motion_file can include subdirectories (e.g., 'a/b/file').
     """
     from humanoid_retargeting.motion_player import RobotMotionPlayer
     from hurodes import HumanoidRobot
@@ -1040,10 +1073,10 @@ async def split_robot_motion(robot_name: str, motion_file: str, split_indices: s
 
     Args:
         robot_name: name of the robot
-        motion_file: relative path to the motion file (without .npz extension)
+        motion_file: relative path to the motion file (without .npz extension), can include subdirectories
         split_indices: comma-separated frame indices to split at (e.g., "300,400" creates segments 0-300, 300-400, 400-end)
     """
-    # Construct motion path
+    # Construct motion path - motion_file can include subdirectories
     motion_path = Path(RETARGETING_PATH) / robot_name / f"{motion_file}.npz"
     logger.info(f"Looking for robot motion file at: {motion_path}")
     if not motion_path.exists():
