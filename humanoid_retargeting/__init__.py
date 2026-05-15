@@ -1,11 +1,12 @@
+import os
 from pathlib import Path
 
-PROJECT_PATH = Path.home() / ".humanoid_retargeting"
+PROJECT_PATH = Path(os.environ["RETARGET_PATH"]) if "RETARGET_PATH" in os.environ else Path(__file__).parent.parent / "data"
 
 GENERATOR_TYPES = ["smpl", "bvh"]
 
 # Data path
-DATA_PATH = PROJECT_PATH / "data"
+DATA_PATH = PROJECT_PATH / "motions"
 SMPL_DATA_PATH = DATA_PATH / "smpl"
 BVH_DATA_PATH = DATA_PATH / "bvh"
 GENERATOR_TYPE_TO_DATA_PATH = {

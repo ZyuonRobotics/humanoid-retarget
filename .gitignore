@@ -177,3 +177,6 @@ web_frontend/node_modules
 CLAUDE.md
 .claude/
 .vscode/
+
+data/
+
