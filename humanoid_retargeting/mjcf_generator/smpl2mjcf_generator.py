@@ -90,9 +90,13 @@ class SMPL2MJCFGenerator(RetargetingMJCFGeneratorBase):
         self.joint_offsets[1:] -= joint_positions[self.joint_parents[1:]]
 
         if self.generate_skin: # load skin params
+            # Apply global_body_ratio to scale skin vertices and joint positions
+            scaled_vertices = vertices * self.global_body_ratio
+            scaled_joint_positions = joint_positions * self.global_body_ratio
+
             self.skin_params = {
-                "vertices": vertices,
+                "vertices": scaled_vertices,
                 "weights": smpl_dict["weights"],
                 "faces": smpl_dict["f"],
-                "joint_positions": joint_positions
+                "joint_positions": scaled_joint_positions
             }
