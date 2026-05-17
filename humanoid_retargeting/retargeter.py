@@ -156,14 +156,11 @@ class Retargeter:
                 self.frame_tasks.append(task)
 
 
-    def run_ik(self, progress_bar=True, streaming=False):
+    def run_ik(self, progress_bar=True):
         assert self.posture_task is not None and self.frame_tasks is not None
         #self.player.load(source_file_path=self.source_file_path)
 
         self.player.apply_adjustments()
-
-        # Offset for human model to avoid overlap with robot
-        human_offset = np.array([0.0, 1.0, 0.0])
 
         for frame_idx in tqdm(range(self.frame_num), disable=not progress_bar):
             self.player.sync_data(frame_idx)
@@ -197,20 +194,51 @@ class Retargeter:
             if self.view:
                 self.viewer.sync()
 
-            # Streaming mode: yield frame data after each frame computation
-            if streaming:
-                # Compute body transforms for this frame with human offset
-                self.data.qpos[:self.player.model.nq] = self.player.ref_qpos[frame_idx, :]
-                self.data.qpos[:2] += human_offset[:2]
-                self.data.qpos[self.player.model.nq:] = self.robot_ref_qpos[frame_idx, :]
-                self.data.qvel[:] = 0
-                mujoco.mj_forward(self.model, self.data)
+    def run_ik_streaming(self, progress_bar=True):
+        """Run IK and yield frame data incrementally for streaming."""
+        assert self.posture_task is not None and self.frame_tasks is not None
 
-                yield {
-                    'frame_id': frame_idx,
-                    'xpos': self.data.xpos.copy().tolist(),
-                    'xquat': self.data.xquat.copy().tolist()
-                }
+        self.player.apply_adjustments()
+
+        # Offset for human model to avoid overlap with robot
+        human_offset = np.array([1.0, 0.0, 0.0])
+
+        for frame_idx in tqdm(range(self.frame_num), disable=not progress_bar):
+            self.player.sync_data(frame_idx)
+
+            self.posture_task.set_target_from_configuration(self.mink_config)
+            for j in range(len(self.frame_tasks)):
+                self.frame_tasks[j].set_target(mink.SE3.from_rotation_and_translation(
+                    mink.SO3.from_matrix(self.player.data.body(self.human_trackers[j]).xmat.reshape([3, 3])),
+                    self.player.data.body(self.human_trackers[j]).xpos
+                ))
+
+            for _ in range(self.init_frame_loop_num if frame_idx == 0 else 1):
+                vel = mink.solve_ik(
+                    configuration=self.mink_config,
+                    tasks=self.all_tasks,
+                    limits=self.all_limits,
+                    dt=1. / self.frame_rate,
+                    solver=self.solver,
+                    damping=self.mink_solver_dumping
+                )
+                self.mink_config.integrate_inplace(vel, 1. / self.frame_rate)
+
+            self.robot_ref_qvel[frame_idx, :] = vel.copy()
+            self.robot_ref_qpos[frame_idx, :] = self.mink_config.q.copy()
+
+            # Compute body transforms for this frame with human offset
+            self.data.qpos[:self.player.model.nq] = self.player.ref_qpos[frame_idx, :]
+            self.data.qpos[:2] += human_offset[:2]
+            self.data.qpos[self.player.model.nq:] = self.robot_ref_qpos[frame_idx, :]
+            self.data.qvel[:] = 0
+            mujoco.mj_forward(self.model, self.data)
+
+            yield {
+                'frame_id': frame_idx,
+                'xpos': self.data.xpos.copy().tolist(),
+                'xquat': self.data.xquat.copy().tolist()
+            }
 
     def view_frame(self, frame_id=0, offset=None):
         offset = np.array(offset) if offset is not None else np.zeros(3)

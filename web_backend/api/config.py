@@ -115,11 +115,11 @@ async def save_config(
             position_cost=tracker.position_cost,
             orientation_cost=tracker.orientation_cost
         )
-
+    base_rot = [90.0, 0.0, 90.0] if generator_type == "bvh" else [0.0, 0.0, 0.0]
     retarget_config = RetargetConfig(
         base_x_shift=config.base_x_shift,
         base_y_shift=config.base_y_shift,
-        base_rotation=config.base_rotation,
+        base_rotation=base_rot,
         body_rotate_dict=config.body_rotate_dict,
         extra_body_ratio=config.extra_body_ratio,
         relative_body_ratio_dict=config.relative_body_ratio_dict,

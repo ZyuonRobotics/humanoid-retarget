@@ -242,7 +242,7 @@ async def retarget_stream(
             }
 
             # Stream frame data
-            for frame_data in retargeter.run_ik(progress_bar=False, streaming=True):
+            for frame_data in retargeter.run_ik_streaming(progress_bar=False):
                 frame_event = {
                     "type": "frame",
                     "frame_id": frame_data["frame_id"],
