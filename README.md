@@ -1,4 +1,4 @@
-# Humanoid Retargeting
+# Humanoid Retarget
 
 [中文文档](README_zh.md)
 
@@ -8,7 +8,7 @@ A comprehensive system for retargeting human motion capture data to humanoid rob
 
 ## Overview
 
-**Humanoid Retargeting** is a full-stack application that converts human motion data (SMPL, BVH formats) into robot-executable motion trajectories using inverse kinematics optimization. The system consists of three main components:
+**Humanoid Retarget** is a full-stack application that converts human motion data (SMPL, BVH formats) into robot-executable motion trajectories using inverse kinematics optimization. The system consists of three main components:
 
 - **Core Library** (`humanoid_retargeting`): Python library for motion alignment and retargeting
 - **Web Backend** (`web_backend`): FastAPI server providing REST APIs for motion processing
@@ -187,7 +187,7 @@ If you use this project in your research, please cite:
 
 ```bibtex
 @software{humanoid_retargeting,
-  title = {Humanoid Retargeting: A System for Human-to-Robot Motion Transfer},
+  title = {Humanoid Retarget: A System for Human-to-Robot Motion Transfer},
   author = {Honglong Tian, Yumeng Zhang},
   year = {2026},
   url = {https://github.com/ZyuonRobotics/humanoid-retargeting}
