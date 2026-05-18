@@ -166,6 +166,7 @@ const AppContent: React.FC = () => {
           streamingFrames={streamingFrames}
           playing={isPlaying}
           onFrameChange={(current, total) => setPlaybackFrame(prev => ({ ...prev, current, total }))}
+          theme={theme}
         />
       </div>
 

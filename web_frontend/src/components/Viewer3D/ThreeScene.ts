@@ -28,6 +28,48 @@ export interface PerformanceSettings {
   antialiasing: boolean;
 }
 
+export type ThemeType = 'dark' | 'light' | 'ocean' | 'forest' | 'sunset';
+
+interface ThemeColors {
+  background: number;
+  ground: number;
+  gridPrimary: number;
+  gridSecondary: number;
+}
+
+const THEME_COLORS: Record<ThemeType, ThemeColors> = {
+  dark: {
+    background: 0x3a3a3c,
+    ground: 0x1a1a1c,
+    gridPrimary: 0x2a2a2c,
+    gridSecondary: 0x1f1f21,
+  },
+  light: {
+    background: 0xffffff,
+    ground: 0xe8e8ea,
+    gridPrimary: 0xd0d0d2,
+    gridSecondary: 0xdcdcde,
+  },
+  ocean: {
+    background: 0x1a2d42,
+    ground: 0x143250,
+    gridPrimary: 0x1e4a70,
+    gridSecondary: 0x0f2a48,
+  },
+  forest: {
+    background: 0x1a2d1f,
+    ground: 0x1e3c28,
+    gridPrimary: 0x2d5a3c,
+    gridSecondary: 0x152a1a,
+  },
+  sunset: {
+    background: 0x2d1a24,
+    ground: 0x50283c,
+    gridPrimary: 0x6a3850,
+    gridSecondary: 0x3a1828,
+  },
+};
+
 export class ThreeScene {
   private canvas: HTMLCanvasElement;
   private scene: THREE.Scene;
@@ -80,6 +122,9 @@ export class ThreeScene {
 
   // Track visibility state for human model (needed for skin toggle)
   private humanVisible = true;
+
+  // Theme colors
+  private currentTheme: string = 'dark';
 
   constructor(canvas: HTMLCanvasElement, performanceSettings?: PerformanceSettings) {
     console.log(`ThreeScene[${this.instanceId}]: constructor called`);
@@ -240,10 +285,12 @@ export class ThreeScene {
   }
 
   private setupGroundPlane(): void {
+    const themeColors = THEME_COLORS[this.currentTheme as ThemeType] || THEME_COLORS.dark;
+
     // Ground plane
     const groundGeometry = new THREE.PlaneGeometry(20, 20);
     const groundMaterial = new THREE.MeshPhongMaterial({
-      color: 0x2a2a4a,
+      color: themeColors.ground,
       depthWrite: true
     });
     this.groundPlane = new THREE.Mesh(groundGeometry, groundMaterial);
@@ -253,7 +300,7 @@ export class ThreeScene {
     this.scene.add(this.groundPlane);
 
     // Grid helper
-    this.referenceGrid = new THREE.GridHelper(20, 20, 0x444466, 0x333355);
+    this.referenceGrid = new THREE.GridHelper(20, 20, themeColors.gridPrimary, themeColors.gridSecondary);
     this.referenceGrid.position.y = 0.001;
     this.scene.add(this.referenceGrid);
   }
@@ -1275,6 +1322,39 @@ export class ThreeScene {
 
     this._dirty = true;
     // Force immediate render to ensure visibility change is applied
+    this.render();
+  }
+
+  /**
+   * Set theme and update background and ground colors
+   */
+  public setTheme(theme: ThemeType): void {
+    this.currentTheme = theme;
+    const themeColors = THEME_COLORS[theme] || THEME_COLORS.dark;
+
+    // Update background color
+    this.scene.background = new THREE.Color(themeColors.background);
+
+    // Update ground plane color
+    if (this.groundPlane) {
+      (this.groundPlane.material as THREE.MeshPhongMaterial).color.setHex(themeColors.ground);
+    }
+
+    // Update grid colors
+    if (this.referenceGrid) {
+      this.referenceGrid.material = new THREE.LineBasicMaterial({
+        color: themeColors.gridPrimary,
+        vertexColors: false
+      });
+      // Recreate grid with new colors
+      const oldGrid = this.referenceGrid;
+      this.scene.remove(oldGrid);
+      this.referenceGrid = new THREE.GridHelper(20, 20, themeColors.gridPrimary, themeColors.gridSecondary);
+      this.referenceGrid.position.y = oldGrid.position.y;
+      this.scene.add(this.referenceGrid);
+    }
+
+    this._dirty = true;
     this.render();
   }
 }

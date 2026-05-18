@@ -42,6 +42,8 @@ interface Viewer3DProps {
   // Playback control props
   playing?: boolean;
   onFrameChange?: (frame: number, total: number) => void;
+  // Theme
+  theme?: 'dark' | 'light' | 'ocean' | 'forest' | 'sunset';
 }
 
 const Viewer3D: React.FC<Viewer3DProps> = ({
@@ -52,7 +54,8 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
   streamingMetadata,
   streamingFrames,
   playing = false,
-  onFrameChange
+  onFrameChange,
+  theme = 'dark'
 }) => {
   const { t } = useTranslation();
   const { selectedRobot, config, generatorType } = useConfigContext();
@@ -122,6 +125,10 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
         console.error('bootScene: failed to create ThreeScene');
         return false;
       }
+      // Apply theme to newly created ThreeScene
+      if (theme) {
+        threeSceneRef.current.setTheme(theme);
+      }
     }
     console.log('bootScene: checking scene creation conditions', {
       hasThreeScene: !!threeSceneRef.current,
@@ -144,7 +151,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
     }
     console.warn('bootScene: missing required objects for scene creation');
     return false;
-  }, []);
+  }, [theme, performanceSettings]);
 
   // Clear models when switching between retargeter and player modes
   useEffect(() => {
@@ -388,6 +395,11 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
         if (threeSceneRef.current) {
           console.log('Player mode: ThreeScene created, setting player motion');
 
+          // Apply theme to newly created ThreeScene
+          if (theme) {
+            threeSceneRef.current.setTheme(theme);
+          }
+
           // Set player motion data for animation (don't autostart, let playing prop control it)
           threeSceneRef.current.setPlayerMotion({
             xpos: motionData.xpos,
@@ -438,7 +450,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
     };
 
     loadPlayer();
-  }, [playerMotion, activePanel, retargetPreviewData, streamingMetadata, showSkin, onFrameChange, bootScene, performanceSettings]);
+  }, [playerMotion, activePanel, retargetPreviewData, streamingMetadata, showSkin, onFrameChange, bootScene, performanceSettings, theme]);
 
   // Handle streaming frames update - use ref to track last processed frame count
   const lastProcessedFrameCountRef = useRef(0);
@@ -836,6 +848,13 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
       dispose();
     };
   }, []);
+
+  // Apply theme to ThreeScene when theme changes
+  useEffect(() => {
+    if (threeSceneRef.current && theme) {
+      threeSceneRef.current.setTheme(theme);
+    }
+  }, [theme]);
 
   return (
     <div
