@@ -8,7 +8,7 @@ SOURCE_FILE_PATH = Path(BVH_DATA_PATH) / "Reallusion" / "Folk Artistry - Ba Jia 
 
 @click.command()
 @click.argument('source_file_path', default=SOURCE_FILE_PATH)
-@click.argument('robot-name', default='zhaplin-21dof')
+@click.argument('robot-name', default='DumBot13-21dof')
 def main(source_file_path, robot_name):
 
     if source_file_path.startswith('"') or source_file_path.startswith("'"):

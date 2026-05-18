@@ -1,0 +1,15 @@
+/* Ocean Theme - Blue Cyan Tech Feel */
+[data-theme="ocean"] {
+  --color-bg-base: #0a1628;
+  --color-bg-elevated: rgba(20, 50, 80, 0.72);
+  --color-bg-hover: rgba(0, 180, 216, 0.12);
+  --color-text-primary: rgba(200, 240, 255, 0.92);
+  --color-text-secondary: rgba(0, 180, 216, 0.72);
+  --color-text-tertiary: rgba(0, 180, 216, 0.48);
+  --color-border: rgba(0, 180, 216, 0.24);
+  --color-border-strong: rgba(0, 180, 216, 0.48);
+
+  --shadow-sm: 0 2px 8px rgba(0, 100, 150, 0.20);
+  --shadow-md: 0 8px 24px rgba(0, 100, 150, 0.32);
+  --shadow-lg: 0 16px 48px rgba(0, 100, 150, 0.48);
+}

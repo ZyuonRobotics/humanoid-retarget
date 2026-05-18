@@ -1,0 +1,219 @@
+{
+  "app": {
+    "title": "人形重定向"
+  },
+  "menu": {
+    "retargeter": "重定向器",
+    "player": "播放器"
+  },
+  "toolbox": {
+    "name": "工具箱",
+    "selected": "已选工具",
+    "motionSegmentation": "人体动作分割",
+    "robotMotionSegmentation": "机器人动作分割",
+    "motionFormat": "动作格式",
+    "selectMotionFile": "选择动作文件",
+    "selectRobot": "选择机器人",
+    "selectRobotMotion": "选择机器人动作",
+    "selectRobotFirst": "请先选择机器人",
+    "noRobotMotions": "未找到机器人动作",
+    "splitPositions": "切割位置（例如：300,400）",
+    "split": "切割",
+    "splitSuccess": "动作切割成功",
+    "splitFailed": "动作切割失败",
+    "noMotionSelected": "请先选择动作文件",
+    "noRobotSelected": "请先选择机器人",
+    "noRobotMotionSelected": "请先选择机器人动作",
+    "noSplitPositions": "请输入切割位置"
+  },
+  "player": {
+    "robotMotion": "机器人动作",
+    "humanMotion": "人体动作",
+    "retargetedMotion": "重定向动作",
+    "robot": "机器人",
+    "selectRobot": "选择机器人",
+    "selectRobotMotion": "选择机器人动作",
+    "selectMotionFormat": "选择动作格式",
+    "selectHumanMotion": "选择人体动作",
+    "noRetargetedMotions": "未找到重定向动作",
+    "noHumanMotions": "未找到人体动作",
+    "play": "播放",
+    "pause": "暂停",
+    "reload": "刷新",
+    "saveRetarget": "保存重定向",
+    "uploadRobotMotion": "上传机器人动作",
+    "uploadHumanMotion": "上传人体动作",
+    "pleaseSelectRobotFirst": "请先选择机器人",
+    "uploadRobotMotionSuccess": "机器人动作上传成功",
+    "uploadRobotMotionFailed": "机器人动作上传失败",
+    "uploadHumanMotionSuccess": "人体动作上传成功",
+    "uploadHumanMotionFailed": "人体动作上传失败",
+    "humanConfig": "人体配置",
+    "heightAdjustment": "高度调整",
+    "heightAdjustmentMethod": "高度调整方法",
+    "planeFit": "平面拟合",
+    "offset": "偏移量",
+    "autoCalculate": "自动计算",
+    "autoCalculateSuccess": "自动计算成功",
+    "autoCalculateFailed": "自动计算失败",
+    "hipNames": "臀部名称",
+    "hipOffset": "臀部偏移",
+    "footNames": "脚部名称",
+    "footOffset": "脚部偏移",
+    "jointAdjustments": "关节调整",
+    "selectJointName": "选择关节",
+    "enterHipNames": "输入臀部关节名称",
+    "enterFootNames": "输入脚部关节名称",
+    "selectHipName": "选择臀部",
+    "selectFootName": "选择脚部",
+    "loadHumanConfigFailed": "加载人体配置失败",
+    "saveHumanConfigSuccess": "人体配置保存成功",
+    "saveHumanConfigFailed": "人体配置保存失败",
+    "humanConfigRequired": "{{filename}}需要在播放器->人体动作->人体设置中设置人体配置",
+    "humanConfigIncomplete": "{{filename}}的人体配置不完整。请在播放器->人体动作->人体设置中设置hip_names、hip_offset、foot_names、foot_offset",
+    "closeRetargetMode": "关闭重定向模式"
+  },
+  "robot": {
+    "label": "机器人",
+    "generatorType": "生成器类型",
+    "config": "配置"
+  },
+  "button": {
+    "uploadMotion": "上传动作",
+    "retarget": "重定向"
+  },
+  "message": {
+    "failedToLoadRobots": "加载机器人失败",
+    "failedToLoadConfigs": "加载配置失败",
+    "pleaseSelectRobotAndConfig": "请选择机器人和配置",
+    "pleaseSelectMotion": "请先选择动作文件",
+    "uploadSuccess": "上传成功",
+    "uploadFailed": "上传失败",
+    "retargetStarted": "重定向开始",
+    "retargetComplete": "重定向完成",
+    "retargetSuccess": "重定向保存成功",
+    "retargetFailed": "重定向失败",
+    "noRetargetPreview": "没有可保存的重定向预览"
+  },
+  "configPanel": {
+    "title": "配置: {{configName}}",
+    "save": "保存",
+    "delete": "删除",
+    "failedToLoadBodyTree": "加载身体树失败",
+    "tabs": {
+      "robotSettings": "机器人设置",
+      "humanSettings": "人体参数",
+      "retargetingParams": "重定向参数",
+      "bodyTree": "身体结构"
+    },
+    "card": {
+      "robotSettings": "机器人设置",
+      "humanSettings": "人体参数",
+      "retargetingParams": "重定向参数",
+      "baseTranslation": "基础位移",
+      "baseRotation": "基础旋转 (欧拉角)",
+      "extraBodyRatio": "额外身体比例",
+      "dampingCost": "阻尼成本",
+      "robotBodies": "机器人身体",
+      "humanBodies": "人体身体",
+      "bodyRotate": "人体旋转偏差",
+      "relativeBodyRatio": "相对身体比例"
+    },
+    "label": {
+      "baseLinkXOffset": "Base Link X 偏移",
+      "baseLinkYOffset": "Base Link Y 偏移",
+      "baseLinkRotation": "Base Link 旋转",
+      "dampingCost": "阻尼成本",
+      "xShift": "X 偏移",
+      "yShift": "Y 偏移",
+      "x": "X",
+      "y": "Y",
+      "z": "Z",
+      "positionCost": "位置成本",
+      "orientationCost": "方向成本",
+      "humanTrackers": "人体追踪器",
+      "robotTrackers": "机器人追踪器",
+      "globalBodyRatio": "全局身体比例",
+      "relativeBodyRatio": "相对身体比例"
+    },
+    "button": {
+      "addBodyRotation": "添加身体旋转",
+      "addRelativeBodyRatio": "添加相对身体比例",
+      "addTracker": "添加追踪器",
+      "addTrackerGroup": "添加追踪器组",
+      "addPair": "添加配对"
+    },
+    "message": {
+      "configSaved": "配置已保存",
+      "failedToSaveConfig": "保存配置失败",
+      "configCreated": "配置已创建",
+      "failedToCreateConfig": "创建配置失败",
+      "configDeleted": "配置已删除",
+      "failedToDeleteConfig": "删除配置失败",
+      "noConfigsPleaseCreate": "没有找到配置，请创建新配置。"
+    },
+    "loading": "加载中...",
+    "noData": "无数据",
+    "humanTrackerPlaceholder": "输入人体追踪器名称（逗号分隔）",
+    "robotTrackerPlaceholder": "输入机器人追踪器名称（逗号分隔）",
+    "modal": {
+      "addPair": "添加追踪器配对",
+      "selectHumanBody": "选择人体部位",
+      "selectRobotBody": "选择机器人部位"
+    },
+    "bodyName": "身体名称",
+    "newConfigPlaceholder": "新配置名称",
+    "selectConfigPlaceholder": "选择配置",
+    "selectMotionPlaceholder": "选择动作文件",
+    "selectMotionFileHint": "请选择动作文件以查看人体结构",
+    "deleteConfirmTitle": "删除配置",
+    "deleteConfirmContent": "确定要删除配置 \"{{name}}\" 吗？"
+  },
+  "language": {
+    "switch": "语言",
+    "en": "English",
+    "zh": "中文"
+  },
+  "theme": {
+    "dark": "深色",
+    "light": "浅色",
+    "ocean": "海洋",
+    "forest": "森林",
+    "sunset": "日落"
+  },
+  "common": {
+    "ok": "确定",
+    "cancel": "取消",
+    "confirm": "确认",
+    "error": "错误",
+    "somethingWentWrong": "出错了",
+    "tryAgain": "重试",
+    "autoCalculated": "自动计算"
+  },
+  "fileBrowser": {
+    "title": "动作文件",
+    "folders": "文件夹",
+    "rootFiles": "文件",
+    "files": "个文件",
+    "emptyFolder": "此文件夹为空",
+    "noFiles": "未找到动作文件",
+    "refresh": "刷新"
+  },
+  "performance": {
+    "lowMode": "低画质",
+    "normalMode": "高画质",
+    "lowModeEnabled": "已启用低画质模式（显存约500MB）。页面将重新加载。",
+    "normalModeEnabled": "已启用高画质模式（显存约2GB）。页面将重新加载。"
+  },
+  "viewer": {
+    "robot": "机器人",
+    "human": "人体",
+    "skin": "皮肤",
+    "loading": "加载3D预览中..."
+  },
+  "error": {
+    "unknownError": "未知错误",
+    "connectionError": "连接错误",
+    "parseError": "解析数据失败"
+  }
+}

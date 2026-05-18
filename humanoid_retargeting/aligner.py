@@ -13,7 +13,7 @@ from humanoid_retargeting import CONFIGS_PATH
 from humanoid_retargeting.mjcf_generator import generator_class
 from humanoid_retargeting.utils.retarget_config import RetargetConfig
 from humanoid_retargeting.utils.rot import euler2quat
-from humanoid_retargeting.utils.human_config import HumanConfig
+from humanoid_retargeting.utils.human_config import HumanConfig, HumanConfigNotFoundError
 
 
 def get_leg_length(
@@ -46,6 +46,7 @@ class Aligner:
         self.generator_type = generator_type
         self.config_name = config_name
         self.view = view
+        self.generate_skin = True 
 
         self.robot_hip_names = None
         self.robot_foot_names = None
@@ -70,16 +71,21 @@ class Aligner:
 
     def load_human_parmas(self):
         human_config_path = Path(self.source_file_path).with_suffix('.yaml')
-        assert human_config_path.exists(), "Human config file not found"
+        if not human_config_path.exists():
+            raise HumanConfigNotFoundError(
+                f"{Path(self.source_file_path).name} needs human config in Player->Human Motion->Human Settings"
+            )
         human_config = HumanConfig.from_yaml(str(human_config_path))
-        assert human_config.is_valid(), "Human play config are not valid"
+        if not human_config.is_valid():
+            raise HumanConfigNotFoundError(
+                f"{Path(self.source_file_path).name} human config is incomplete. Please set hip_names, hip_offset, foot_names, foot_offset in Player->Human Motion->Human Settings"
+            )
         self.human_hip_names = human_config.hip_names
         self.human_foot_names = human_config.foot_names
         self.human_hip_offset = human_config.hip_offset
         self.human_foot_offset = human_config.foot_offset
 
-
-    def load_mujoco(self, retarget_config=None):
+    def load_mujoco(self, retarget_config=None, generate_skin=None):
         if retarget_config is None:
             if self.config_name is None:
                 self.retarget_config = RetargetConfig()
@@ -89,13 +95,21 @@ class Aligner:
                 )
         else:
             self.retarget_config = retarget_config
-
+        
         self.global_body_ratio = self.get_global_body_ratio()
-        self.human_generator = generator_class[self.generator_type].from_source_file_path(
-            source_file_path=self.source_file_path,
-            global_body_ratio=self.global_body_ratio * np.array(self.retarget_config.extra_body_ratio),
-            relative_body_ratio_dict=self.retarget_config.relative_body_ratio_dict
-        )
+
+        generator_kwargs = {
+            'source_file_path': self.source_file_path,
+            'global_body_ratio': self.global_body_ratio * np.array(self.retarget_config.extra_body_ratio),
+            'relative_body_ratio_dict': self.retarget_config.relative_body_ratio_dict
+        }
+
+        if generate_skin is not None:
+            self.generate_skin = generate_skin
+        if self.generator_type == 'smpl' and hasattr(self, 'generate_skin'):
+            generator_kwargs['generate_skin'] = self.generate_skin
+
+        self.human_generator = generator_class[self.generator_type].from_source_file_path(**generator_kwargs)
         self.robot_generator = MJCFHumanoidGenerator.from_robot_name(self.robot_name)
         self.generator = MJCFGeneratorComposite(dict(human=self.human_generator, robot=self.robot_generator))
         self.generator.generate(relative_mesh_path=False)
@@ -115,8 +129,12 @@ class Aligner:
         mujoco.mj_forward(self.model, self.data)
 
     def get_global_body_ratio(self):
+        generator_kwargs = {'source_file_path': self.source_file_path}
+        if self.generator_type == 'smpl':
+            generator_kwargs['generate_skin'] = False
+
         human_length = get_leg_length(
-            generator=generator_class[self.generator_type].from_source_file_path(source_file_path=self.source_file_path),
+            generator=generator_class[self.generator_type].from_source_file_path(**generator_kwargs),
             foot_names=self.human_foot_names,
             hip_names=self.human_hip_names,
             foot_offset=self.human_foot_offset,

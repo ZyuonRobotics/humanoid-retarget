@@ -23,7 +23,7 @@ def main(source_file_path, robot_name, generator_type, config_name, view, speed,
     retargeter.run_ik()
     retargeter.play(speed=speed, offset=offset)
     retargeter.close()
-    #retargeter.save_as_npz('/home/zym/.humanoid_retargeting/retargeted/smpl/zym/zhaplin-21dof/single/newfeet_1s.npz')
+    #retargeter.save_as_npz('your_path')
 
 
 if __name__ == '__main__':

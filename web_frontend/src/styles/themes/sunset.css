@@ -1,0 +1,15 @@
+/* Sunset Theme - Warm Orange Purple */
+[data-theme="sunset"] {
+  --color-bg-base: #1a0f14;
+  --color-bg-elevated: rgba(80, 40, 60, 0.72);
+  --color-bg-hover: rgba(255, 150, 100, 0.12);
+  --color-text-primary: rgba(255, 220, 200, 0.92);
+  --color-text-secondary: rgba(255, 150, 100, 0.72);
+  --color-text-tertiary: rgba(255, 150, 100, 0.48);
+  --color-border: rgba(255, 150, 100, 0.24);
+  --color-border-strong: rgba(255, 150, 100, 0.48);
+
+  --shadow-sm: 0 2px 8px rgba(120, 50, 60, 0.20);
+  --shadow-md: 0 8px 24px rgba(120, 50, 60, 0.32);
+  --shadow-lg: 0 16px 48px rgba(120, 50, 60, 0.48);
+}

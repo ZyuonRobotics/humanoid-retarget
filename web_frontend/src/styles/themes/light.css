@@ -1,0 +1,15 @@
+/* Light Theme - Light Gray White */
+[data-theme="light"] {
+  --color-bg-base: #f5f5f7;
+  --color-bg-elevated: rgba(255, 255, 255, 0.72);
+  --color-bg-hover: rgba(0, 0, 0, 0.04);
+  --color-text-primary: rgba(0, 0, 0, 0.88);
+  --color-text-secondary: rgba(0, 0, 0, 0.64);
+  --color-text-tertiary: rgba(0, 0, 0, 0.36);
+  --color-border: rgba(0, 0, 0, 0.08);
+  --color-border-strong: rgba(0, 0, 0, 0.16);
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.10);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.14);
+}

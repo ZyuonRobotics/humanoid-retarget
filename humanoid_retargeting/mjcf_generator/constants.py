@@ -63,3 +63,30 @@ SIMPLE_HAND_JOINT_NAMES = [
 
 SMPL_JOINT_NAMES = BODY_JOINT_NAMES + SIMPLE_HAND_JOINT_NAMES
 SMPLH_JOINT_NAMES = BODY_JOINT_NAMES + FINGER_JOINT_NAMES
+
+# SMPL/SMPLH joint hierarchy (kintree_table)
+# Standard SMPL joint parent structure
+SMPL_JOINT_PARENTS = [
+    -1,  # 0: pelvis (root)
+    0,   # 1: left_hip
+    0,   # 2: right_hip
+    0,   # 3: spine1
+    1,   # 4: left_knee
+    2,   # 5: right_knee
+    3,   # 6: spine2
+    4,   # 7: left_ankle
+    5,   # 8: right_ankle
+    6,   # 9: spine3
+    7,   # 10: left_foot
+    8,   # 11: right_foot
+    9,   # 12: neck
+    9,   # 13: left_collar
+    9,   # 14: right_collar
+    12,  # 15: head
+    13,  # 16: left_shoulder
+    14,  # 17: right_shoulder
+    16,  # 18: left_elbow
+    17,  # 19: right_elbow
+    18,  # 20: left_wrist
+    19,  # 21: right_wrist
+]

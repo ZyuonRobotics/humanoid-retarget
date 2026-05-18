@@ -1,0 +1,725 @@
+/* Import style modules */
+@import './styles/variables.css';
+@import './styles/themes.css';
+@import './styles/animations.css';
+@import './styles/components.css';
+
+/* Reset & Base */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-family);
+  background: var(--color-bg-base);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* App Layout */
+.app-container {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--color-bg-base);
+}
+
+/* 3D Background Layer */
+.viewer-3d-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: var(--z-background);
+}
+
+.viewer-3d-background canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Top Bar */
+.topbar {
+  position: fixed;
+  top: var(--spacing-md);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-topbar);
+  display: flex;
+  flex-direction: column;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg-elevated);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.topbar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-height: 38px;
+}
+
+.topbar-section {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.topbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--color-border);
+  margin: 0 var(--spacing-sm);
+  flex-shrink: 0;
+}
+
+.topbar-logo {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
+  letter-spacing: 0.01em;
+}
+
+.topbar-logo .anticon {
+  opacity: 0.7;
+}
+
+.topbar-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.topbar-button:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.topbar-button.active {
+  background: var(--color-text-primary);
+  color: var(--color-bg-base);
+}
+
+.topbar-row-separator {
+  height: 1px;
+  width: 100%;
+  background: var(--color-border);
+  margin: var(--spacing-sm) 0;
+}
+
+.motion-file-btn {
+  width: 180px;
+  display: inline-flex !important;
+  align-items: center;
+  overflow: hidden;
+}
+
+.motion-file-btn .ant-btn-icon {
+  flex-shrink: 0;
+}
+
+.motion-file-btn-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+
+.draggable-panel {
+  position: absolute;
+  z-index: var(--z-panel);
+}
+
+.draggable-panel .rnd {
+  outline: none;
+}
+
+.draggable-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg-elevated);
+  backdrop-filter: blur(var(--glass-blur-sm));
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+  border-bottom: 1px solid var(--color-border);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  cursor: move;
+  user-select: none;
+}
+
+.draggable-panel-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.draggable-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.draggable-panel-content {
+  padding: var(--spacing-md);
+  background: var(--color-bg-elevated);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--color-border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow-y: auto;
+}
+
+.draggable-panel-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.draggable-panel-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.draggable-panel-content::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.minimized-panel-restore {
+  position: absolute;
+  top: 80px;
+  left: 10px;
+  z-index: var(--z-panel);
+  height: 32px;
+  padding: 0 var(--spacing-md);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.minimized-panel-restore:hover {
+  background: var(--color-bg-hover);
+}
+
+/* Panel Resize Handle */
+.rnd-resize-handle {
+  background: transparent !important;
+}
+
+.rnd-resize-handle::after {
+  content: '';
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--color-border);
+  border-bottom: 2px solid var(--color-border);
+}
+
+/* Widget Common Styles */
+.widget-card {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.widget-card .ant-card-body {
+  padding: var(--spacing-sm);
+}
+
+.widget-label {
+  display: block;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.widget-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+
+.widget-row:last-child {
+  margin-bottom: 0;
+}
+
+/* Ant Design Overrides */
+.ant-select {
+  background: var(--color-bg-elevated) !important;
+  backdrop-filter: blur(var(--glass-blur-sm)) !important;
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm)) !important;
+}
+
+.ant-select-selector {
+  background: transparent !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-md) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.ant-select-dropdown {
+  background: var(--color-bg-elevated) !important;
+  backdrop-filter: blur(var(--glass-blur)) !important;
+  -webkit-backdrop-filter: blur(var(--glass-blur)) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+.rc-virtual-list-holder {
+  max-height: 256px !important;
+  overflow-y: auto !important;
+}
+
+.rc-virtual-list-holder::-webkit-scrollbar {
+  width: 6px;
+}
+
+.rc-virtual-list-holder::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.rc-virtual-list-holder::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+.rc-virtual-list-holder::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.ant-select-item {
+  color: var(--color-text-primary) !important;
+}
+
+.ant-select-item-option-active {
+  background: var(--color-bg-hover) !important;
+}
+
+.ant-select-item-option-selected {
+  background: var(--color-text-primary) !important;
+  color: var(--color-bg-base) !important;
+}
+
+.ant-input,
+.ant-input-number {
+  background: var(--color-bg-elevated) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-sm) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.ant-input:focus,
+.ant-input-number:focus,
+.ant-input:hover,
+.ant-input-number:hover {
+  border-color: var(--color-border-strong) !important;
+}
+
+.ant-input-number-input {
+  color: var(--color-text-primary) !important;
+}
+
+/* Placeholder styles */
+.ant-input::placeholder,
+.ant-input-number::placeholder,
+.ant-select-selection-placeholder,
+.ant-select-selection__rendered__placeholder {
+  color: var(--color-text-tertiary) !important;
+}
+
+.ant-select-arrow {
+  color: var(--color-text-secondary) !important;
+}
+
+.ant-select-selection-search-input {
+  color: var(--color-text-tertiary) !important;
+}
+
+.ant-slider-track {
+  background: var(--color-text-primary) !important;
+}
+
+.ant-slider-handle::after {
+  background: var(--color-text-primary) !important;
+  box-shadow: 0 0 0 2px var(--color-text-primary) !important;
+}
+
+.ant-slider-rail {
+  background: var(--color-border) !important;
+}
+
+.ant-btn {
+  border-radius: var(--radius-md) !important;
+  font-weight: var(--font-weight-medium) !important;
+}
+
+.ant-btn-primary {
+  background: var(--color-text-primary) !important;
+  color: var(--color-bg-base) !important;
+  border: none !important;
+}
+
+.ant-btn-default {
+  background: var(--color-bg-elevated) !important;
+  border: 1px solid var(--color-border) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.ant-btn-default:hover {
+  background: var(--color-bg-hover) !important;
+  border-color: var(--color-border-strong) !important;
+}
+
+.ant-btn-text {
+  color: var(--color-text-secondary) !important;
+}
+
+.ant-btn-text:hover {
+  background: var(--color-bg-hover) !important;
+  color: var(--color-text-primary) !important;
+}
+
+/* 虚线按钮图标 - 深色模式可见 */
+.ant-btn-dashed {
+  background: transparent !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-text-secondary) !important;
+}
+
+.ant-btn-dashed .anticon {
+  color: var(--color-text-secondary) !important;
+}
+
+.ant-btn-dashed:hover {
+  background: var(--color-bg-hover) !important;
+  color: var(--color-text-primary) !important;
+  border-color: var(--color-border-strong) !important;
+}
+
+.ant-btn-dashed:hover .anticon {
+  color: var(--color-text-primary) !important;
+}
+
+.ant-tree {
+  background: transparent !important;
+}
+
+.ant-tree-node-content-wrapper {
+  color: var(--color-text-primary) !important;
+}
+
+.ant-tree-node-content-wrapper:hover {
+  background: var(--color-bg-hover) !important;
+}
+
+.ant-tree-node-selected .ant-tree-node-content-wrapper {
+  background: var(--color-text-primary) !important;
+  color: var(--color-bg-base) !important;
+}
+
+/* Tree 展开/折叠图标 - 深色模式可见 */
+.ant-tree-switcher {
+  color: var(--color-text-secondary) !important;
+}
+
+.ant-tree-switcher:hover {
+  color: var(--color-text-primary) !important;
+}
+
+.ant-tree-switcher .ant-tree-switcher-icon {
+  color: inherit !important;
+}
+
+/* 选中节点时的图标颜色 */
+.ant-tree-node-selected .ant-tree-switcher {
+  color: var(--color-bg-base) !important;
+}
+
+.ant-tabs-tab {
+  color: var(--color-text-secondary) !important;
+}
+
+.ant-tabs-tab:hover {
+  color: var(--color-text-primary) !important;
+}
+
+.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--color-text-primary) !important;
+}
+
+.ant-tabs-ink-bar {
+  background: var(--color-text-primary) !important;
+}
+
+.ant-card {
+  background: transparent !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+.ant-card-head {
+  border-bottom: 1px solid var(--color-border) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.ant-card-body {
+  color: var(--color-text-primary) !important;
+}
+
+.ant-divider {
+  border-color: var(--color-border) !important;
+}
+
+.ant-dropdown-menu {
+  background: var(--color-bg-elevated) !important;
+  backdrop-filter: blur(var(--glass-blur)) !important;
+  -webkit-backdrop-filter: blur(var(--glass-blur)) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+.ant-dropdown-menu-item {
+  color: var(--color-text-primary) !important;
+}
+
+.ant-dropdown-menu-item:hover {
+  background: var(--color-bg-hover) !important;
+}
+
+.ant-message-notice-content {
+  background: var(--color-bg-elevated) !important;
+  backdrop-filter: blur(var(--glass-blur)) !important;
+  -webkit-backdrop-filter: blur(var(--glass-blur)) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-md) !important;
+  color: var(--color-text-primary) !important;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-strong);
+}
+
+/* Selection */
+::selection {
+  background: var(--color-text-primary);
+  color: var(--color-bg-base);
+}
+
+/* Focus Outline */
+:focus-visible {
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: 2px;
+}
+
+/* Ant Design Empty */
+.ant-empty-description {
+  color: var(--color-text-secondary) !important;
+}
+
+/* Select dropdown placeholder */
+.ant-select-selection-search-input::placeholder,
+.ant-select-selection-placeholder {
+  color: var(--color-text-tertiary) !important;
+}
+
+.ant-select-selection__clear {
+  background: var(--color-bg-elevated) !important;
+}
+
+/* Select when no value selected */
+.ant-select.ant-select-show-placeholder .ant-select-selection__rendered {
+  color: var(--color-text-tertiary) !important;
+}
+
+/* Ant Design Select placeholder - high priority */
+.ant-select .ant-select-selection-placeholder,
+.ant-select.ant-select-single.ant-select-show-placeholder .ant-select-selection-placeholder,
+.ant-select-selection-placeholder,
+.ant-select-selection__placeholder {
+  color: var(--color-text-tertiary) !important;
+}
+
+/* Ensure placeholder text in inputs follows theme */
+input::placeholder,
+.ant-input::placeholder {
+  color: var(--color-text-tertiary) !important;
+  opacity: 1 !important;
+}
+
+/* Tree empty text */
+.ant-tree .ant-tree-treenode-empty-text .ant-tree-node-content-wrapper {
+  color: var(--color-text-tertiary) !important;
+}
+
+/* Table dark mode styles */
+.ant-table {
+  background: transparent !important;
+  color: var(--color-text-primary) !important;
+}
+
+.ant-table-thead > tr > th {
+  background: var(--color-bg-hover) !important;
+  color: var(--color-text-secondary) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  border-right: none !important;
+}
+
+.ant-table-tbody > tr > td {
+  background: transparent !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  border-right: none !important;
+  color: var(--color-text-primary) !important;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: var(--color-bg-hover) !important;
+}
+
+.ant-table-wrapper .ant-table-container table tbody tr td:first-child {
+  border-left: none;
+}
+
+.ant-table-wrapper .ant-table-container table thead tr th:first-child {
+  border-left: none;
+}
+
+/* Tracker Pairs Table - custom layout without vertical lines */
+.tracker-pairs-table {
+  width: 100%;
+}
+
+.tracker-pairs-header {
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 4px;
+  gap: 8px;
+}
+
+.tracker-pairs-row {
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--color-border);
+  gap: 8px;
+}
+
+.tracker-pairs-row:last-child {
+  border-bottom: none;
+}
+
+.tracker-pair-cell {
+  display: flex;
+  align-items: center;
+}
+
+.tracker-pair-input {
+  flex: 1;
+}
+
+.tracker-pair-action {
+  flex-shrink: 0;
+  width: auto;
+}
+
+/* Modal dark mode styles */
+.ant-modal-content {
+  background: var(--color-bg-elevated) !important;
+  backdrop-filter: blur(var(--glass-blur)) !important;
+  -webkit-backdrop-filter: blur(var(--glass-blur)) !important;
+  border: 1px solid var(--color-border) !important;
+}
+
+.ant-modal-header {
+  background: transparent !important;
+  border-bottom: 1px solid var(--color-border) !important;
+}
+
+.ant-modal-title {
+  color: var(--color-text-primary) !important;
+}
+
+.ant-modal-close-x {
+  color: var(--color-text-secondary) !important;
+}
+
+.ant-modal-footer {
+  border-top: 1px solid var(--color-border) !important;
+}
+
+/* Danger button text - dark mode */
+.ant-btn-text.ant-btn-dangerous {
+  color: #ff4d4f !important;
+}
+
+.ant-btn-text.ant-btn-dangerous:hover {
+  background: var(--color-bg-hover) !important;
+  color: #ff7875 !important;
+}
+
+/* Table row delete button visibility */
+.ant-table-cell .ant-btn-text.ant-btn-dangerous {
+  color: #ff4d4f !important;
+}
+
+.ant-table-cell .ant-btn-text.ant-btn-dangerous:hover {
+  background: var(--color-bg-hover) !important;
+  color: #ff7875 !important;
+}

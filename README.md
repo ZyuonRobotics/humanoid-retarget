@@ -1,281 +1,202 @@
-# humanoid-retargeting
+# Humanoid Retargeting
 
-[中文](README_zh.md)
+[中文文档](README_zh.md)
 
-**humanoid-retargeting** is a tool for retargeting human motion data (e.g., from BVH or SMPL) onto humanoid robots. It supports various motion file formats, provides alignment tools, and allows batch processing.
+![Screenshot](source/Homepage.png)
 
-## Installation
+A comprehensive system for retargeting human motion capture data to humanoid robots, featuring a web-based interface for visualization and configuration management.
 
-It is recommended to use `conda` or `mamba` to manage the Python environment:
+## Overview
+
+**Humanoid Retargeting** is a full-stack application that converts human motion data (SMPL, BVH formats) into robot-executable motion trajectories using inverse kinematics optimization. The system consists of three main components:
+
+- **Core Library** (`humanoid_retargeting`): Python library for motion alignment and retargeting
+- **Web Backend** (`web_backend`): FastAPI server providing REST APIs for motion processing
+- **Web Frontend** (`web_frontend`): React-based interactive interface for visualization and control
+
+### Key Features
+
+- Support for multiple motion capture formats (SMPL, BVH)
+- IK-based motion retargeting with configurable optimization
+- Real-time 3D visualization using MuJoCo
+- Web-based configuration management
+- Batch processing with multiprocessing support
+- Extensible robot model system via `hurodes`
+
+---
+
+## Environment Setup
+
+### Prerequisites
+
+- **Python**: >= 3.9
+- **Node.js**: >= 18.0
+- **Conda/Mamba**: Recommended for Python environment management
+
+### Backend Configuration
+
+1. **Create Python Environment**
 
 ```bash
 conda create -n humanoid-retargeting python=3.9
 conda activate humanoid-retargeting
+```
+
+2. **Install Core Library**
+
+```bash
+cd /path/to/humanoid-retargeting
 pip install -e .
 ```
 
-If you need to use the GUI-based alignment tool, run:
+3. **Install Backend Dependencies**
+
 ```bash
-pip install -e .[gui]
+pip install -r web_backend/requirements.txt
 ```
 
-If you want to use the newest hurodes, run:
+**Main Dependencies:**
+- `mujoco`: Physics simulation and rendering
+- `mink`: Inverse kinematics solver
+- `hurodes`: Humanoid robot description system
+- `fastapi`: Web framework
+- `uvicorn`: ASGI server
+
+### Frontend Configuration
+
+1. **Install Node Dependencies**
+
 ```bash
-pip install git+https://github.com/ZyuonRobotics/humanoid-robot-description
+cd web_frontend
+npm install
 ```
 
-### Main Dependencies
-
-- Python >= 3.9
-- `click`: Command-line interface
-- `mujoco`: Physics simulation and visualization
-- `dearpygui`: GUI-based alignment tool
-- `hurodes`: Robot description and MJCF generation
+**Main Dependencies:**
+- `react`: UI framework
+- `antd`: Component library
+- `three.js`: 3D graphics
+- `mujoco`: WebAssembly-based physics engine
+- `axios`: HTTP client
 
 ---
 
-## Data Path
+## Data Storage
 
-The default path for storing data is:
-
-```
-~/.humanoid_retargeting
-├── data
-│   ├── smpl          # SMPL format motion capture data
-│   ├── bvh           # BVH format motion capture data
-│   └── ...           # Other types of motion capture data (e.g., bip, fbx)
-├── models
-│   ├── dmpls         # DMP pose library for SMPL-X model (optional)
-│   └── smplh         # SMPL+H body model files
-└── configs
-    ├── unitree_g1     
-    │   ├── smpl      # Retargeting configs for Unitree G1 robot using SMPL dataset
-    │   └── bvh       # Retargeting configs for Unitree G1 robot using BVH dataset
-    └── ...           # Other retargeting configuration configs
-```
-
----
-
-## Workflow Overview
-
-The scripts are organized into three main categories based on their functionality:
+### Directory Structure
 
 ```
-scripts/
-├── mocap_processing/          # Motion capture data preprocessing
-├── mocap_retargeting/          # Motion retargeting to robots
-└── retargeted_data_processing/ # Post-retargeting data processing
+humanoid-retargeting/
+├── data/                          # Project data directory
+│   ├── models/                    # Human body models
+│   │   ├── smpl/                  # SMPL model files
+│   │   ├── smplh/                 # SMPL+H model files
+│   │   ├── smplx/                 # SMPL-X model files
+│   │   └── dmpls/                 # DMP pose library
+│   ├── motions/                   # Motion capture data
+│   │   ├── smpl/                  # SMPL format (.npz)
+│   │   └── bvh/                   # BVH format (.bvh)
+│   └── configs/                   # Retargeting configurations
+│       ├── {robot_name}/          # Per-robot configs
+│       │   ├── smpl/              # SMPL retargeting configs
+│       │   └── bvh/               # BVH retargeting configs
+│       └── ...
+├── retargeted/                    # Output directory for retargeted motions
+└── humanoid_retargeting/          # Core library source code
 ```
 
-### 1. Motion Capture Data Processing
+### Data Formats
 
-Scripts in `scripts/mocap_processing/` handle preprocessing of raw motion capture data before retargeting.
+#### Motion Capture Data
 
-#### Check BVH Body Type
-
-Scan BVH files in a folder and analyze their skeleton structures.
-
-**Usage Example:**
-```bash
-python scripts/mocap_processing/check_bvh_bodytype_in_folder.py \
-  --root-folder /path/to/bvh/folder
+**SMPL Format (`.npz`):**
+```python
+{
+    'trans': np.ndarray,           # Root translation (N, 3)
+    'poses': np.ndarray,           # Body poses (N, 72) - axis-angle
+    'betas': np.ndarray,           # Shape parameters (10,)
+    'mocap_framerate': float,      # Frame rate (e.g., 120.0)
+    'gender': str                  # 'male', 'female', or 'neutral'
+}
 ```
 
-#### Fix SMPL Files
+**BVH Format (`.bvh`):**
+- Standard BVH hierarchy with joint rotations
 
-Check and fix SMPL format files (`.npz`), ensuring required fields like `mocap_framerate` are present.
+#### Retargeted Robot Motion (`.npz`)
 
-**Usage Example:**
-```bash
-python scripts/mocap_processing/fix_smpl_file.py \
-  --folder-path /path/to/smpl/files \
-  --mocap-framerate 120
-```
-
-#### Process SMPL Files
-
-Convert SMPL format files from `.pkl` to `.npz` format with standardized structure.
-
-**Usage Example:**
-```bash
-python scripts/mocap_processing/process_smpl.py \
-  --folder-path /path/to/pkl/files \
-  --mocap-framerate 120
-```
-
-#### Play Mocap Motion
-
-Play raw motion capture data (BVH or SMPL format) for visualization or debugging. Uses MuJoCo renderer to play action files.
-
-You should use the appropriate player according to the `generator-type`. For example, set `generator-type` to `bvh` or `smpl` to play BVH format or SMPL format data respectively.
-
-**Usage Example (Play BVH motion capture data):**
-```bash
-python scripts/mocap_processing/play_mocap_motion.py \
-  /path/to/file.bvh \
-  --generator-type bvh
-```
-
-**Usage Example (Play SMPL motion capture data):**
-```bash
-python scripts/mocap_processing/play_mocap_motion.py \
-  /path/to/file.npz \
-  --generator-type smpl
-```
-
-### 2. Motion Retargeting
-
-Scripts in `scripts/mocap_retargeting/` handle the core retargeting process, including alignment and motion transfer.
-
-#### Alignment
-
-Before retargeting, it's necessary to ensure that the robot and human model are aligned.
-
-The **humanoid-retargeting** algorithm reads configuration files located in `~/.humanoid_retargeting/configs` for alignment. The fields used include:
-
-- **Translation-related information**
-  - `robot_foot`: Robot foot information, including left and right foot body names and offsets, ensuring the **robot's soles are exactly on the ground**
-  - `human_foot`: Human model foot information, same data type as above
-  - `base_x_shift`: **Human model's** X-axis offset relative to the robot
-  - `base_y_shift`: **Human model's** Y-axis offset relative to the robot
-- **Rotation-related information**
-  - `base_rotation`: **Human model's** rotation relative to the robot (XYZ Euler angles)
-  - `body_rotate_dict`: Rotations of each joint in the human model to align its posture with the robot
-- **Scaling-related information**
-  - `robot_hip`: Robot hip information, including body names and offsets for both hips, used to calculate **leg length** and thus global scale factor
-  - `human_hip`: Human model hip information, same data type as above
-  - `extra_body_ratio`: Additional global scaling factor for the human model, can be a single float or a 3D list for fine-tuning (e.g., making the human model wider)
-  - `relative_body_ratio_dict`: Relative scale factors for each body part
-
-##### Alignment Process
-
-- **Compute Base Global Scale Factor**
-  - Calculate leg lengths based on `foot` and `hip` positions for both robot and human model, then take their ratio as the global scale factor
-  - Note: This factor will be used during retargeting to scale the motion capture data, preventing foot sliding
-- Apply base global scale, extra scale, and relative body ratios to scale the human model
-  - Each body part's final scale is determined by: `global_body_ratio * extra_body_ratio * relative_body_ratio_dict[body_name]`
-- Translate the robot
-  - Adjust the baselink vertically based on `robot_foot` so that the robot's feet are exactly on the ground
-  - Only Z-axis changes; other adjustments are made via the human model
-- Translate and rotate the human model
-  - Move the human model's baselink so its feet are on the ground
-  - Rotate the human model to match the robot's orientation
-- Rotate human joints to match the robot's posture
-
-##### Manual Alignment
-
-Since repeated config tuning may be required for perfect alignment, you can repeatedly execute the alignment check script and modify the config file accordingly.
-
-**Usage Example:**
-```bash
-python scripts/mocap_retargeting/check_align.py \
-  /path/to/file.bvh \
-  unitree_g1 \
-  --generator-type bvh \
-  --config-name default
-```
-
-##### Generate Retargeting Configs
-
-Generate retargeting configs for a specific robot and motion capture data type.
-
-**Usage Example:**
-```bash
-python scripts/mocap_retargeting/generate_retarget_config.py \
-  /path/to/file.bvh \
-  unitree_g1 \
-  --generator-type bvh
-```
-
-##### Automatic Alignment (WIP)
-
-Run a GUI-based auto-alignment tool that automatically saves retargeting configs to the configuration file.
-
-#### Retargeting
-
-Retargeting is implemented using the **mink** library. The main steps are:
-
-- Based on the already aligned robot and human model, get the offset of tracking points
-  - Offset includes relative position and rotation between trackers on the human model and the robot
-  - Offset is entirely determined by the retargeting configs obtained in the previous stage; accuracy here greatly affects retargeting performance
-- For each frame in the motion capture data:
-  - Get current tracker positions on the human model
-  - Combine static tracker offsets to compute desired robot tracker positions
-  - Use mink library to solve inverse kinematics and obtain robot generalized coordinates
-
-##### Single Motion Retargeting
-
-Retarget a single motion file onto a specified robot. You can choose to open a viewer window to visualize the motion (rendered by MuJoCo), and loop playback.
-
-**Usage Example:**
-```bash
-python scripts/mocap_retargeting/single_retarget.py \
-  /path/to/file.bvh \
-  unitree_g1 \
-  --generator-type bvh \
-  --config-name default \
-  --view \
-  --speed 1.0 \
-  --offset 0.0 1.0 0.0
-```
-
-##### Batch Retargeting
-
-Process multiple motion files in bulk and save them as `.npz` files. Supports multiprocessing for acceleration.
-
-**Usage Example:**
-```bash
-python scripts/mocap_retargeting/batch_retarget.py \
-  /path/to/motions \
-  unitree_g1 \
-  --generator-type bvh \
-  --config-name default \
-  --target-path /path/to/output \
-  --target-fps 100 \
-  --num-processes 4
-```
-
-Options:
-- `--overwrite/--no-overwrite`: Whether to overwrite existing `.npz` files (default: no)
-- `--pos-filter`, `--neg-filter`: Filter files by filename keywords (can be used multiple times)
-- `--num-processes`: Number of CPU cores to use; set to 1 disables multiprocessing
-
-### 3. Retargeted Data Processing
-
-Scripts in `scripts/retargeted_data_processing/` handle visualization and playback of retargeted motion data.
-
-#### Play Robot Motion
-
-Play retargeted robot motion data (`.npz` format) for visualization or debugging. Uses MuJoCo renderer to play action files.
-
-**Usage Example:**
-```bash
-python scripts/retargeted_data_processing/play_robot_motion.py \
-  /path/to/retargeted.npz \
-  unitree_g1
-```
-
-#### Play Robot Period Motion
-
-Generate and play periodic robot motion based on JSON configuration. This script generates sinusoidal motion patterns for robot joints based on stepping periods and joint configurations.
-
-**Usage Example:**
-```bash
-python scripts/retargeted_data_processing/play_robot_period.py \
-  --config-file-path /path/to/config.json \
-  --robot-name unitree_g1 \
-  --frame-rate 100 \
-  --max-steps 300000
+```python
+{
+    'root_trans': np.ndarray,      # Root translation (N, 3)
+    'root_quat': np.ndarray,       # Root orientation (N, 4) - [w,x,y,z]
+    'root_lin_vel': np.ndarray,    # Root linear velocity (body frame) (N, 3)
+    'root_ang_vel': np.ndarray,    # Root angular velocity (body frame) (N, 3)
+    'joint_pos': np.ndarray,       # Joint positions (N, ndof)
+    'joint_vel': np.ndarray,       # Joint velocities (N, ndof)
+    'framerate': float             # Target frame rate (e.g., 100.0)
+    'frame': int                   # Number of frames (e.g., 1000)
+}
 ```
 
 ---
 
-## Testing
+## Quick Start
 
-To check test coverage, run:
+1. **Activate Environment**
 
 ```bash
-pytest --cov=humanoid_retargeting --cov-report=html
+conda activate humanoid-retargeting
 ```
 
-Then open `htmlcov/index.html` in your browser to view the results.
+2. **Start Web Application**
+
+```bash
+# Start backend
+cd /path/to/humanoid-retargeting
+python -m uvicorn web_backend.main:app --host 0.0.0.0 --port 8000 --reload
+
+# Start frontend
+cd web_frontend
+npm run dev
+```
+
+Access the application at: http://localhost:5173
+
+---
+
+## Usage Guide
+
+For detailed web frontend usage instructions, please refer to: [Web Frontend User Guide](web_frontend/USER_GUIDE_zh.md) or check the manual on the web interface.
+
+---
+
+## Contributing
+
+See [CONTRIBUTION.md](CONTRIBUTION.md) for guidelines.
+
+---
+
+## License
+
+This project is licensed under the MIT License.
+
+---
+
+## Citation
+
+If you use this project in your research, please cite:
+
+```bibtex
+@software{humanoid_retargeting,
+  title = {Humanoid Retargeting: A System for Human-to-Robot Motion Transfer},
+  author = {Honglong Tian, Yumeng Zhang},
+  year = {2026},
+  url = {https://github.com/ZyuonRobotics/humanoid-retargeting}
+}
+```
+
+---
+
+## Support
+
+For issues and questions:
+- GitHub Issues: https://github.com/ZyuonRobotics/humanoid-retargeting/issues

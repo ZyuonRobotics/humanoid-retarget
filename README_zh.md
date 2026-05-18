@@ -1,281 +1,202 @@
-# humanoid-retargeting
+# Humanoid Retargeting
 
 [English](README.md)
 
-**humanoid-retargeting** 是一个将人类动作数据（例如来自 BVH 或 SMPL 的动作）重新定向到人形机器人上的工具。它支持多种类型的运动文件，提供对齐工具，并允许批量处理。
+![图](source/Homepage.png)
 
-## 安装
+一个将人体动作捕捉数据重定向到人形机器人的综合系统，具有基于 Web 的可视化界面和配置管理功能。
 
-推荐使用 `conda` 或 `mamba` 来管理 Python 环境：
+## 概述
+
+**Humanoid Retargeting** 是一个全栈应用程序，使用逆运动学优化将人体运动数据（SMPL、BVH 格式）转换为机器人可执行的运动轨迹。系统由三个主要组件组成：
+
+- **核心库** (`humanoid_retargeting`)：用于运动对齐和重定向的 Python 库
+- **Web 后端** (`web_backend`)：提供运动处理 REST API 的 FastAPI 服务器
+- **Web 前端** (`web_frontend`)：基于 React 的交互式可视化和控制界面
+
+### 主要特性
+
+- 支持多种动作捕捉格式（SMPL、BVH）
+- 基于 IK 的运动重定向，可配置优化参数
+- 使用 MuJoCo 的实时 3D 可视化
+- 基于 Web 的配置管理
+- 支持多进程的批量处理
+- 通过 `hurodes` 实现可扩展的机器人模型系统
+
+---
+
+## 环境配置
+
+### 前置要求
+
+- **Python**: >= 3.9
+- **Node.js**: >= 18.0
+- **Conda/Mamba**: 推荐用于 Python 环境管理
+
+### 后端配置
+
+1. **创建 Python 环境**
 
 ```bash
 conda create -n humanoid-retargeting python=3.9
 conda activate humanoid-retargeting
+```
+
+2. **安装核心库**
+
+```bash
+cd /path/to/humanoid-retargeting
 pip install -e .
 ```
 
-如果需要使用图形化工具进行对齐，请执行下面的命令：
+3. **安装后端依赖**
+
 ```bash
-pip install -e .[gui]
+pip install -r web_backend/requirements.txt
 ```
 
-如果需要使用最新版本的 hurodes，请执行：
+**主要依赖：**
+- `mujoco`: 物理仿真和渲染
+- `mink`: 逆运动学求解器
+- `hurodes`: 人形机器人描述系统
+- `fastapi`: Web 框架
+- `uvicorn`: ASGI 服务器
+
+### 前端配置
+
+1. **安装 Node 依赖**
+
 ```bash
-pip install git+https://github.com/ZyuonRobotics/humanoid-robot-description
+cd web_frontend
+npm install
 ```
 
-### 主要依赖项
-
-- Python >= 3.9
-- `click`: 命令行接口
-- `mujoco`: 物理仿真和可视化
-- `dearpygui`: 基于GUI的对齐工具
-- `hurodes`: 机器人描述和 MJCF 生成
+**主要依赖：**
+- `react`: UI 框架
+- `antd`: 组件库
+- `three.js`: 3D 图形
+- `mujoco`: 基于 WebAssembly 的物理引擎
+- `axios`: HTTP 客户端
 
 ---
 
-## 数据路径
+## 数据存储
 
-默认用于存储数据的路径为：
-
-```
-~/.humanoid_retargeting
-├── data
-│   ├── smpl          # SMPL格式的动捕数据
-│   ├── bvh           # BVH格式的动捕数据
-│   └── ...           # 其他种类的动捕数据 (例如bip，fbx等)
-├── models
-│   ├── dmpls         # SMPL-X模型的DMP姿态库（可选）
-│   └── smplh         # SMPL+H身体模型文件
-└── configs
-    ├── unitree_g1     
-    │   ├── smpl      # unitree g1机器人在SMPL数据集中使用的重定向参数
-    │   └── bvh       # unitree g1机器人在BVH数据集中的重定向参数
-    └── ...           # 其他重定向配置参数
-```
-
----
-
-## 工作流程概述
-
-脚本根据功能分为三个主要类别：
+### 目录结构
 
 ```
-scripts/
-├── mocap_processing/          # 动捕数据预处理
-├── mocap_retargeting/          # 动作重定向到机器人
-└── retargeted_data_processing/ # 重定向后的数据处理
+humanoid-retargeting/
+├── data/                          # 项目数据目录
+│   ├── models/                    # 人体模型
+│   │   ├── smpl/                  # SMPL 模型文件
+│   │   ├── smplh/                 # SMPL+H 模型文件
+│   │   ├── smplx/                 # SMPL-X 模型文件
+│   │   └── dmpls/                 # DMP 姿态库
+│   ├── motions/                   # 动作捕捉数据
+│   │   ├── smpl/                  # SMPL 格式 (.npz)
+│   │   └── bvh/                   # BVH 格式 (.bvh)
+│   └── configs/                   # 重定向配置
+│       ├── {robot_name}/          # 每个机器人的配置
+│       │   ├── smpl/              # SMPL 重定向配置
+│       │   └── bvh/               # BVH 重定向配置
+│       └── ...
+├── retargeted/                    # 重定向运动的输出目录
+└── humanoid_retargeting/          # 核心库源代码
 ```
 
-### 1. 动捕数据处理
+### 数据格式
 
-`scripts/mocap_processing/` 中的脚本处理重定向前的原始动捕数据预处理。
+#### 动作捕捉数据
 
-#### 检查 BVH 骨架类型
-
-扫描文件夹中的 BVH 文件并分析其骨架结构。
-
-**使用示例：**
-```bash
-python scripts/mocap_processing/check_bvh_bodytype_in_folder.py \
-  --root-folder /path/to/bvh/folder
+**SMPL 格式 (`.npz`)：**
+```python
+{
+    'trans': np.ndarray,           # 根节点平移 (N, 3)
+    'poses': np.ndarray,           # 身体姿态 (N, 72) - 轴角表示
+    'betas': np.ndarray,           # 形状参数 (10,)
+    'mocap_framerate': float,      # 帧率（例如 120.0）
+    'gender': str                  # 'male', 'female' 或 'neutral'
+}
 ```
 
-#### 修复 SMPL 文件
+**BVH 格式 (`.bvh`)：**
+- 标准 BVH 层次结构
 
-检查并修复 SMPL 格式文件（`.npz`），确保包含 `mocap_framerate` 等必需字段。
+#### 重定向后的机器人运动 (`.npz`)
 
-**使用示例：**
-```bash
-python scripts/mocap_processing/fix_smpl_file.py \
-  --folder-path /path/to/smpl/files \
-  --mocap-framerate 120
-```
-
-#### 处理 SMPL 文件
-
-将 SMPL 格式文件从 `.pkl` 转换为 `.npz` 格式，并标准化结构。
-
-**使用示例：**
-```bash
-python scripts/mocap_processing/process_smpl.py \
-  --folder-path /path/to/pkl/files \
-  --mocap-framerate 120
-```
-
-#### 播放动捕动作
-
-播放原始动捕数据（BVH 或 SMPL 格式），用于可视化或调试。使用 MuJoCo 渲染器播放动作文件。
-
-需要根据 `generator-type` 使用合适的播放器。例如，设置 `generator-type` 为 `bvh` 或 `smpl`，分别用于播放 BVH 格式或 SMPL 格式的数据。
-
-**使用示例（播放 BVH 动捕数据）：**
-```bash
-python scripts/mocap_processing/play_mocap_motion.py \
-  /path/to/file.bvh \
-  --generator-type bvh
-```
-
-**使用示例（播放 SMPL 动捕数据）：**
-```bash
-python scripts/mocap_processing/play_mocap_motion.py \
-  /path/to/file.npz \
-  --generator-type smpl
-```
-
-### 2. 动作重定向
-
-`scripts/mocap_retargeting/` 中的脚本处理核心重定向流程，包括对齐和动作转移。
-
-#### 对齐
-
-在进行重定向之前需要保证机器人和人体模型对齐。
-
-**humanoid-retargeting** 算法通过读取位于 `~/.humanoid_retargeting/configs` 文件夹下的配置文件用于对齐，用于对齐的字段包括：
-
-- **平移相关信息**
-  - `robot_foot`: 机器人的脚部信息，包含左右脚对应的body名称和脚部偏移值，用于确保机器人的**脚底正好在地面上**
-  - `human_foot`: 人体模型的脚信息，数据类型与前者相同
-  - `base_x_shift`: **人体模型**相对于机器人的X轴偏移量
-  - `base_y_shift`: **人体模型**相对于机器人的Y轴偏移量
-- **旋转相关信息**
-  - `base_rotation`: **人体模型**相对于机器人的旋转角度（XYZ欧拉角）
-  - `body_rotate_dict`: **人体模型**各个关节的旋转角度，用于确保人体模型的姿态与机器人一致
-- **缩放相关信息**
-  - `robot_hip`: 机器人的髋部信息，包含左右髋对应的body名称和髋部偏移值，用于获取**腿部长度**从而计算全局缩放因子
-  - `human_hip`: 人体模型的髋部信息，数据类型与前者相同
-  - `extra_body_ratio`: 附加的人体模型缩放因子，可以是单个浮点数或三维列表，用于在全局缩放因子的基础上微调（例如让人体模型更宽）
-  - `relative_body_ratio_dict`: 人体模型各个body的相对缩放因子
-
-##### 对齐流程
-
-- **计算基础全局缩放因子**
-  - 通过机器人和人体模型各自的`foot`和`hip`位置来计算两者分别的腿部长度，将腿部长度的比值作为全局缩放因子
-  - 注意：在重定向阶段，将会使用该因子对动捕数据进行缩放，从而保证动作不会出现在地面上滑动的情况
-- 应用基础全局缩放、附加缩放和各身体部位的相对缩放因子，对人体模型进行缩放
-  - 每个身体部位的最终缩放比例由以下公式决定：`global_body_ratio * extra_body_ratio * relative_body_ratio_dict[body_name]`
-- 平移机器人
-  - 根据机器人的`foot`信息对baselink进行垂直平移，使其脚底正好在地面上
-  - 只更改Z轴高度；其他调整通过人体模型进行
-- 平移并旋转人体模型
-  - 根据人体模型的`foot`信息对baselink进行平移，使其脚底正好在地面上
-  - 旋转人体模型，使其位置与机器人一致
-- 旋转人体模型关节，使其姿态与机器人一致
-
-##### 手动对齐
-
-由于需要反复调节重定向参数才能达到完美的对齐效果，可以多次执行对齐检查脚本并修改参数文件实现手动对齐。
-
-**使用示例：**
-```bash
-python scripts/mocap_retargeting/check_align.py \
-  /path/to/file.bvh \
-  unitree_g1 \
-  --generator-type bvh \
-  --config-name default
-```
-
-##### 生成重定向参数
-
-为特定机器人和动捕数据类型生成重定向参数。
-
-**使用示例：**
-```bash
-python scripts/mocap_retargeting/generate_retarget_config.py \
-  /path/to/file.bvh \
-  unitree_g1 \
-  --generator-type bvh \
-```
-
-##### 自动对齐（待完善）
-
-执行具有图形化界面的自动对齐工具，自动将重定向参数保存到配置文件中。
-
-#### 重定向
-
-重定向通过 **mink** 库实现，主要流程如下：
-
-- 基于已经对齐的机器人和人体模型，获取追踪点（tracker）的偏移量
-  - 偏移量包括追踪点在人体模型和机器人上的相对位置和相对旋转
-  - 偏移量完全由上一阶段得到的重定向参数决定，其准确性对重定向的效果产生至关重要的影响
-- 对动捕数据集中的每一帧分别重定向，执行如下过程：
-  - 获取人体模型当前动作下的各个追踪点位置
-  - 结合静态的追踪点偏移量，计算出期望的机器人追踪点位置
-  - 调用mink库执行逆运动学，获取机器人广义坐标
-
-##### 单个动作重定向
-
-将单个动作文件重定向到指定的机器人上，可以选择打开视频窗口查看动作（由mujoco viewer渲染），并循环播放。
-
-**使用示例：**
-```bash
-python scripts/mocap_retargeting/single_retarget.py \
-  /path/to/file.bvh \
-  unitree_g1 \
-  --generator-type bvh \
-  --config-name default \
-  --view \
-  --speed 1.0 \
-  --offset 0.0 1.0 0.0
-```
-
-##### 批量重定向
-
-批量处理多个动作文件，并将其保存为 `.npz` 格式，支持多进程并行加速。
-
-**使用示例：**
-```bash
-python scripts/mocap_retargeting/batch_retarget.py \
-  /path/to/motions \
-  unitree_g1 \
-  --generator-type bvh \
-  --config-name default \
-  --target-path /path/to/output \
-  --target-fps 100 \
-  --num-processes 4
-```
-
-选项说明：
-- `--overwrite/--no-overwrite`: 是否覆盖已有的 `.npz` 文件（默认为否）
-- `--pos-filter`, `--neg-filter`: 根据文件名关键字过滤文件（可多次使用）
-- `--num-processes`: 使用的 CPU 核心数，设为 1 表示禁用多进程
-
-### 3. 重定向后的数据处理
-
-`scripts/retargeted_data_processing/` 中的脚本处理重定向后动作数据的可视化和播放。
-
-#### 播放机器人动作
-
-播放重定向后的机器人动作数据（`.npz` 格式），用于可视化或调试。使用 MuJoCo 渲染器播放动作文件。
-
-**使用示例：**
-```bash
-python scripts/retargeted_data_processing/play_robot_motion.py \
-  /path/to/retargeted.npz \
-  unitree_g1
-```
-
-#### 播放机器人周期动作
-
-基于 YAML 配置生成并播放周期性机器人动作。该脚本根据步态周期和关节配置生成机器人关节的正弦运动模式。
-
-**使用示例：**
-```bash
-python scripts/retargeted_data_processing/play_robot_period.py \
-  --config-file-path /path/to/config.json \
-  --robot-name unitree_g1 \
-  --frame-rate 100 \
-  --max-steps 300000
+```python
+{
+    'root_trans': np.ndarray,           # 根节点平移 (N, 3)
+    'root_quat': np.ndarray,            # 根节点方向 (N, 4) - [w,x,y,z]
+    'root_lin_vel': np.ndarray,         # 根线速度（自身系）(N, 3)
+    'root_ang_vel': np.ndarray,         # 根角速度（自身系）(N, 3)
+    'joint_pos': np.ndarray,            # 关节位置 (N, ndof)
+    'joint_vel': np.ndarray,            # 关节速度 (N, ndof)
+    'framerate': float                  # 目标帧率（例如 100.0）
+    'frame': int                        # 帧数 (例如 1000)
+}
 ```
 
 ---
 
-## 测试
+## 快速启动
 
-要查看测试覆盖率，请运行：
+1. **激活环境**
 
 ```bash
-pytest --cov=humanoid_retargeting --cov-report=html
+conda activate humanoid-retargeting
 ```
 
-然后在浏览器中打开 `htmlcov/index.html` 查看结果。
+2. **启动网页端**
+
+```bash
+# 后端启动
+cd /path/to/humanoid-retargeting
+python -m uvicorn web_backend.main:app --host 0.0.0.0 --port 8000 --reload
+
+# 前端启动
+cd web_frontend
+npm run dev
+```
+在以下地址访问应用：http://localhost:5173
+
+---
+
+## 使用说明
+
+详细的 Web 前端使用说明请参阅：[Web 前端使用指南](web_frontend/USER_GUIDE_zh.md)或参照网页端的手册
+
+---
+
+## 贡献
+
+请参阅 [CONTRIBUTION.md](CONTRIBUTION.md) 了解指南。
+
+---
+
+## 许可证
+
+本项目采用 MIT 许可证。
+
+---
+
+## 引用
+
+如果您在研究中使用此项目，请引用：
+
+```bibtex
+@software{humanoid_retargeting,
+  title = {Humanoid Retargeting: A System for Human-to-Robot Motion Transfer},
+  author = {Honglong Tian, Yumeng Zhang},
+  year = {2026},
+  url = {https://github.com/ZyuonRobotics/humanoid-retargeting}
+}
+```
+
+---
+
+## 支持
+
+如有问题和疑问：
+- GitHub Issues: https://github.com/ZyuonRobotics/humanoid-retargeting/issues
+

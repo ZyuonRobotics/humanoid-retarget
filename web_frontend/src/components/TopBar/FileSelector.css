@@ -1,0 +1,321 @@
+/* ── Overlay ────────────────────────────────────────────────────── */
+.file-selector-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-modal) + 10);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: fs-fade-in 150ms cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+@keyframes fs-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Modal Panel ─────────────────────────────────────────────────── */
+.file-selector-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(780px, 90vw);
+  max-height: 70vh;
+  background: var(--color-bg-elevated);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: fs-slide-up 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+@keyframes fs-slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Header ─────────────────────────────────────────────────────── */
+.file-selector-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) var(--spacing-md) var(--spacing-md) var(--spacing-lg);
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.03);
+  flex-shrink: 0;
+}
+
+.file-selector-modal-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.file-selector-modal-title .anticon {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+/* ── Breadcrumb ─────────────────────────────────────────────────── */
+.file-selector-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.file-selector-breadcrumb-sep {
+  color: var(--color-text-tertiary);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.file-selector-breadcrumb-item {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-selector-breadcrumb-item:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.file-selector-breadcrumb-item.root {
+  color: var(--color-text-secondary);
+}
+
+/* ── Close Button ───────────────────────────────────────────────── */
+.file-selector-modal-header > div:last-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.file-selector-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.file-selector-modal-close:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+/* ── Body ───────────────────────────────────────────────────────── */
+.file-selector-modal-body {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── Columns ────────────────────────────────────────────────────── */
+.file-selector-columns {
+  display: flex;
+  height: 100%;
+  max-height: calc(70vh - 120px);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.file-selector-columns::-webkit-scrollbar {
+  height: 4px;
+}
+
+.file-selector-column {
+  min-width: 210px;
+  max-width: 240px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.file-selector-column:last-child {
+  border-right: none;
+}
+
+/* Column label (subtle, above items) */
+.file-selector-column-label {
+  padding: 6px 14px;
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.file-selector-column-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.file-selector-column-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.file-selector-column-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.file-selector-column-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+.file-selector-column-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* ── Items ──────────────────────────────────────────────────────── */
+.file-selector-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  user-select: none;
+}
+
+.file-selector-item:last-child {
+  border-bottom: none;
+}
+
+.file-selector-item:hover {
+  background: var(--color-bg-hover);
+}
+
+.file-selector-item.active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.file-selector-item.selected {
+  background: var(--color-text-primary);
+}
+
+.file-selector-item.selected .fsi-name,
+.file-selector-item.selected .fsi-icon {
+  color: var(--color-bg-base);
+}
+
+.file-selector-item.selected .fsi-tag {
+  background: rgba(0, 0, 0, 0.2);
+  color: rgba(0, 0, 0, 0.6);
+}
+
+/* Icons */
+.fsi-icon {
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+  flex-shrink: 0;
+  transition: color var(--transition-fast);
+}
+
+.file-selector-item.folder .fsi-icon {
+  color: var(--color-text-secondary);
+}
+
+.file-selector-item:hover .fsi-icon {
+  color: var(--color-text-primary);
+}
+
+/* Name */
+.fsi-name {
+  flex: 1;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* File type tag */
+.fsi-tag {
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-tertiary);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+}
+
+/* Folder count badge */
+.fsi-badge {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  min-width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* Folder chevron */
+.fsi-arrow {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+  transition: color var(--transition-fast);
+}
+
+.file-selector-item:hover .fsi-arrow {
+  color: var(--color-text-secondary);
+}
+
+/* ── Empty / Loading ────────────────────────────────────────────── */
+.file-selector-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+}
+
+.file-selector-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+  padding: 20px;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+
+/* ── HumanConfig Modal ─────────────────────────────────────────── */
+.human-config-modal .ant-form-item-label > label {
+  color: #ffffff !important;
+}

@@ -1,0 +1,15 @@
+/* Forest Theme - Green Natural Feel */
+[data-theme="forest"] {
+  --color-bg-base: #0d1a0f;
+  --color-bg-elevated: rgba(30, 60, 40, 0.72);
+  --color-bg-hover: rgba(100, 200, 100, 0.12);
+  --color-text-primary: rgba(200, 240, 200, 0.92);
+  --color-text-secondary: rgba(100, 200, 100, 0.72);
+  --color-text-tertiary: rgba(100, 200, 100, 0.48);
+  --color-border: rgba(100, 200, 100, 0.24);
+  --color-border-strong: rgba(100, 200, 100, 0.48);
+
+  --shadow-sm: 0 2px 8px rgba(0, 80, 40, 0.20);
+  --shadow-md: 0 8px 24px rgba(0, 80, 40, 0.32);
+  --shadow-lg: 0 16px 48px rgba(0, 80, 40, 0.48);
+}

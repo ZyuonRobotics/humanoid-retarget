@@ -12,7 +12,7 @@ def process_pkl_file(npz_file, mocap_framerate):
     new_data["poses"] = data_dict["fullpose"]
     new_data["trans"] = data_dict["trans"]
     new_data["betas"] = data_dict["betas"]
-    new_data["mocap_framerate"] = 120.0
+    new_data["mocap_framerate"] = mocap_framerate
     np.savez_compressed(npz_file.with_suffix('.npz'), **new_data)
 
 

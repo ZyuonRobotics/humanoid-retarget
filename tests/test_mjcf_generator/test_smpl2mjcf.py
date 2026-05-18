@@ -36,7 +36,7 @@ def test_body_ratio():
 def test_smpl2mjcf_composite():
     smpl_generator = SMPL2MJCFGenerator()
     smpl_generator.load(SMPL_FILE_PATH)
-    robot_generator = MJCFHumanoidGenerator.from_robot_name("zhaplin-21dof")
+    robot_generator = MJCFHumanoidGenerator.from_robot_name("DumBot13-21dof")
     composite_generator = MJCFGeneratorComposite([smpl_generator, robot_generator])
     composite_generator.generate(relative_mesh_path=False)
 
