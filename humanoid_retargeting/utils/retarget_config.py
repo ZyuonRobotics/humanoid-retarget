@@ -47,7 +47,7 @@ class RetargetConfig(BaseConfig):
         """Load a config from file. Returns None if not found.
 
         Args:
-            robot_name: Robot name (e.g., "zhaplin-21dof")
+            robot_name: Robot name (e.g., "DumBot13-21dof")
             generator_type: Generator type ("smpl" or "bvh")
             config_name: Config name (without .yaml extension)
 
@@ -63,7 +63,7 @@ class RetargetConfig(BaseConfig):
         """Save config to file.
 
         Args:
-            robot_name: Robot name (e.g., "zhaplin-21dof")
+            robot_name: Robot name (e.g., "DumBot13-21dof")
             generator_type: Generator type ("smpl" or "bvh")
             config_name: Config name (without .yaml extension)
 
@@ -80,7 +80,7 @@ class RetargetConfig(BaseConfig):
         """Create a default config in memory (without saving to file).
 
         Args:
-            robot_name: Robot name (e.g., "zhaplin-21dof")
+            robot_name: Robot name (e.g., "DumBot13-21dof")
             generator_type: Generator type ("smpl" or "bvh")
 
         Returns:

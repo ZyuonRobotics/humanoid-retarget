@@ -31,7 +31,7 @@ def test_bvh2mjcf_parsing_end():
 def test_bvh2mjcf_composite():
     smpl_generator = BVH2MJCFGenerator()
     smpl_generator.load(BVH_FILE_PATH)
-    robot_generator = MJCFHumanoidGenerator.from_robot_name("zhaplin-21dof")
+    robot_generator = MJCFHumanoidGenerator.from_robot_name("DumBot13-21dof")
     generator = MJCFGeneratorComposite([smpl_generator, robot_generator])
     generator.generate(relative_mesh_path=False)
 

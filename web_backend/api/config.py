@@ -30,8 +30,8 @@ async def get_robots():
     # Add default robots if no configs exist
     if not robots:
         robots = [
-            RobotInfo(name="zhaplin-21dof", generator_type="bvh"),
-            RobotInfo(name="zhaplin-21dof", generator_type="smpl"),
+            RobotInfo(name="DumBot13-21dof", generator_type="bvh"),
+            RobotInfo(name="DumBot13-21dof", generator_type="smpl"),
         ]
 
     return robots

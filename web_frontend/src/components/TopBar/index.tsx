@@ -19,6 +19,7 @@ import {
   ScissorOutlined,
   ThunderboltOutlined,
   ReloadOutlined,
+  QuestionCircleOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useConfigContext } from '../../contexts/ConfigContext';
@@ -26,6 +27,7 @@ import { useMotionContext } from '../../contexts/MotionContext';
 import { usePerformanceContext } from '../../contexts/PerformanceContext';
 import { modelApi, MotionTreeNode, MotionFileInfo, HumanConfig } from '../../api/client';
 import JointAdjustmentWidget from '../Widgets/JointAdjustmentWidget';
+import { HelpManual } from '../HelpManual';
 import './FileSelector.css';
 
 interface FolderInfo {
@@ -133,6 +135,9 @@ const TopBar: React.FC<TopBarProps> = ({
   const [robotSegmentMotion, setRobotSegmentMotion] = useState<string>('');
   const [robotSplitPosition, setRobotSplitPosition] = useState<string>('');
   const [robotSplitting, setRobotSplitting] = useState(false);
+
+  // Help Manual state
+  const [helpModalOpen, setHelpModalOpen] = useState(false);
 
   // Load retargeted motions when entering player mode - no longer needed since we use file selector
   // useEffect(() => {
@@ -627,6 +632,14 @@ const TopBar: React.FC<TopBarProps> = ({
             title={performanceSettings.lowPerformanceMode ? t('performance.lowMode') || 'Low Quality' : t('performance.normalMode') || 'High Quality'}
           >
             {performanceSettings.lowPerformanceMode ? t('performance.lowMode') || 'Low Quality' : t('performance.normalMode') || 'High Quality'}
+          </Button>
+          <Button
+            type="text"
+            icon={<QuestionCircleOutlined />}
+            onClick={() => setHelpModalOpen(true)}
+            title="帮助手册"
+          >
+            帮助
           </Button>
         </div>
       </div>
@@ -1516,6 +1529,9 @@ const TopBar: React.FC<TopBarProps> = ({
         </Form>
       )}
     </Modal>
+
+    {/* Help Manual */}
+    <HelpManual open={helpModalOpen} onClose={() => setHelpModalOpen(false)} />
   </>
   );
 };

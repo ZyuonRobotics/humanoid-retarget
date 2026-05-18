@@ -483,7 +483,7 @@ def create_gui():
 
 @click.command()
 @click.argument('source-file-path', required=True)
-@click.argument('robot-name', default='zhaplin-21dof')
+@click.argument('robot-name', default='DumBot13-21dof')
 @click.option('--generator-type', default='bvh', help='Type of generator.', prompt="Type of generator.")
 def main(source_file_path: str, robot_name: str, generator_type: str):
     """CLI wrapper - sets up *Aligner*, starts sim thread, launches GUI."""
