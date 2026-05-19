@@ -39,14 +39,14 @@
 1. **创建 Python 环境**
 
 ```bash
-conda create -n humanoid-retargeting python=3.9
-conda activate humanoid-retargeting
+conda create -n humanoid-retarget python=3.9
+conda activate humanoid-retarget
 ```
 
 2. **安装核心库**
 
 ```bash
-cd /path/to/humanoid-retargeting
+cd /path/to/humanoid-retarget
 pip install -e .
 ```
 
@@ -86,7 +86,7 @@ npm install
 ### 目录结构
 
 ```
-humanoid-retargeting/
+humanoid-retarget/
 ├── data/                          # 项目数据目录
 │   ├── models/                    # 人体模型
 │   │   ├── smpl/                  # SMPL 模型文件
@@ -145,14 +145,14 @@ humanoid-retargeting/
 1. **激活环境**
 
 ```bash
-conda activate humanoid-retargeting
+conda activate humanoid-retarget
 ```
 
 2. **启动网页端**
 
 ```bash
 # 后端启动
-cd /path/to/humanoid-retargeting
+cd /path/to/humanoid-retarget
 python -m uvicorn web_backend.main:app --host 0.0.0.0 --port 8000 --reload
 
 # 前端启动
@@ -186,11 +186,11 @@ npm run dev
 如果您在研究中使用此项目，请引用：
 
 ```bibtex
-@software{humanoid_retargeting,
-  title = {Humanoid Retargeting: A System for Human-to-Robot Motion Transfer},
+@software{humanoid_retarget,
+  title = {Humanoid Retarget: A System for Human-to-Robot Motion Transfer},
   author = {Honglong Tian, Yumeng Zhang},
   year = {2026},
-  url = {https://github.com/ZyuonRobotics/humanoid-retargeting}
+  url = {https://github.com/ZyuonRobotics/humanoid-retarget}
 }
 ```
 
@@ -199,5 +199,5 @@ npm run dev
 ## 支持
 
 如有问题和疑问：
-- GitHub Issues: https://github.com/ZyuonRobotics/humanoid-retargeting/issues
+- GitHub Issues: https://github.com/ZyuonRobotics/humanoid-retarget/issues
 

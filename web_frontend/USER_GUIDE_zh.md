@@ -1,6 +1,6 @@
 # Web 前端使用说明
 
-本文档详细介绍 Humanoid Retargeting Web 前端的使用方法。
+本文档详细介绍 Humanoid Retarget Web 前端的使用方法。
 
 ---
 
@@ -139,4 +139,4 @@
 ## 技术支持
 
 如有问题，请访问：
-- GitHub Issues: [https://github.com//humanoid-retargeting/issues](Issues)
+- GitHub Issues: [https://github.com//humanoid-retarget/issues](Issues)

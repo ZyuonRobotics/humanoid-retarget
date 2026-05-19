@@ -264,7 +264,7 @@ export const helpContent: HelpSection[] = [
             <p>如有问题，请访问：</p>
             <ul>
               <li>
-                <a href="https://github.com/humanoid-retargeting/issues" target="_blank" rel="noopener noreferrer">
+                <a href="https://github.com/humanoid-retarget/issues" target="_blank" rel="noopener noreferrer">
                   GitHub Issues
                 </a>
               </li>

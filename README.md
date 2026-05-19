@@ -40,14 +40,14 @@ A comprehensive system for retargeting human motion capture data to humanoid rob
 1. **Create Python Environment**
 
 ```bash
-conda create -n humanoid-retargeting python=3.9
-conda activate humanoid-retargeting
+conda create -n humanoid-retarget python=3.9
+conda activate humanoid-retarget
 ```
 
 2. **Install Core Library**
 
 ```bash
-cd /path/to/humanoid-retargeting
+cd /path/to/humanoid-retarget
 pip install -e .
 ```
 
@@ -87,7 +87,7 @@ npm install
 ### Directory Structure
 
 ```
-humanoid-retargeting/
+humanoid-retarget/
 ├── data/                          # Project data directory
 │   ├── models/                    # Human body models
 │   │   ├── smpl/                  # SMPL model files
@@ -146,14 +146,14 @@ humanoid-retargeting/
 1. **Activate Environment**
 
 ```bash
-conda activate humanoid-retargeting
+conda activate humanoid-retarget
 ```
 
 2. **Start Web Application**
 
 ```bash
 # Start backend
-cd /path/to/humanoid-retargeting
+cd /path/to/humanoid-retarget
 python -m uvicorn web_backend.main:app --host 0.0.0.0 --port 8000 --reload
 
 # Start frontend
@@ -188,11 +188,11 @@ This project is licensed under the MIT License.
 If you use this project in your research, please cite:
 
 ```bibtex
-@software{humanoid_retargeting,
+@software{humanoid_retarget,
   title = {Humanoid Retarget: A System for Human-to-Robot Motion Transfer},
   author = {Honglong Tian, Yumeng Zhang},
   year = {2026},
-  url = {https://github.com/ZyuonRobotics/humanoid-retargeting}
+  url = {https://github.com/ZyuonRobotics/humanoid-retarget}
 }
 ```
 
@@ -201,4 +201,4 @@ If you use this project in your research, please cite:
 ## Support
 
 For issues and questions:
-- GitHub Issues: https://github.com/ZyuonRobotics/humanoid-retargeting/issues
+- GitHub Issues: https://github.com/ZyuonRobotics/humanoid-retarget/issues
