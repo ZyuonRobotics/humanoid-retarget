@@ -2,7 +2,7 @@
 
 [中文文档](README_zh.md)
 
-![Screenshot](source/Homepage.png)
+![Screenshot](source/humanoid-retarget.png)
 
 A comprehensive system for retargeting human motion capture data to humanoid robots, featuring a web-based interface for visualization and configuration management.
 
@@ -13,6 +13,8 @@ A comprehensive system for retargeting human motion capture data to humanoid rob
 - **Core Library** (`humanoid_retargeting`): Python library for motion alignment and retargeting
 - **Web Backend** (`web_backend`): FastAPI server providing REST APIs for motion processing
 - **Web Frontend** (`web_frontend`): React-based interactive interface for visualization and control
+
+![Screenshot](source/Homepage.png)
 
 ### Key Features
 

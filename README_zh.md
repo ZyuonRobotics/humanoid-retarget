@@ -1,18 +1,19 @@
-# Humanoid Retargeting
-
+# Humanoid Retarget
 [English](README.md)
 
-![图](source/Homepage.png)
+![图](source/humanoid-retarget.png)
 
 一个将人体动作捕捉数据重定向到人形机器人的综合系统，具有基于 Web 的可视化界面和配置管理功能。
 
 ## 概述
 
-**Humanoid Retargeting** 是一个全栈应用程序，使用逆运动学优化将人体运动数据（SMPL、BVH 格式）转换为机器人可执行的运动轨迹。系统由三个主要组件组成：
+**Humanoid Retarget** 是一个全栈应用程序，使用逆运动学优化将人体运动数据（SMPL、BVH 格式）转换为机器人可执行的运动轨迹。系统由三个主要组件组成：
 
 - **核心库** (`humanoid_retargeting`)：用于运动对齐和重定向的 Python 库
 - **Web 后端** (`web_backend`)：提供运动处理 REST API 的 FastAPI 服务器
 - **Web 前端** (`web_frontend`)：基于 React 的交互式可视化和控制界面
+
+![图](source/Homepage.png)
 
 ### 主要特性
 
