@@ -1,6 +1,6 @@
 # Humanoid Retarget
 
-[中文文档](README_zh.md)
+[中文文档](README_EN.md)
 
 ![Screenshot](doc/images/humanoid-retarget.png)
 
@@ -66,7 +66,7 @@ pip install -r web_backend/requirements.txt
 
 ### Frontend Configuration
 
-1. **Install Node Dependencies**
+**Install Node Dependencies**
 
 ```bash
 cd web_frontend
@@ -79,6 +79,30 @@ npm install
 - `three.js`: 3D graphics
 - `mujoco`: WebAssembly-based physics engine
 - `axios`: HTTP client
+
+---
+
+## Quick Start
+
+1. **Activate Environment**
+
+```bash
+conda activate humanoid-retarget
+```
+
+2. **Start Web Application**
+
+```bash
+# Start backend
+cd /path/to/humanoid-retarget
+python -m uvicorn web_backend.main:app --host 0.0.0.0 --port 8000 --reload
+
+# Start frontend
+cd web_frontend
+npm run dev
+```
+
+Access the application at: http://localhost:5173
 
 ---
 
@@ -139,29 +163,6 @@ humanoid-retarget/
 }
 ```
 
----
-
-## Quick Start
-
-1. **Activate Environment**
-
-```bash
-conda activate humanoid-retarget
-```
-
-2. **Start Web Application**
-
-```bash
-# Start backend
-cd /path/to/humanoid-retarget
-python -m uvicorn web_backend.main:app --host 0.0.0.0 --port 8000 --reload
-
-# Start frontend
-cd web_frontend
-npm run dev
-```
-
-Access the application at: http://localhost:5173
 
 ---
 

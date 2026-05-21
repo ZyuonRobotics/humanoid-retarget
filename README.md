@@ -1,5 +1,5 @@
 # Humanoid Retarget
-[English](README.md)
+[English](README_EN.md)
 
 ![软件架构图](doc/images/humanoid-retarget.png)
 
@@ -81,6 +81,29 @@ npm install
 
 ---
 
+## 快速启动
+
+1. **激活环境**
+
+```bash
+conda activate humanoid-retarget
+```
+
+2. **启动网页端**
+
+```bash
+# 后端启动
+cd /path/to/humanoid-retarget
+python -m uvicorn web_backend.main:app --host 0.0.0.0 --port 8000 --reload
+
+# 前端启动
+cd web_frontend
+npm run dev
+```
+在以下地址访问应用：http://localhost:5173
+
+---
+
 ## 数据存储
 
 ### 目录结构
@@ -137,29 +160,6 @@ humanoid-retarget/
     'frame': int                        # 帧数 (例如 1000)
 }
 ```
-
----
-
-## 快速启动
-
-1. **激活环境**
-
-```bash
-conda activate humanoid-retarget
-```
-
-2. **启动网页端**
-
-```bash
-# 后端启动
-cd /path/to/humanoid-retarget
-python -m uvicorn web_backend.main:app --host 0.0.0.0 --port 8000 --reload
-
-# 前端启动
-cd web_frontend
-npm run dev
-```
-在以下地址访问应用：http://localhost:5173
 
 ---
 
